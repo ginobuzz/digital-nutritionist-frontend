@@ -113,17 +113,17 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
               </Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
                 <Typography variant="body2">
-                  Starting: {user.weight}kg
+                  Starting: {user.weight}lbs
                 </Typography>
                 <Typography variant="body2">
-                  Current: {currentWeight}kg
+                  Current: {currentWeight}lbs
                 </Typography>
                 <Typography variant="body2">
-                  Target: {user.targetWeight}kg
+                  Target: {user.targetWeight}lbs
                 </Typography>
               </Box>
               <Typography variant="h6" color="primary">
-                {weightLost.toFixed(1)}kg lost so far! 🎉
+                {weightLost.toFixed(1)}lbs lost so far! 🎉
               </Typography>
             </CardContent>
           </Card>
@@ -231,7 +231,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
                 </LineChart>
               </ResponsiveContainer>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                Estimated weight loss from deficit: {estimatedWeightLoss.toFixed(2)}kg
+                Estimated weight loss from deficit: {estimatedWeightLoss.toFixed(2)}lbs
               </Typography>
             </CardContent>
           </Card>

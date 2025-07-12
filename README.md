@@ -98,11 +98,14 @@ interface User {
   id: string;
   name: string;
   age: number;
-  height: number;
-  weight: number;
+  height: {
+    feet: number;
+    inches: number;
+  };
+  weight: number; // in lbs
   gender: 'male' | 'female';
   activityLevel: ActivityLevel;
-  targetWeight: number;
+  targetWeight: number; // in lbs
   targetDate: Date;
   dailyCalorieTarget: number;
   dailyDeficitTarget: number;

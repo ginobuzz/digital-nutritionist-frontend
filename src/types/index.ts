@@ -2,11 +2,14 @@ export interface User {
   id: string;
   name: string;
   age: number;
-  height: number; // in cm
-  weight: number; // in kg
+  height: {
+    feet: number;
+    inches: number;
+  };
+  weight: number; // in lbs
   gender: 'male' | 'female';
   activityLevel: 'sedentary' | 'lightly_active' | 'moderately_active' | 'very_active' | 'extremely_active';
-  targetWeight: number; // in kg
+  targetWeight: number; // in lbs
   targetDate: Date;
   dailyCalorieTarget: number;
   dailyDeficitTarget: number;
@@ -42,7 +45,7 @@ export interface Activity {
 
 export interface WeightLog {
   id: string;
-  weight: number; // in kg
+  weight: number; // in lbs
   date: Date;
   notes?: string;
 }

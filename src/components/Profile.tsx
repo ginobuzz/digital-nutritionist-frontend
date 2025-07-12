@@ -43,7 +43,8 @@ const Profile: React.FC = () => {
   const [formData, setFormData] = useState({
     name: '',
     age: '',
-    height: '',
+    heightFeet: '',
+    heightInches: '',
     weight: '',
     gender: 'female' as User['gender'],
     activityLevel: 'moderately_active' as User['activityLevel'],
@@ -77,7 +78,8 @@ const Profile: React.FC = () => {
     setFormData({
       name: user.name,
       age: user.age.toString(),
-      height: user.height.toString(),
+      heightFeet: user.height.feet.toString(),
+      heightInches: user.height.inches.toString(),
       weight: user.weight.toString(),
       gender: user.gender,
       activityLevel: user.activityLevel,
@@ -95,7 +97,10 @@ const Profile: React.FC = () => {
       ...user,
       name: formData.name,
       age: parseInt(formData.age),
-      height: parseInt(formData.height),
+      height: {
+        feet: parseInt(formData.heightFeet),
+        inches: parseInt(formData.heightInches)
+      },
       weight: parseInt(formData.weight),
       gender: formData.gender,
       activityLevel: formData.activityLevel,
@@ -105,7 +110,10 @@ const Profile: React.FC = () => {
       dailyCalorieTarget: calculateDailyExpenditure({
         ...user,
         age: parseInt(formData.age),
-        height: parseInt(formData.height),
+        height: {
+          feet: parseInt(formData.heightFeet),
+          inches: parseInt(formData.heightInches)
+        },
         weight: parseInt(formData.weight),
         gender: formData.gender,
         activityLevel: formData.activityLevel
@@ -191,7 +199,7 @@ const Profile: React.FC = () => {
                     Height
                   </Typography>
                   <Typography variant="h6">
-                    {user.height} cm
+                    {user.height.feet}'{user.height.inches}"
                   </Typography>
                 </Box>
                 <Box sx={{ flex: '1 1 150px', minWidth: 120 }}>
@@ -199,7 +207,7 @@ const Profile: React.FC = () => {
                     Current Weight
                   </Typography>
                   <Typography variant="h6">
-                    {currentWeight} kg
+                    {currentWeight} lbs
                   </Typography>
                 </Box>
                 <Box sx={{ flex: '1 1 150px', minWidth: 120 }}>
@@ -207,7 +215,7 @@ const Profile: React.FC = () => {
                     Target Weight
                   </Typography>
                   <Typography variant="h6">
-                    {user.targetWeight} kg
+                    {user.targetWeight} lbs
                   </Typography>
                 </Box>
                 <Box sx={{ flex: '1 1 150px', minWidth: 120 }}>
@@ -215,7 +223,7 @@ const Profile: React.FC = () => {
                     Weight Lost
                   </Typography>
                   <Typography variant="h6" color="success.main">
-                    {weightLost.toFixed(1)} kg
+                    {weightLost.toFixed(1)} lbs
                   </Typography>
                 </Box>
               </Box>
@@ -238,7 +246,7 @@ const Profile: React.FC = () => {
                 />
               </Box>
               <Typography variant="body2" color="text.secondary" align="center">
-                {weightLost.toFixed(1)}kg lost of {(user.weight - user.targetWeight).toFixed(1)}kg goal
+                {weightLost.toFixed(1)}lbs lost of {(user.weight - user.targetWeight).toFixed(1)}lbs goal
               </Typography>
             </CardContent>
           </Card>
@@ -367,10 +375,10 @@ const Profile: React.FC = () => {
                         <Scale />
                       </Avatar>
                     </ListItemAvatar>
-                    <ListItemText
-                      primary={`${log.weight} kg`}
-                      secondary={log.date.toLocaleDateString()}
-                    />
+                                          <ListItemText
+                        primary={`${log.weight} lbs`}
+                        secondary={log.date.toLocaleDateString()}
+                      />
                     {index === 0 && (
                       <Chip label="Current" color="primary" size="small" />
                     )}
@@ -413,15 +421,23 @@ const Profile: React.FC = () => {
             </Box>
             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
               <TextField
-                label="Height (cm)"
+                label="Height (feet)"
                 type="number"
-                value={formData.height}
-                onChange={(e) => setFormData(prev => ({ ...prev, height: e.target.value }))}
-                sx={{ flex: '1 1 200px' }}
+                value={formData.heightFeet}
+                onChange={(e) => setFormData(prev => ({ ...prev, heightFeet: e.target.value }))}
+                sx={{ flex: '1 1 100px' }}
                 required
               />
               <TextField
-                label="Current Weight (kg)"
+                label="Height (inches)"
+                type="number"
+                value={formData.heightInches}
+                onChange={(e) => setFormData(prev => ({ ...prev, heightInches: e.target.value }))}
+                sx={{ flex: '1 1 100px' }}
+                required
+              />
+              <TextField
+                label="Current Weight (lbs)"
                 type="number"
                 value={formData.weight}
                 onChange={(e) => setFormData(prev => ({ ...prev, weight: e.target.value }))}
@@ -458,7 +474,7 @@ const Profile: React.FC = () => {
             </Box>
             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
               <TextField
-                label="Target Weight (kg)"
+                label="Target Weight (lbs)"
                 type="number"
                 value={formData.targetWeight}
                 onChange={(e) => setFormData(prev => ({ ...prev, targetWeight: e.target.value }))}
@@ -493,7 +509,7 @@ const Profile: React.FC = () => {
           <Button 
             onClick={handleSaveProfile}
             variant="contained"
-            disabled={!formData.name || !formData.age || !formData.height || !formData.weight || !formData.targetWeight || !formData.targetDate || !formData.dailyDeficitTarget}
+            disabled={!formData.name || !formData.age || !formData.heightFeet || !formData.heightInches || !formData.weight || !formData.targetWeight || !formData.targetDate || !formData.dailyDeficitTarget}
           >
             Save Changes
           </Button>

@@ -4,11 +4,11 @@ export const mockUser: User = {
   id: '1',
   name: 'Sarah Johnson',
   age: 32,
-  height: 165,
-  weight: 75,
+  height: { feet: 5, inches: 5 }, // 165 cm ≈ 5'5"
+  weight: 165, // 75 kg ≈ 165 lbs
   gender: 'female',
   activityLevel: 'moderately_active',
-  targetWeight: 65,
+  targetWeight: 143, // 65 kg ≈ 143 lbs
   targetDate: new Date('2024-06-01'),
   dailyCalorieTarget: 1800,
   dailyDeficitTarget: 500
@@ -91,19 +91,19 @@ export const mockActivities: Activity[] = [
 export const mockWeightLogs: WeightLog[] = [
   {
     id: '1',
-    weight: 75,
+    weight: 165, // 75 kg ≈ 165 lbs
     date: new Date('2024-01-01'),
     notes: 'Starting weight'
   },
   {
     id: '2',
-    weight: 74.2,
+    weight: 163.2, // 74.2 kg ≈ 163.2 lbs
     date: new Date('2024-01-08'),
     notes: 'Week 1 progress'
   },
   {
     id: '3',
-    weight: 73.5,
+    weight: 161.7, // 73.5 kg ≈ 161.7 lbs
     date: new Date('2024-01-15'),
     notes: 'Week 2 progress'
   }
@@ -160,7 +160,7 @@ export const mockDailyProgress: DailyProgress = {
   totalActual: 1020,
   totalBurned: 450,
   deficit: 350,
-  weight: 73.5,
+  weight: 161.7, // 73.5 kg ≈ 161.7 lbs
   meals: [...mockPlannedMeals, ...mockActualMeals],
   activities: mockActivities
 };

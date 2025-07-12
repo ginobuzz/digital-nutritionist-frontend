@@ -65,7 +65,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user }) => {
             {user.name}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {user.weight}kg → {user.targetWeight}kg
+            {user.weight}lbs → {user.targetWeight}lbs
           </Typography>
         </Box>
       </Box>
