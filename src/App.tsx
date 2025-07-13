@@ -2,13 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { mockUser } from './data/mockData';
+
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import Plan from './components/Plan';
 import Reality from './components/Reality';
 import Chat from './components/Chat';
 import Profile from './components/Profile';
+import Setup from './components/Setup';
+import { User } from './types';
+import { calculateDailyExpenditure } from './utils/calculations';
 
 // Create a custom theme
 const theme = createTheme({
@@ -70,19 +73,57 @@ const theme = createTheme({
 });
 
 function App() {
-  const [user, setUser] = useState(mockUser);
+  const [user, setUser] = useState<User | null>(null);
+  const [setupComplete, setSetupComplete] = useState(false);
+
+  useEffect(() => {
+    // Check if user has completed setup (in a real app, this would check localStorage or API)
+    // For now, we'll start with setup incomplete
+    setSetupComplete(false);
+  }, []);
+
+  const handleSetupComplete = (setupUser: User) => {
+    // Calculate daily calorie target and deficit
+    const dailyExpenditure = calculateDailyExpenditure(setupUser);
+    const weightToLose = setupUser.weight - setupUser.targetWeight;
+    const daysToTarget = Math.ceil((setupUser.targetDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+    const dailyDeficitTarget = Math.round(weightToLose * 3500 / daysToTarget); // 3500 calories = 1 lb
+
+    const completeUser: User = {
+      ...setupUser,
+      dailyCalorieTarget: dailyExpenditure - dailyDeficitTarget,
+      dailyDeficitTarget: dailyDeficitTarget,
+    };
+
+    setUser(completeUser);
+    setSetupComplete(true);
+    
+    // In a real app, you would save this to localStorage or send to API
+    localStorage.setItem('user', JSON.stringify(completeUser));
+    localStorage.setItem('setupComplete', 'true');
+  };
+
+  // If setup is not complete, show setup flow
+  if (!setupComplete) {
+    return (
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Setup onComplete={handleSetupComplete} />
+      </ThemeProvider>
+    );
+  }
 
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Router>
-        <Layout user={user}>
+        <Layout user={user!}>
           <Routes>
-            <Route path="/" element={<Dashboard user={user} />} />
+            <Route path="/" element={<Dashboard user={user!} />} />
             <Route path="/plan" element={<Plan />} />
             <Route path="/reality" element={<Reality />} />
             <Route path="/chat" element={<Chat />} />
-            <Route path="/profile" element={<Profile />} />
+            <Route path="/profile" element={<Profile user={user!} onUserUpdate={setUser} />} />
           </Routes>
         </Layout>
       </Router>
