@@ -35,8 +35,12 @@ import { User, WeightLog } from '../types';
 import { calculateDailyExpenditure, calculateWeightLossTimeline, calculateProgressPercentage } from '../utils/calculations';
 import { mockAPI } from '../data/mockData';
 
-const Profile: React.FC = () => {
-  const [user, setUser] = useState<User | null>(null);
+interface ProfileProps {
+  user: User;
+  onUserUpdate: (user: User) => void;
+}
+
+const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate }) => {
   const [weightLogs, setWeightLogs] = useState<WeightLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -54,27 +58,21 @@ const Profile: React.FC = () => {
   });
 
   useEffect(() => {
-    fetchProfileData();
+    fetchWeightLogs();
   }, []);
 
-  const fetchProfileData = async () => {
+  const fetchWeightLogs = async () => {
     try {
-      const [userData, logs] = await Promise.all([
-        mockAPI.getUser(),
-        mockAPI.getWeightLogs()
-      ]);
-      setUser(userData);
+      const logs = await mockAPI.getWeightLogs();
       setWeightLogs(logs);
     } catch (error) {
-      console.error('Error fetching profile data:', error);
+      console.error('Error fetching weight logs:', error);
     } finally {
       setLoading(false);
     }
   };
 
   const handleEditProfile = () => {
-    if (!user) return;
-    
     setFormData({
       name: user.name,
       age: user.age.toString(),
@@ -91,7 +89,17 @@ const Profile: React.FC = () => {
   };
 
   const handleSaveProfile = () => {
-    if (!user) return;
+    const dailyExpenditure = calculateDailyExpenditure({
+      ...user,
+      age: parseInt(formData.age),
+      height: {
+        feet: parseInt(formData.heightFeet),
+        inches: parseInt(formData.heightInches)
+      },
+      weight: parseInt(formData.weight),
+      gender: formData.gender,
+      activityLevel: formData.activityLevel
+    });
 
     const updatedUser: User = {
       ...user,
@@ -107,20 +115,10 @@ const Profile: React.FC = () => {
       targetWeight: parseInt(formData.targetWeight),
       targetDate: new Date(formData.targetDate),
       dailyDeficitTarget: parseInt(formData.dailyDeficitTarget),
-      dailyCalorieTarget: calculateDailyExpenditure({
-        ...user,
-        age: parseInt(formData.age),
-        height: {
-          feet: parseInt(formData.heightFeet),
-          inches: parseInt(formData.heightInches)
-        },
-        weight: parseInt(formData.weight),
-        gender: formData.gender,
-        activityLevel: formData.activityLevel
-      }) - parseInt(formData.dailyDeficitTarget)
+      dailyCalorieTarget: dailyExpenditure - parseInt(formData.dailyDeficitTarget)
     };
 
-    setUser(updatedUser);
+    onUserUpdate(updatedUser);
     setEditDialogOpen(false);
   };
 
@@ -147,10 +145,6 @@ const Profile: React.FC = () => {
 
   if (loading) {
     return <LinearProgress />;
-  }
-
-  if (!user) {
-    return <Typography>User data not available</Typography>;
   }
 
   const currentWeight = weightLogs[weightLogs.length - 1]?.weight || user.weight;
