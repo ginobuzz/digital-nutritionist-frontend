@@ -1,9 +1,10 @@
 import React from 'react';
-import { Box, Typography, Avatar, Tooltip } from '@mui/material';
+import { Box, Typography, Avatar, Tooltip, CircularProgress } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import LockIcon from '@mui/icons-material/Lock';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import DirectionsWalkIcon from '@mui/icons-material/DirectionsWalk';
+import CelebrationIcon from '@mui/icons-material/Celebration';
 import { User } from '../types';
 
 interface JourneyMapProps {
@@ -11,18 +12,24 @@ interface JourneyMapProps {
   completedDays: number; // Number of days completed (mocked for now)
 }
 
-const getDayLabel = (index: number, total: number) => {
+const getDayLabel = (index: number, todayIndex: number, total: number) => {
   if (index === 0) return 'Start';
   if (index === total - 1) return 'Goal!';
+  if (index === todayIndex) return 'Today';
   return `Day ${index}`;
 };
 
-const getNodeIcon = (status: 'complete' | 'current' | 'locked' | 'goal') => {
+const getNodeIcon = (status: 'complete' | 'today' | 'locked' | 'goal') => {
   switch (status) {
     case 'complete':
-      return <CheckCircleIcon color="success" fontSize="large" />;
-    case 'current':
-      return <DirectionsWalkIcon color="primary" fontSize="large" />;
+      return <CelebrationIcon color="success" fontSize="large" />;
+    case 'today':
+      return (
+        <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <CircularProgress size={44} thickness={5} color="primary" sx={{ position: 'absolute', zIndex: 0, opacity: 0.5 }} />
+          <DirectionsWalkIcon color="primary" fontSize="large" sx={{ zIndex: 1 }} />
+        </Box>
+      );
     case 'goal':
       return <EmojiEventsIcon color="warning" fontSize="large" />;
     case 'locked':
@@ -37,15 +44,17 @@ const JourneyMap: React.FC<JourneyMapProps> = ({ user, completedDays }) => {
   const end = user.targetDate;
   const totalDays = Math.max(2, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
 
-  // For demo, create an array of statuses: 'complete', 'current', 'locked', 'goal'
+  // Always place "Today" in the center of the map
+  const todayIndex = Math.floor(totalDays / 2);
+
+  // Create demo data: all days before today are completed, today is in progress, rest are locked
   const nodes = Array.from({ length: totalDays }, (_, i) => {
-    if (i < completedDays) return 'complete';
-    if (i === completedDays && i !== totalDays - 1) return 'current';
     if (i === totalDays - 1) return 'goal';
+    if (i < todayIndex) return 'complete';
+    if (i === todayIndex) return 'today';
     return 'locked';
   });
 
-  // Whimsical path: alternate up/down, use emoji backgrounds, playful spacing
   return (
     <Box sx={{
       width: '100%',
@@ -72,28 +81,29 @@ const JourneyMap: React.FC<JourneyMapProps> = ({ user, completedDays }) => {
             minWidth: 56,
             zIndex: 1,
           }}>
-            <Tooltip title={getDayLabel(i, totalDays)} arrow>
+            <Tooltip title={getDayLabel(i, todayIndex, totalDays)} arrow>
               <Avatar
                 sx={{
                   bgcolor:
                     status === 'goal' ? 'warning.light'
                     : status === 'complete' ? 'success.light'
-                    : status === 'current' ? 'primary.light'
+                    : status === 'today' ? 'primary.light'
                     : 'grey.200',
                   width: 56,
                   height: 56,
-                  border: status === 'current' ? '3px solid #1976d2' : undefined,
+                  border: status === 'today' ? '3px solid #1976d2' : undefined,
                   boxShadow: status === 'goal' ? '0 0 12px 2px #ffeb3b' : undefined,
                   fontSize: 32,
                   mb: 1,
                   transition: 'all 0.3s',
+                  position: 'relative',
                 }}
               >
                 {getNodeIcon(status as any)}
               </Avatar>
             </Tooltip>
             <Typography variant="caption" sx={{ fontWeight: status === 'goal' ? 700 : 400 }}>
-              {getDayLabel(i, totalDays)}
+              {getDayLabel(i, todayIndex, totalDays)}
             </Typography>
             {/* Draw whimsical path line */}
             {i < nodes.length - 1 && (
