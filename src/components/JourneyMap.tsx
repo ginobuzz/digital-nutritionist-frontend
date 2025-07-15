@@ -27,12 +27,7 @@ const getNodeIcon = (status: 'complete' | 'missed' | 'today' | 'locked' | 'goal'
     case 'missed':
       return <CancelIcon color="error" fontSize="large" />;
     case 'today':
-      return (
-        <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <CircularProgress size={44} thickness={5} color="primary" sx={{ position: 'absolute', zIndex: 0, opacity: 0.5 }} />
-          <DirectionsWalkIcon color="primary" fontSize="large" sx={{ zIndex: 1 }} />
-        </Box>
-      );
+      return <DirectionsWalkIcon color="primary" fontSize="large" />;
     case 'goal':
       return <EmojiEventsIcon color="warning" fontSize="large" />;
     case 'locked':
@@ -42,17 +37,15 @@ const getNodeIcon = (status: 'complete' | 'missed' | 'today' | 'locked' | 'goal'
 };
 
 const JourneyMap: React.FC<JourneyMapProps> = ({ user, completedDays }) => {
-  // Calculate number of days in journey
-  const start = new Date();
-  const end = user.targetDate;
-  const totalDays = Math.max(2, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+  // Set goal to be day 52
+  const totalDays = 53; // 0-52 = 53 total days
 
   // Always place "Today" in the center of the map
   const todayIndex = Math.floor(totalDays / 2);
 
   // Create demo data with some missed days peppered in
   const nodes = Array.from({ length: totalDays }, (_, i) => {
-    if (i === totalDays - 1) return 'goal';
+    if (i === totalDays - 1) return 'goal'; // Day 52 is the goal
     if (i === todayIndex) return 'today';
     if (i > todayIndex) return 'locked';
     
@@ -61,7 +54,7 @@ const JourneyMap: React.FC<JourneyMapProps> = ({ user, completedDays }) => {
     if (i === 2) return 'missed'; // Day 2 was missed
     if (i === 5) return 'missed'; // Day 5 was missed
     if (i === 8) return 'missed'; // Day 8 was missed
-    if (i === 41) return 'missed'; // Day 41 was missed
+    if (i === 23) return 'missed'; // Day 41 was missed
     return 'complete'; // Most other days are complete
   });
 
@@ -81,7 +74,16 @@ const JourneyMap: React.FC<JourneyMapProps> = ({ user, completedDays }) => {
       <Typography variant="h5" align="center" sx={{ mb: 2, fontWeight: 700 }}>
         Your Weight Loss Journey <span role="img" aria-label="map">🗺️</span>
       </Typography>
-      <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 3, px: 2 }}>
+      <Box sx={{ 
+        display: 'flex', 
+        alignItems: 'flex-end', 
+        gap: 3, 
+        px: 2,
+        minWidth: `${totalDays * 80}px`, // Ensure enough width for all nodes
+        justifyContent: 'flex-start', // Align to start for proper scrolling
+        pl: 8, // Add left padding to ensure day 0 is scrollable
+        pr: 8, // Add right padding for balance
+      }}>
         {nodes.map((status, i) => (
           <Box key={i} sx={{
             display: 'flex',
@@ -90,6 +92,7 @@ const JourneyMap: React.FC<JourneyMapProps> = ({ user, completedDays }) => {
             position: 'relative',
             minWidth: 56,
             zIndex: 1,
+            flexShrink: 0, // Prevent nodes from shrinking
           }}>
             <Tooltip title={getDayLabel(i, todayIndex, totalDays)} arrow>
               <Avatar
@@ -136,7 +139,7 @@ const JourneyMap: React.FC<JourneyMapProps> = ({ user, completedDays }) => {
         ))}
       </Box>
       <Typography variant="body2" align="center" sx={{ mt: 2, color: 'text.secondary' }}>
-        Check off each day by completing your plan and reality! <span role="img" aria-label="sparkles">✨</span>
+        Scroll left and right to see your full journey! <span role="img" aria-label="sparkles">✨</span>
       </Typography>
     </Box>
   );
