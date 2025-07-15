@@ -5,6 +5,7 @@ import LockIcon from '@mui/icons-material/Lock';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import DirectionsWalkIcon from '@mui/icons-material/DirectionsWalk';
 import CelebrationIcon from '@mui/icons-material/Celebration';
+import CancelIcon from '@mui/icons-material/Cancel';
 import { User } from '../types';
 
 interface JourneyMapProps {
@@ -19,10 +20,12 @@ const getDayLabel = (index: number, todayIndex: number, total: number) => {
   return `Day ${index}`;
 };
 
-const getNodeIcon = (status: 'complete' | 'today' | 'locked' | 'goal') => {
+const getNodeIcon = (status: 'complete' | 'missed' | 'today' | 'locked' | 'goal') => {
   switch (status) {
     case 'complete':
       return <CelebrationIcon color="success" fontSize="large" />;
+    case 'missed':
+      return <CancelIcon color="error" fontSize="large" />;
     case 'today':
       return (
         <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -47,12 +50,19 @@ const JourneyMap: React.FC<JourneyMapProps> = ({ user, completedDays }) => {
   // Always place "Today" in the center of the map
   const todayIndex = Math.floor(totalDays / 2);
 
-  // Create demo data: all days before today are completed, today is in progress, rest are locked
+  // Create demo data with some missed days peppered in
   const nodes = Array.from({ length: totalDays }, (_, i) => {
     if (i === totalDays - 1) return 'goal';
-    if (i < todayIndex) return 'complete';
     if (i === todayIndex) return 'today';
-    return 'locked';
+    if (i > todayIndex) return 'locked';
+    
+    // For days before today, mix completed and missed
+    if (i === 0) return 'complete'; // Start is always complete
+    if (i === 2) return 'missed'; // Day 2 was missed
+    if (i === 5) return 'missed'; // Day 5 was missed
+    if (i === 8) return 'missed'; // Day 8 was missed
+    if (i === 41) return 'missed'; // Day 41 was missed
+    return 'complete'; // Most other days are complete
   });
 
   return (
@@ -87,6 +97,7 @@ const JourneyMap: React.FC<JourneyMapProps> = ({ user, completedDays }) => {
                   bgcolor:
                     status === 'goal' ? 'warning.light'
                     : status === 'complete' ? 'success.light'
+                    : status === 'missed' ? 'error.light'
                     : status === 'today' ? 'primary.light'
                     : 'grey.200',
                   width: 56,
@@ -97,6 +108,7 @@ const JourneyMap: React.FC<JourneyMapProps> = ({ user, completedDays }) => {
                   mb: 1,
                   transition: 'all 0.3s',
                   position: 'relative',
+                  opacity: status === 'missed' ? 0.7 : 1,
                 }}
               >
                 {getNodeIcon(status as any)}
