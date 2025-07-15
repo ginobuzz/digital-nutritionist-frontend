@@ -25,6 +25,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { User, DailyProgress, WeightLog } from '../types';
 import { calculateProgressPercentage, caloriesToWeight } from '../utils/calculations';
 import { mockAPI } from '../data/mockData';
+import JourneyMap from './JourneyMap';
 
 interface DashboardProps {
   user: User;
@@ -87,8 +88,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user }) => {
 
   const deficitStatus = getDeficitStatus(dailyProgress.deficit);
 
+  // For demo, mock completedDays as 3
+  const completedDays = 3;
+
   return (
     <Box>
+      <JourneyMap user={user} completedDays={completedDays} />
       <Typography variant="h4" gutterBottom>
         Welcome back, {user.name}! 👋
       </Typography>
