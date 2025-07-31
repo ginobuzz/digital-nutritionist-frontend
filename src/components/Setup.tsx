@@ -349,7 +349,7 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
               Digital Nutritionist Setup
             </Typography>
             <Typography variant="body1" align="center" color="text.secondary">
-              Let's create your personalized nutrition plan
+              Create your personalized nutrition plan
             </Typography>
           </Box>
 
