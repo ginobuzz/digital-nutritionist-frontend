@@ -24,8 +24,7 @@ import {
   Fab,
   LinearProgress,
   Tabs,
-  Tab,
-  Divider
+  Tab
 } from '@mui/material';
 import {
   Add,
@@ -33,7 +32,6 @@ import {
   Delete,
   Restaurant,
   FitnessCenter,
-  Timeline,
   Schedule,
   LocalDining,
   DirectionsRun

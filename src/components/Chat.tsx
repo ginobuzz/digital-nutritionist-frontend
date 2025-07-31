@@ -9,7 +9,6 @@ import {
   Avatar,
   List,
   ListItem,
-  ListItemText,
   ListItemAvatar,
   Paper,
   Chip,

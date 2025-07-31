@@ -28,7 +28,6 @@ import {
   Add,
   Edit,
   Delete,
-  Restaurant,
   Schedule,
   LocalDining
 } from '@mui/icons-material';

@@ -14,7 +14,6 @@ import {
   Divider
 } from '@mui/material';
 import {
-  TrendingUp,
   Restaurant,
   FitnessCenter,
   Timeline,

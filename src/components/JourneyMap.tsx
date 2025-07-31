@@ -1,6 +1,5 @@
 import React from 'react';
-import { Box, Typography, Avatar, Tooltip, CircularProgress } from '@mui/material';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import { Box, Typography, Avatar, Tooltip } from '@mui/material';
 import LockIcon from '@mui/icons-material/Lock';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import DirectionsWalkIcon from '@mui/icons-material/DirectionsWalk';
