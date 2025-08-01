@@ -346,7 +346,7 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
         <CardContent>
           <Box sx={{ mb: 4 }}>
             <Typography variant="h4" align="center" gutterBottom>
-              Digital Nutritionist Setup
+              Digital Nutritionist
             </Typography>
             <Typography variant="body1" align="center" color="text.secondary">
               Create your personalized nutrition plan
