@@ -10,6 +10,7 @@ import Reality from './components/Reality';
 import Chat from './components/Chat';
 import Profile from './components/Profile';
 import Setup from './components/Setup';
+import ApiTest from './components/ApiTest';
 import { User } from './types';
 import { calculateDailyExpenditure } from './utils/calculations';
 
@@ -103,6 +104,17 @@ function App() {
     localStorage.setItem('setupComplete', 'true');
   };
 
+  // Check if we're on the API test route - if so, show it regardless of setup status
+  // This allows testing the API during development
+  if (window.location.pathname === '/api-test') {
+    return (
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <ApiTest />
+      </ThemeProvider>
+    );
+  }
+
   // If setup is not complete, show setup flow
   if (!setupComplete) {
     return (
@@ -124,6 +136,7 @@ function App() {
             <Route path="/reality" element={<Reality />} />
             <Route path="/chat" element={<Chat />} />
             <Route path="/profile" element={<Profile user={user!} onUserUpdate={setUser} />} />
+            <Route path="/api-test" element={<ApiTest />} />
           </Routes>
         </Layout>
       </Router>

@@ -20,7 +20,9 @@ import {
   List,
   ListItem,
   ListItemText,
-  ListItemAvatar
+  ListItemAvatar,
+  Alert,
+  CircularProgress,
 } from '@mui/material';
 import {
   Edit,
@@ -32,7 +34,7 @@ import {
 } from '@mui/icons-material';
 import { User, WeightLog } from '../types';
 import { calculateDailyExpenditure, calculateWeightLossTimeline, calculateProgressPercentage } from '../utils/calculations';
-import { mockAPI } from '../data/mockData';
+import { apiService, convertUserToBackend, convertUserFromBackend, convertWeightLogFromBackend } from '../services/api';
 
 interface ProfileProps {
   user: User;
@@ -57,19 +59,19 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate }) => {
   });
 
   useEffect(() => {
-    fetchWeightLogs();
-  }, []);
+    const fetchWeightLogs = async () => {
+      try {
+        const logs = await apiService.getWeightLogs(user.id);
+        setWeightLogs(logs.map(convertWeightLogFromBackend));
+      } catch (error) {
+        console.error('Error fetching weight logs:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const fetchWeightLogs = async () => {
-    try {
-      const logs = await mockAPI.getWeightLogs();
-      setWeightLogs(logs);
-    } catch (error) {
-      console.error('Error fetching weight logs:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    fetchWeightLogs();
+  }, [user.id]);
 
   const handleEditProfile = () => {
     setFormData({
@@ -87,38 +89,57 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate }) => {
     setEditDialogOpen(true);
   };
 
-  const handleSaveProfile = () => {
-    const dailyExpenditure = calculateDailyExpenditure({
-      ...user,
-      age: parseInt(formData.age),
-      height: {
-        feet: parseInt(formData.heightFeet),
-        inches: parseInt(formData.heightInches)
-      },
-      weight: parseInt(formData.weight),
-      gender: formData.gender,
-      activityLevel: formData.activityLevel
-    });
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-    const updatedUser: User = {
-      ...user,
-      name: formData.name,
-      age: parseInt(formData.age),
-      height: {
-        feet: parseInt(formData.heightFeet),
-        inches: parseInt(formData.heightInches)
-      },
-      weight: parseInt(formData.weight),
-      gender: formData.gender,
-      activityLevel: formData.activityLevel,
-      targetWeight: parseInt(formData.targetWeight),
-      targetDate: new Date(formData.targetDate),
-      dailyDeficitTarget: parseInt(formData.dailyDeficitTarget),
-      dailyCalorieTarget: dailyExpenditure - parseInt(formData.dailyDeficitTarget)
-    };
+  const handleSaveProfile = async () => {
+    setSaveLoading(true);
+    setSaveError(null);
 
-    onUserUpdate(updatedUser);
-    setEditDialogOpen(false);
+    try {
+      const dailyExpenditure = calculateDailyExpenditure({
+        ...user,
+        age: parseInt(formData.age),
+        height: {
+          feet: parseInt(formData.heightFeet),
+          inches: parseInt(formData.heightInches)
+        },
+        weight: parseInt(formData.weight),
+        gender: formData.gender,
+        activityLevel: formData.activityLevel
+      });
+
+      const updatedUser: User = {
+        ...user,
+        name: formData.name,
+        age: parseInt(formData.age),
+        height: {
+          feet: parseInt(formData.heightFeet),
+          inches: parseInt(formData.heightInches)
+        },
+        weight: parseInt(formData.weight),
+        gender: formData.gender,
+        activityLevel: formData.activityLevel,
+        targetWeight: parseInt(formData.targetWeight),
+        targetDate: new Date(formData.targetDate),
+        dailyDeficitTarget: parseInt(formData.dailyDeficitTarget),
+        dailyCalorieTarget: dailyExpenditure - parseInt(formData.dailyDeficitTarget)
+      };
+
+      // Convert to backend format and update user
+      const backendUserData = convertUserToBackend(updatedUser);
+      const updatedUserResponse = await apiService.updateUser(user.id, backendUserData);
+      
+      // Convert back to frontend format
+      const frontendUser = convertUserFromBackend(updatedUserResponse);
+      onUserUpdate(frontendUser);
+      setEditDialogOpen(false);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to update user profile');
+      console.error('Error updating user:', err);
+    } finally {
+      setSaveLoading(false);
+    }
   };
 
   const getActivityLevelDescription = (level: User['activityLevel']) => {
@@ -495,14 +516,20 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate }) => {
             />
           </Box>
         </DialogContent>
+        {saveError && (
+          <Alert severity="error" sx={{ mx: 2, mb: 2 }}>
+            {saveError}
+          </Alert>
+        )}
         <DialogActions>
-          <Button onClick={() => setEditDialogOpen(false)}>
+          <Button onClick={() => setEditDialogOpen(false)} disabled={saveLoading}>
             Cancel
           </Button>
           <Button 
             onClick={handleSaveProfile}
             variant="contained"
-            disabled={!formData.name || !formData.age || !formData.heightFeet || !formData.heightInches || !formData.weight || !formData.targetWeight || !formData.targetDate || !formData.dailyDeficitTarget}
+            disabled={!formData.name || !formData.age || !formData.heightFeet || !formData.heightInches || !formData.weight || !formData.targetWeight || !formData.targetDate || !formData.dailyDeficitTarget || saveLoading}
+            startIcon={saveLoading ? <CircularProgress size={20} /> : undefined}
           >
             Save Changes
           </Button>
