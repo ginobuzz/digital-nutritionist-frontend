@@ -29,6 +29,8 @@ export const testUserCreation = async (): Promise<{ success: boolean; message: s
   try {
     const testUser = {
       name: 'Test User',
+      email: 'test.user@example.com',
+      password: 'password123',
       age: 30,
       height_feet: 5,
       height_inches: 10,

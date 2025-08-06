@@ -20,6 +20,8 @@ export interface UserResponse {
 
 export interface CreateUserRequest {
   name: string;
+  email: string;
+  password: string;
   age: number;
   height_feet: number;
   height_inches: number;
@@ -54,6 +56,8 @@ export interface CreateWeightLogRequest {
 // Helper functions to convert between frontend and backend formats
 export const convertUserToBackend = (user: User): CreateUserRequest => ({
   name: user.name,
+  email: `${user.name.toLowerCase().replace(/\s+/g, '.')}@example.com`, // Generate email from name
+  password: 'password123', // Default password for testing
   age: user.age,
   height_feet: user.height.feet,
   height_inches: user.height.inches,

@@ -3,6 +3,8 @@ import { apiService } from '../services/api';
 export const testMinimalUserCreation = async () => {
   const minimalUser = {
     name: 'Test User',
+    email: 'test.user@example.com',
+    password: 'password123',
     age: 30,
     height_feet: 5,
     height_inches: 10,
@@ -29,6 +31,8 @@ export const testMinimalUserCreation = async () => {
 export const testFullUserCreation = async () => {
   const fullUser = {
     name: 'Test User',
+    email: 'test.user@example.com',
+    password: 'password123',
     age: 30,
     height_feet: 5,
     height_inches: 10,
