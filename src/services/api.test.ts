@@ -20,33 +20,35 @@ describe('API Service', () => {
   test('convertUserToBackend should convert frontend user to backend format', () => {
     const backendUser = convertUserToBackend(testUser);
     
-    expect(backendUser.name).toBe(testUser.name);
+    expect(backendUser.first_name).toBe('Test');
+    expect(backendUser.last_name).toBe('User');
     expect(backendUser.age).toBe(testUser.age);
-    expect(backendUser.height_feet).toBe(testUser.height.feet);
-    expect(backendUser.height_inches).toBe(testUser.height.inches);
-    expect(backendUser.weight).toBe(testUser.weight);
+    expect(backendUser.height_in).toBe(testUser.height.feet * 12 + testUser.height.inches);
+    expect(backendUser.starting_weight_lb).toBe(testUser.weight);
     expect(backendUser.gender).toBe(testUser.gender);
-    expect(backendUser.activity_level).toBe(testUser.activityLevel);
-    expect(backendUser.target_weight).toBe(testUser.targetWeight);
-    expect(backendUser.daily_calorie_target).toBe(testUser.dailyCalorieTarget);
-    expect(backendUser.daily_deficit_target).toBe(testUser.dailyDeficitTarget);
+    expect(backendUser.activity_level).toBe('moderately_active');
+    expect(backendUser.goal_weight_lb).toBe(testUser.targetWeight);
+    expect(backendUser.daily_calorie_budget).toBe(testUser.dailyCalorieTarget);
   });
 
   test('convertUserFromBackend should convert backend user to frontend format', () => {
     // Create a mock UserResponse (backend format) with an id
+    const totalInches = testUser.height.feet * 12 + testUser.height.inches;
     const backendUserResponse = {
       id: 'test-1',
-      name: testUser.name,
+      first_name: 'Test',
+      last_name: 'User',
+      email: 'test.user@example.com',
+      height_in: totalInches,
+      starting_weight_lb: testUser.weight,
+      goal_weight_lb: testUser.targetWeight,
+      goal_weight_date: testUser.targetDate.toISOString().split('T')[0],
+      daily_calorie_budget: testUser.dailyCalorieTarget,
       age: testUser.age,
-      height_feet: testUser.height.feet,
-      height_inches: testUser.height.inches,
-      weight: testUser.weight,
       gender: testUser.gender,
       activity_level: testUser.activityLevel,
-      target_weight: testUser.targetWeight,
-      target_date: testUser.targetDate.toISOString().split('T')[0],
-      daily_calorie_target: testUser.dailyCalorieTarget,
-      daily_deficit_target: testUser.dailyDeficitTarget,
+      created_at: '2024-01-01T00:00:00',
+      updated_at: '2024-01-01T00:00:00',
     };
     
     const frontendUser = convertUserFromBackend(backendUserResponse);
@@ -60,7 +62,7 @@ describe('API Service', () => {
     expect(frontendUser.activityLevel).toBe(testUser.activityLevel);
     expect(frontendUser.targetWeight).toBe(testUser.targetWeight);
     expect(frontendUser.dailyCalorieTarget).toBe(testUser.dailyCalorieTarget);
-    expect(frontendUser.dailyDeficitTarget).toBe(testUser.dailyDeficitTarget);
+    expect(frontendUser.dailyDeficitTarget).toBe(0); // Not provided by backend
   });
 
   test('API service should have correct base URL', () => {

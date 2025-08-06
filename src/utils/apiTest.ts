@@ -28,19 +28,18 @@ export const testApiConnection = async (): Promise<{ success: boolean; message: 
 export const testUserCreation = async (): Promise<{ success: boolean; message: string; userId?: string }> => {
   try {
     const testUser = {
-      name: 'Test User',
       email: 'test.user@example.com',
       password: 'password123',
+      first_name: 'Test',
+      last_name: 'User',
       age: 30,
-      height_feet: 5,
-      height_inches: 10,
-      weight: 160,
       gender: 'male' as const,
       activity_level: 'moderately_active' as const,
-      target_weight: 150,
-      target_date: '2024-06-01',
-      daily_calorie_target: 2000,
-      daily_deficit_target: 500,
+      height_in: 70, // 5'10" in inches
+      starting_weight_lb: 160,
+      goal_weight_lb: 150,
+      goal_weight_date: '2024-06-01',
+      daily_calorie_budget: 2000,
     };
 
     const createdUser = await apiService.createUser(testUser);
