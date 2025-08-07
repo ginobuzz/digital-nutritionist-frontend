@@ -1,9 +1,7 @@
 import { User, WeightLog } from '../types';
 
-// Use relative URLs in development (with proxy) and absolute URLs in production
-const API_BASE_URL = process.env.NODE_ENV === 'development' 
-  ? '' // This will use the proxy configured in package.json
-  : 'https://sundaymornings-backend-297759956270.europe-west1.run.app';
+// Use absolute URLs to avoid proxy issues
+const API_BASE_URL = 'https://sundaymornings-backend-297759956270.europe-west1.run.app';
 
 // API Response types based on FastAPI backend
 export interface UserResponse {
@@ -143,8 +141,11 @@ class ApiService {
     const response = await fetch(url, {
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
         ...options.headers,
       },
+      mode: 'cors',
+      credentials: 'omit',
       ...options,
     });
 
@@ -158,6 +159,16 @@ class ApiService {
           errorMessage += ` - ${JSON.stringify(errorData)}`;
         } catch (e) {
           // If we can't parse the error response, just use the status
+        }
+      }
+      
+      // For 500 errors, try to get the response text
+      if (response.status === 500) {
+        try {
+          const errorText = await response.text();
+          errorMessage += ` - ${errorText}`;
+        } catch (e) {
+          // If we can't read the response, just use the status
         }
       }
       

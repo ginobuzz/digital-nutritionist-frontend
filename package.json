@@ -53,6 +53,5 @@
   },
   "devDependencies": {
     "gh-pages": "^6.3.0"
-  },
-  "proxy": "https://sundaymornings-backend-297759956270.europe-west1.run.app"
+  }
 }
