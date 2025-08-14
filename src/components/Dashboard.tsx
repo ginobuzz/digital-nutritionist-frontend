@@ -159,7 +159,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                       fontSize: { xs: '0.875rem', sm: '1rem' }
                     }}
                   >
-                    {dailyProgress.totalActual} / {user.dailyCalorieTarget} calories
+                    {Math.round(dailyProgress.totalActual)} / {Math.round(user.dailyCalorieTarget)} calories
                   </Typography>
                   <Typography 
                     variant="body2" 
@@ -212,8 +212,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                   }}
                 >
                   {dailyProgress.totalActual > user.dailyCalorieTarget 
-                    ? `${dailyProgress.totalActual - user.dailyCalorieTarget} calories over`
-                    : `${user.dailyCalorieTarget - dailyProgress.totalActual} calories remaining`
+                    ? `${Math.round(dailyProgress.totalActual - user.dailyCalorieTarget)} calories over`
+                    : `${Math.round(user.dailyCalorieTarget - dailyProgress.totalActual)} calories remaining`
                   }
                 </Typography>
               </Box>
@@ -243,7 +243,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                     color: dailyProgress.totalActual - dailyProgress.totalBurned > user.dailyCalorieTarget ? '#ff6b6b' : '#4caf50'
                   }}
                 >
-                  {dailyProgress.totalActual - dailyProgress.totalBurned}
+                  {Math.round(dailyProgress.totalActual - dailyProgress.totalBurned)}
                 </Typography>
                 <Typography 
                   variant="caption" 
@@ -462,7 +462,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                     }
                     secondary={
                       <Typography sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                        {user.dailyCalorieTarget} calories
+                        {Math.round(user.dailyCalorieTarget)} calories
                       </Typography>
                     }
                   />
@@ -488,7 +488,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                     }
                     secondary={
                       <Typography sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                        {dailyProgress.totalActual} calories
+                        {Math.round(dailyProgress.totalActual)} calories
                       </Typography>
                     }
                   />
@@ -514,7 +514,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                     }
                     secondary={
                       <Typography sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                        {dailyProgress.totalBurned} calories
+                        {Math.round(dailyProgress.totalBurned)} calories
                       </Typography>
                     }
                   />
@@ -644,7 +644,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                       }
                       secondary={
                         <Typography sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                          {meal.calories} calories • {meal.type} • {new Date(meal.time).toLocaleTimeString()}
+                          {Math.round(meal.calories)} calories • {meal.type} • {new Date(meal.time).toLocaleTimeString()}
                         </Typography>
                       }
                     />
