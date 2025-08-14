@@ -28,7 +28,7 @@ describe('API Service', () => {
     expect(backendUser.gender).toBe(testUser.gender);
     expect(backendUser.activity_level).toBe('moderately_active');
     expect(backendUser.goal_weight_lb).toBe(testUser.targetWeight);
-    expect(backendUser.daily_calorie_budget).toBe(testUser.dailyCalorieTarget);
+    expect(backendUser.daily_calorie_budget).toBe(Math.round(testUser.dailyCalorieTarget));
   });
 
   test('convertUserFromBackend should convert backend user to frontend format', () => {
@@ -43,7 +43,7 @@ describe('API Service', () => {
       starting_weight_lb: testUser.weight,
       goal_weight_lb: testUser.targetWeight,
       goal_weight_date: testUser.targetDate.toISOString().split('T')[0],
-      daily_calorie_budget: testUser.dailyCalorieTarget,
+      daily_calorie_budget: Math.round(testUser.dailyCalorieTarget),
       age: testUser.age,
       gender: testUser.gender,
       activity_level: testUser.activityLevel,
@@ -67,5 +67,27 @@ describe('API Service', () => {
 
   test('API service should have correct base URL', () => {
     expect(apiService).toBeDefined();
+  });
+
+  test('convertUserToBackend should round dailyCalorieTarget to integer', () => {
+    const userWithDecimal: User = {
+      ...testUser,
+      dailyCalorieTarget: 2000.75
+    };
+    
+    const backendUser = convertUserToBackend(userWithDecimal);
+    expect(backendUser.daily_calorie_budget).toBe(2001); // Should round up
+    expect(Number.isInteger(backendUser.daily_calorie_budget)).toBe(true);
+  });
+
+  test('convertUserToBackend should handle integer dailyCalorieTarget without rounding', () => {
+    const userWithInteger: User = {
+      ...testUser,
+      dailyCalorieTarget: 2000
+    };
+    
+    const backendUser = convertUserToBackend(userWithInteger);
+    expect(backendUser.daily_calorie_budget).toBe(2000);
+    expect(Number.isInteger(backendUser.daily_calorie_budget)).toBe(true);
   });
 }); 

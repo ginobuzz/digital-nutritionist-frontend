@@ -71,6 +71,11 @@ export const convertUserToBackend = (user: User): CreateUserRequest => {
     'very_active': 'very_active',
   };
   
+  // Log the conversion for debugging purposes
+  if (user.dailyCalorieTarget !== Math.round(user.dailyCalorieTarget)) {
+    console.log(`Rounding dailyCalorieTarget from ${user.dailyCalorieTarget} to ${Math.round(user.dailyCalorieTarget)}`);
+  }
+  
   return {
     email: `${user.name.toLowerCase().replace(/\s+/g, '.')}@example.com`, // Generate email from name
     password: 'password123', // Default password for testing
@@ -85,7 +90,7 @@ export const convertUserToBackend = (user: User): CreateUserRequest => {
     starting_weight_lb: user.weight,
     goal_weight_lb: user.targetWeight,
     goal_weight_date: user.targetDate.toISOString().split('T')[0],
-    daily_calorie_budget: user.dailyCalorieTarget,
+    daily_calorie_budget: Math.round(user.dailyCalorieTarget),
   };
 };
 
@@ -156,7 +161,30 @@ class ApiService {
       if (response.status === 422) {
         try {
           const errorData = await response.json();
-          errorMessage += ` - ${JSON.stringify(errorData)}`;
+          
+          // Provide user-friendly error messages for common validation errors
+          if (Array.isArray(errorData.detail)) {
+            const userFriendlyErrors = errorData.detail.map((error: any) => {
+              if (error.type === 'int_from_float' && error.loc.includes('daily_calorie_budget')) {
+                return 'Daily calorie budget must be a whole number. The system has automatically rounded this value for you.';
+              }
+              if (error.type === 'missing') {
+                return `Missing required field: ${error.loc.join('.')}`;
+              }
+              if (error.type === 'value_error') {
+                return `Invalid value for ${error.loc.join('.')}: ${error.msg}`;
+              }
+              return `${error.loc.join('.')}: ${error.msg}`;
+            });
+            
+            if (userFriendlyErrors.length > 0) {
+              errorMessage = userFriendlyErrors.join('; ');
+            } else {
+              errorMessage += ` - ${JSON.stringify(errorData)}`;
+            }
+          } else {
+            errorMessage += ` - ${JSON.stringify(errorData)}`;
+          }
         } catch (e) {
           // If we can't parse the error response, just use the status
         }
