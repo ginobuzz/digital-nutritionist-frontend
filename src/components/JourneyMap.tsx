@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Typography, Avatar, Tooltip } from '@mui/material';
+import { Box, Typography, Avatar, Tooltip, useTheme, useMediaQuery } from '@mui/material';
 import LockIcon from '@mui/icons-material/Lock';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import DirectionsWalkIcon from '@mui/icons-material/DirectionsWalk';
@@ -36,6 +36,9 @@ const getNodeIcon = (status: 'complete' | 'missed' | 'today' | 'locked' | 'goal'
 };
 
 const JourneyMap: React.FC<JourneyMapProps> = ({ user, completedDays }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  
   // Set goal to be day 52
   const totalDays = 53; // 0-52 = 53 total days
 
@@ -57,6 +60,137 @@ const JourneyMap: React.FC<JourneyMapProps> = ({ user, completedDays }) => {
     return 'complete'; // Most other days are complete
   });
 
+  // For mobile, show a simplified version with just key milestones
+  const getMobileNodes = () => {
+    const keyMilestones = [0, 7, 14, 21, 28, 35, 42, 49, 52]; // Weekly milestones + start/goal
+    return keyMilestones.map(day => ({
+      day,
+      status: nodes[day] || 'locked',
+      label: day === 0 ? 'Start' : day === 52 ? 'Goal!' : `Week ${Math.ceil(day / 7)}`
+    }));
+  };
+
+  if (isMobile) {
+    const mobileNodes = getMobileNodes();
+    
+    return (
+      <Box sx={{
+        width: '100%',
+        py: 2,
+        mb: 3,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        background: 'linear-gradient(180deg, #e3f2fd 0%, #fffde7 100%)',
+        borderRadius: 2,
+        boxShadow: 1,
+      }}>
+        <Typography 
+          variant="h6" 
+          align="center" 
+          sx={{ 
+            mb: 2, 
+            fontWeight: 700,
+            fontSize: { xs: '1rem', sm: '1.25rem' }
+          }}
+        >
+          Your Journey <span role="img" aria-label="map">🗺️</span>
+        </Typography>
+        
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 2,
+          width: '100%',
+          px: 2
+        }}>
+          {mobileNodes.map(({ day, status, label }, index) => (
+            <Box key={day} sx={{
+              display: 'flex',
+              flexDirection: 'row',
+              alignItems: 'center',
+              width: '100%',
+              maxWidth: 300,
+              gap: 2,
+              position: 'relative',
+            }}>
+              <Avatar
+                sx={{
+                  bgcolor:
+                    status === 'goal' ? 'warning.light'
+                    : status === 'complete' ? 'success.light'
+                    : status === 'missed' ? 'error.light'
+                    : status === 'today' ? 'primary.light'
+                    : 'grey.200',
+                  width: 40,
+                  height: 40,
+                  border: status === 'today' ? '2px solid #1976d2' : undefined,
+                  boxShadow: status === 'goal' ? '0 0 8px 2px #ffeb3b' : undefined,
+                  fontSize: 20,
+                  flexShrink: 0,
+                }}
+              >
+                {getNodeIcon(status as any)}
+              </Avatar>
+              
+              <Box sx={{ flex: 1 }}>
+                <Typography 
+                  variant="body2" 
+                  sx={{ 
+                    fontWeight: status === 'goal' ? 700 : 600,
+                    fontSize: { xs: '0.875rem', sm: '1rem' }
+                  }}
+                >
+                  {label}
+                </Typography>
+                <Typography 
+                  variant="caption" 
+                  color="text.secondary"
+                  sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+                >
+                  {status === 'complete' ? 'Completed' : 
+                   status === 'missed' ? 'Missed' : 
+                   status === 'today' ? 'Current' : 
+                   status === 'goal' ? 'Target' : 'Locked'}
+                </Typography>
+              </Box>
+              
+              {/* Progress line between milestones */}
+              {index < mobileNodes.length - 1 && (
+                <Box
+                  sx={{
+                    width: 2,
+                    height: 20,
+                    bgcolor: 'primary.light',
+                    opacity: 0.3,
+                    position: 'absolute',
+                    left: 20,
+                    top: 40,
+                    zIndex: 0,
+                  }}
+                />
+              )}
+            </Box>
+          ))}
+        </Box>
+        
+        <Typography 
+          variant="caption" 
+          align="center" 
+          sx={{ 
+            mt: 2, 
+            color: 'text.secondary',
+            fontSize: { xs: '0.75rem', sm: '0.875rem' }
+          }}
+        >
+          Track your weekly progress! <span role="img" aria-label="sparkles">✨</span>
+        </Typography>
+      </Box>
+    );
+  }
+
+  // Desktop version (original horizontal layout)
   return (
     <Box sx={{
       width: '100%',
