@@ -27,7 +27,7 @@ import {
 } from '@mui/icons-material';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { User, DailyProgress, WeightLog } from '../types';
-import { calculateProgressPercentage, caloriesToWeight } from '../utils/calculations';
+import { calculateProgressPercentage } from '../utils/calculations';
 import { mockAPI } from '../data/mockData';
 import JourneyMap from './JourneyMap';
 
@@ -39,7 +39,6 @@ interface DashboardProps {
 const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
   
   const [dailyProgress, setDailyProgress] = useState<DailyProgress | null>(null);
   const [weightLogs, setWeightLogs] = useState<WeightLog[]>([]);
@@ -75,8 +74,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   const currentWeight = weightLogs[weightLogs.length - 1]?.weight || user.weight;
   const progressPercentage = calculateProgressPercentage(user, currentWeight);
   const weightLost = user.weight - currentWeight;
-  const totalDeficit = dailyProgress.deficit;
-  const estimatedWeightLoss = caloriesToWeight(totalDeficit);
 
   // Prepare chart data
   const chartData = weightLogs.map(log => ({
@@ -85,17 +82,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
     target: user.targetWeight
   }));
 
-  const getDeficitStatus = (deficit: number) => {
-    if (deficit >= user.dailyDeficitTarget) {
-      return { color: 'success', icon: <CheckCircle />, text: 'On Track' };
-    } else if (deficit >= user.dailyDeficitTarget * 0.5) {
-      return { color: 'warning', icon: <Warning />, text: 'Close' };
-    } else {
-      return { color: 'error', icon: <Warning />, text: 'Behind' };
-    }
-  };
 
-  const deficitStatus = getDeficitStatus(dailyProgress.deficit);
 
   // For demo, mock completedDays as 3
   const completedDays = 3;
@@ -129,7 +116,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
         Welcome back, {user.name}! 👋
       </Typography>
 
-      {/* Prominent Calorie Deficit Display */}
+      {/* Prominent Calorie Progress Display */}
       <Card sx={{ 
         width: '100%',
         mb: { xs: 2, sm: 3 },
@@ -154,32 +141,61 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                   fontSize: { xs: '1rem', sm: '1.25rem' }
                 }}
               >
-                Today's Calorie Deficit
+                Today's Calorie Progress
               </Typography>
-              <Typography 
-                variant={isMobile ? "h3" : "h2"} 
-                sx={{ 
-                  fontWeight: 700,
-                  mb: 1,
-                  fontSize: { xs: '2.5rem', sm: '3.75rem' }
-                }}
-              >
-                {dailyProgress.deficit}
-              </Typography>
-              <Typography 
-                variant="body1" 
-                sx={{ 
-                  opacity: 0.8,
-                  fontSize: { xs: '1rem', sm: '1.125rem' }
-                }}
-              >
-                calories
-              </Typography>
-              <Box sx={{ mt: 2 }}>
+              
+              {/* Calorie Progress Bar */}
+              <Box sx={{ mb: 2 }}>
+                <Box sx={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center',
+                  mb: 1
+                }}>
+                  <Typography 
+                    variant="body2" 
+                    sx={{ 
+                      opacity: 0.9,
+                      fontSize: { xs: '0.875rem', sm: '1rem' }
+                    }}
+                  >
+                    {dailyProgress.totalActual} / {user.dailyCalorieTarget} calories
+                  </Typography>
+                  <Typography 
+                    variant="body2" 
+                    sx={{ 
+                      opacity: 0.9,
+                      fontSize: { xs: '0.875rem', sm: '1rem' }
+                    }}
+                  >
+                    {Math.round((dailyProgress.totalActual / user.dailyCalorieTarget) * 100)}%
+                  </Typography>
+                </Box>
+                <LinearProgress
+                  variant="determinate"
+                  value={Math.min((dailyProgress.totalActual / user.dailyCalorieTarget) * 100, 100)}
+                  sx={{ 
+                    height: { xs: 12, sm: 16 }, 
+                    borderRadius: { xs: 6, sm: 8 },
+                    bgcolor: 'rgba(255,255,255,0.3)',
+                    '& .MuiLinearProgress-bar': {
+                      bgcolor: dailyProgress.totalActual > user.dailyCalorieTarget ? '#ff6b6b' : '#4caf50'
+                    }
+                  }}
+                />
+              </Box>
+              
+              {/* Status and Remaining Calories */}
+              <Box sx={{ 
+                display: 'flex', 
+                flexDirection: { xs: 'column', sm: 'row' },
+                gap: { xs: 1, sm: 2 },
+                alignItems: { xs: 'center', sm: 'flex-start' }
+              }}>
                 <Chip
-                  icon={deficitStatus.icon}
-                  label={deficitStatus.text}
-                  color={deficitStatus.color as any}
+                  icon={dailyProgress.totalActual > user.dailyCalorieTarget ? <Warning /> : <CheckCircle />}
+                  label={dailyProgress.totalActual > user.dailyCalorieTarget ? 'Over Goal' : 'On Track'}
+                  color={dailyProgress.totalActual > user.dailyCalorieTarget ? 'warning' : 'success'}
                   variant="filled"
                   size={isMobile ? "small" : "medium"}
                   sx={{ 
@@ -188,6 +204,18 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                     border: '1px solid rgba(255,255,255,0.3)'
                   }}
                 />
+                <Typography 
+                  variant="body2" 
+                  sx={{ 
+                    opacity: 0.8,
+                    fontSize: { xs: '0.875rem', sm: '1rem' }
+                  }}
+                >
+                  {dailyProgress.totalActual > user.dailyCalorieTarget 
+                    ? `${dailyProgress.totalActual - user.dailyCalorieTarget} calories over`
+                    : `${user.dailyCalorieTarget - dailyProgress.totalActual} calories remaining`
+                  }
+                </Typography>
               </Box>
             </Box>
             
@@ -197,16 +225,36 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
               alignItems: { xs: 'center', sm: 'flex-end' },
               gap: 2
             }}>
-              <Typography 
-                variant="body2" 
-                sx={{ 
-                  opacity: 0.8,
-                  textAlign: { xs: 'center', sm: 'right' },
-                  fontSize: { xs: '0.875rem', sm: '1rem' }
-                }}
-              >
-                Target: {user.dailyDeficitTarget} calories
-              </Typography>
+              {/* Net Calories (Consumed - Burned) */}
+              <Box sx={{ textAlign: { xs: 'center', sm: 'right' } }}>
+                <Typography 
+                  variant="body2" 
+                  sx={{ 
+                    opacity: 0.8,
+                    fontSize: { xs: '0.875rem', sm: '1rem' }
+                  }}
+                >
+                  Net Calories
+                </Typography>
+                <Typography 
+                  variant={isMobile ? "h5" : "h4"} 
+                  sx={{ 
+                    fontWeight: 600,
+                    color: dailyProgress.totalActual - dailyProgress.totalBurned > user.dailyCalorieTarget ? '#ff6b6b' : '#4caf50'
+                  }}
+                >
+                  {dailyProgress.totalActual - dailyProgress.totalBurned}
+                </Typography>
+                <Typography 
+                  variant="caption" 
+                  sx={{ 
+                    opacity: 0.7,
+                    fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                  }}
+                >
+                  (consumed - burned)
+                </Typography>
+              </Box>
               
               {/* Add Food CTA Button */}
               <Button
@@ -409,12 +457,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                   <ListItemText
                     primary={
                       <Typography sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
-                        Planned Calories
+                        Daily Calorie Goal
                       </Typography>
                     }
                     secondary={
                       <Typography sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                        {dailyProgress.totalPlanned} calories
+                        {user.dailyCalorieTarget} calories
                       </Typography>
                     }
                   />
@@ -435,7 +483,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                   <ListItemText
                     primary={
                       <Typography sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
-                        Actual Calories
+                        Calories Consumed
                       </Typography>
                     }
                     secondary={
@@ -521,7 +569,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                   fontSize: { xs: '0.75rem', sm: '0.875rem' }
                 }}
               >
-                Estimated weight loss from deficit: {estimatedWeightLoss.toFixed(2)}lbs
+                Track your weight progress over time
               </Typography>
             </CardContent>
           </Card>
