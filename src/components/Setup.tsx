@@ -20,6 +20,8 @@ import {
   Chip, 
   Alert,
   CircularProgress,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import { User } from '../types';
 import { apiService, convertUserToBackend, convertUserFromBackend } from '../services/api';
@@ -30,6 +32,10 @@ interface SetupProps {
 }
 
 const Setup: React.FC<SetupProps> = ({ onComplete }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+  
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,11 +51,11 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
   });
 
   const steps = [
-    'Basic Information',
+    'Basic Info',
     'Physical Stats',
-    'Activity Level',
+    'Activity',
     'Goals',
-    'Review & Complete'
+    'Review'
   ];
 
   const handleNext = async () => {
@@ -122,11 +128,30 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
     switch (activeStep) {
       case 0:
         return (
-          <Box sx={{ p: 3 }}>
-            <Typography variant="h5" gutterBottom>
+          <Box sx={{ 
+            p: { xs: 1, sm: 3 },
+            minHeight: { xs: '300px', sm: 'auto' },
+            '& .MuiTextField-root': { mb: 3 },
+            '& .MuiFormControl-root': { mb: 3 }
+          }}>
+            <Typography 
+              variant={isMobile ? "h6" : "h5"} 
+              gutterBottom 
+              sx={{ 
+                fontSize: { xs: '1.25rem', sm: '1.5rem' },
+                mb: { xs: 2, sm: 3 }
+              }}
+            >
               Let's get to know you
             </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+            <Typography 
+              variant="body2" 
+              color="text.secondary" 
+              sx={{ 
+                mb: { xs: 2, sm: 3 },
+                fontSize: { xs: '0.875rem', sm: '1rem' }
+              }}
+            >
               We'll use this information to create your personalized nutrition plan.
             </Typography>
             
@@ -135,7 +160,12 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
               label="Full Name"
               value={userData.name}
               onChange={(e) => updateUserData('name', e.target.value)}
-              sx={{ mb: 3 }}
+              size={isMobile ? "small" : "medium"}
+              sx={{ 
+                '& .MuiInputBase-root': {
+                  height: { xs: '48px', sm: '56px' }
+                }
+              }}
             />
             
             <TextField
@@ -145,18 +175,50 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
               value={userData.age}
               onChange={(e) => updateUserData('age', parseInt(e.target.value))}
               inputProps={{ min: 13, max: 100 }}
-              sx={{ mb: 3 }}
+              size={isMobile ? "small" : "medium"}
+              sx={{ 
+                '& .MuiInputBase-root': {
+                  height: { xs: '48px', sm: '56px' }
+                }
+              }}
             />
             
-            <FormControl fullWidth sx={{ mb: 3 }}>
-              <FormLabel>Gender</FormLabel>
+            <FormControl fullWidth>
+              <FormLabel sx={{ mb: 1, fontSize: { xs: '0.875rem', sm: '1rem' } }}>
+                Gender
+              </FormLabel>
               <RadioGroup
                 value={userData.gender}
                 onChange={(e) => updateUserData('gender', e.target.value)}
-                row
+                sx={{ 
+                  '& .MuiFormControlLabel-root': {
+                    margin: { xs: '8px 0', sm: '0 16px 0 0' },
+                    '& .MuiRadio-root': {
+                      padding: { xs: '8px', sm: '9px' }
+                    }
+                  }
+                }}
               >
-                <FormControlLabel value="male" control={<Radio />} label="Male" />
-                <FormControlLabel value="female" control={<Radio />} label="Female" />
+                <FormControlLabel 
+                  value="male" 
+                  control={<Radio />} 
+                  label="Male" 
+                  sx={{ 
+                    '& .MuiFormControlLabel-label': {
+                      fontSize: { xs: '0.875rem', sm: '1rem' }
+                    }
+                  }}
+                />
+                <FormControlLabel 
+                  value="female" 
+                  control={<Radio />} 
+                  label="Female" 
+                  sx={{ 
+                    '& .MuiFormControlLabel-label': {
+                      fontSize: { xs: '0.875rem', sm: '1rem' }
+                    }
+                  }}
+                />
               </RadioGroup>
             </FormControl>
           </Box>
@@ -164,15 +226,39 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
 
       case 1:
         return (
-          <Box sx={{ p: 3 }}>
-            <Typography variant="h5" gutterBottom>
+          <Box sx={{ 
+            p: { xs: 1, sm: 3 },
+            minHeight: { xs: '300px', sm: 'auto' },
+            '& .MuiTextField-root': { mb: 3 },
+            '& .MuiFormControl-root': { mb: 3 }
+          }}>
+            <Typography 
+              variant={isMobile ? "h6" : "h5"} 
+              gutterBottom 
+              sx={{ 
+                fontSize: { xs: '1.25rem', sm: '1.5rem' },
+                mb: { xs: 2, sm: 3 }
+              }}
+            >
               Physical Measurements
             </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+            <Typography 
+              variant="body2" 
+              color="text.secondary" 
+              sx={{ 
+                mb: { xs: 2, sm: 3 },
+                fontSize: { xs: '0.875rem', sm: '1rem' }
+              }}
+            >
               We'll use these to calculate your daily calorie needs.
             </Typography>
             
-            <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+            <Box sx={{ 
+              display: 'flex', 
+              flexDirection: { xs: 'column', sm: 'row' },
+              gap: { xs: 2, sm: 2 }, 
+              mb: 3 
+            }}>
               <TextField
                 label="Height (feet)"
                 type="number"
@@ -182,7 +268,13 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
                   feet: parseInt(e.target.value) 
                 })}
                 inputProps={{ min: 3, max: 8 }}
-                sx={{ flex: 1 }}
+                size={isMobile ? "small" : "medium"}
+                sx={{ 
+                  flex: 1,
+                  '& .MuiInputBase-root': {
+                    height: { xs: '48px', sm: '56px' }
+                  }
+                }}
               />
               <TextField
                 label="Height (inches)"
@@ -193,7 +285,13 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
                   inches: parseInt(e.target.value) 
                 })}
                 inputProps={{ min: 0, max: 11 }}
-                sx={{ flex: 1 }}
+                size={isMobile ? "small" : "medium"}
+                sx={{ 
+                  flex: 1,
+                  '& .MuiInputBase-root': {
+                    height: { xs: '48px', sm: '56px' }
+                  }
+                }}
               />
             </Box>
             
@@ -204,18 +302,42 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
               value={userData.weight}
               onChange={(e) => updateUserData('weight', parseInt(e.target.value))}
               inputProps={{ min: 50, max: 500 }}
-              sx={{ mb: 3 }}
+              size={isMobile ? "small" : "medium"}
+              sx={{ 
+                '& .MuiInputBase-root': {
+                  height: { xs: '48px', sm: '56px' }
+                }
+              }}
             />
           </Box>
         );
 
       case 2:
         return (
-          <Box sx={{ p: 3 }}>
-            <Typography variant="h5" gutterBottom>
+          <Box sx={{ 
+            p: { xs: 1, sm: 3 },
+            minHeight: { xs: '300px', sm: 'auto' },
+            '& .MuiTextField-root': { mb: 3 },
+            '& .MuiFormControl-root': { mb: 3 }
+          }}>
+            <Typography 
+              variant={isMobile ? "h6" : "h5"} 
+              gutterBottom 
+              sx={{ 
+                fontSize: { xs: '1.25rem', sm: '1.5rem' },
+                mb: { xs: 2, sm: 3 }
+              }}
+            >
               Activity Level
             </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+            <Typography 
+              variant="body2" 
+              color="text.secondary" 
+              sx={{ 
+                mb: { xs: 2, sm: 3 },
+                fontSize: { xs: '0.875rem', sm: '1rem' }
+              }}
+            >
               How active are you on a typical week?
             </Typography>
             
@@ -225,10 +347,16 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
                 value={userData.activityLevel}
                 onChange={(e) => updateUserData('activityLevel', e.target.value)}
                 label="Activity Level"
+                size={isMobile ? "small" : "medium"}
+                sx={{ 
+                  '& .MuiInputBase-root': {
+                    height: { xs: '48px', sm: '56px' }
+                  }
+                }}
               >
                 <MenuItem value="sedentary">
                   <Box>
-                    <Typography variant="body1">Sedentary</Typography>
+                    <Typography variant="body2">Sedentary</Typography>
                     <Typography variant="caption" color="text.secondary">
                       Little or no exercise, desk job
                     </Typography>
@@ -236,7 +364,7 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
                 </MenuItem>
                 <MenuItem value="lightly_active">
                   <Box>
-                    <Typography variant="body1">Lightly Active</Typography>
+                    <Typography variant="body2">Lightly Active</Typography>
                     <Typography variant="caption" color="text.secondary">
                       Light exercise 1-3 days/week
                     </Typography>
@@ -244,7 +372,7 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
                 </MenuItem>
                 <MenuItem value="moderately_active">
                   <Box>
-                    <Typography variant="body1">Moderately Active</Typography>
+                    <Typography variant="body2">Moderately Active</Typography>
                     <Typography variant="caption" color="text.secondary">
                       Moderate exercise 3-5 days/week
                     </Typography>
@@ -252,7 +380,7 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
                 </MenuItem>
                 <MenuItem value="very_active">
                   <Box>
-                    <Typography variant="body1">Very Active</Typography>
+                    <Typography variant="body2">Very Active</Typography>
                     <Typography variant="caption" color="text.secondary">
                       Hard exercise 6-7 days/week
                     </Typography>
@@ -260,7 +388,7 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
                 </MenuItem>
                 <MenuItem value="extremely_active">
                   <Box>
-                    <Typography variant="body1">Extremely Active</Typography>
+                    <Typography variant="body2">Extremely Active</Typography>
                     <Typography variant="caption" color="text.secondary">
                       Very hard exercise, physical job
                     </Typography>
@@ -273,11 +401,30 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
 
       case 3:
         return (
-          <Box sx={{ p: 3 }}>
-            <Typography variant="h5" gutterBottom>
+          <Box sx={{ 
+            p: { xs: 1, sm: 3 },
+            minHeight: { xs: '300px', sm: 'auto' },
+            '& .MuiTextField-root': { mb: 3 },
+            '& .MuiFormControl-root': { mb: 3 }
+          }}>
+            <Typography 
+              variant={isMobile ? "h6" : "h5"} 
+              gutterBottom 
+              sx={{ 
+                fontSize: { xs: '1.25rem', sm: '1.5rem' },
+                mb: { xs: 2, sm: 3 }
+              }}
+            >
               Your Goals
             </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+            <Typography 
+              variant="body2" 
+              color="text.secondary" 
+              sx={{ 
+                mb: { xs: 2, sm: 3 },
+                fontSize: { xs: '0.875rem', sm: '1rem' }
+              }}
+            >
               What are you trying to achieve?
             </Typography>
             
@@ -288,7 +435,12 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
               value={userData.targetWeight}
               onChange={(e) => updateUserData('targetWeight', parseInt(e.target.value))}
               inputProps={{ min: 50, max: 500 }}
-              sx={{ mb: 3 }}
+              size={isMobile ? "small" : "medium"}
+              sx={{ 
+                '& .MuiInputBase-root': {
+                  height: { xs: '48px', sm: '56px' }
+                }
+              }}
             />
             
             <TextField
@@ -298,7 +450,12 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
               value={userData.targetDate?.toISOString().split('T')[0]}
               onChange={(e) => updateUserData('targetDate', new Date(e.target.value))}
               InputLabelProps={{ shrink: true }}
-              sx={{ mb: 3 }}
+              size={isMobile ? "small" : "medium"}
+              sx={{ 
+                '& .MuiInputBase-root': {
+                  height: { xs: '48px', sm: '56px' }
+                }
+              }}
             />
             
             {userData.weight && userData.targetWeight && (
@@ -314,34 +471,73 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
 
       case 4:
         return (
-          <Box sx={{ p: 3 }}>
-            <Typography variant="h5" gutterBottom>
+          <Box sx={{ 
+            p: { xs: 1, sm: 3 },
+            minHeight: { xs: '300px', sm: 'auto' },
+            '& .MuiTextField-root': { mb: 3 },
+            '& .MuiFormControl-root': { mb: 3 }
+          }}>
+            <Typography 
+              variant={isMobile ? "h6" : "h5"} 
+              gutterBottom 
+              sx={{ 
+                fontSize: { xs: '1.25rem', sm: '1.5rem' },
+                mb: { xs: 2, sm: 3 }
+              }}
+            >
               Review Your Information
             </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+            <Typography 
+              variant="body2" 
+              color="text.secondary" 
+              sx={{ 
+                mb: { xs: 2, sm: 3 },
+                fontSize: { xs: '0.875rem', sm: '1rem' }
+              }}
+            >
               Please review your information before we create your plan.
             </Typography>
             
             <Card variant="outlined" sx={{ mb: 3 }}>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>Personal Information</Typography>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-                  <Chip label={`Name: ${userData.name}`} />
-                  <Chip label={`Age: ${userData.age}`} />
-                  <Chip label={`Gender: ${userData.gender}`} />
+              <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+                <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
+                  Personal Information
+                </Typography>
+                <Box sx={{ 
+                  display: 'flex', 
+                  flexDirection: 'column',
+                  gap: 1, 
+                  mb: 2 
+                }}>
+                  <Chip label={`Name: ${userData.name}`} size="small" />
+                  <Chip label={`Age: ${userData.age}`} size="small" />
+                  <Chip label={`Gender: ${userData.gender}`} size="small" />
                 </Box>
                 
-                <Typography variant="h6" gutterBottom>Physical Stats</Typography>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-                  <Chip label={`Height: ${userData.height?.feet}'${userData.height?.inches}"`} />
-                  <Chip label={`Current Weight: ${userData.weight} lbs`} />
-                  <Chip label={`Activity: ${userData.activityLevel?.replace('_', ' ')}`} />
+                <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
+                  Physical Stats
+                </Typography>
+                <Box sx={{ 
+                  display: 'flex', 
+                  flexDirection: 'column',
+                  gap: 1, 
+                  mb: 2 
+                }}>
+                  <Chip label={`Height: ${userData.height?.feet}'${userData.height?.inches}"`} size="small" />
+                  <Chip label={`Current Weight: ${userData.weight} lbs`} size="small" />
+                  <Chip label={`Activity: ${userData.activityLevel?.replace('_', ' ')}`} size="small" />
                 </Box>
                 
-                <Typography variant="h6" gutterBottom>Goals</Typography>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                  <Chip label={`Target Weight: ${userData.targetWeight} lbs`} />
-                  <Chip label={`Target Date: ${userData.targetDate?.toLocaleDateString()}`} />
+                <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
+                  Goals
+                </Typography>
+                <Box sx={{ 
+                  display: 'flex', 
+                  flexDirection: 'column',
+                  gap: 1 
+                }}>
+                  <Chip label={`Target Weight: ${userData.targetWeight} lbs`} size="small" />
+                  <Chip label={`Target Date: ${userData.targetDate?.toLocaleDateString()}`} size="small" />
                 </Box>
               </CardContent>
             </Card>
@@ -381,28 +577,79 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
       alignItems: 'center', 
       justifyContent: 'center',
       bgcolor: 'background.default',
-      p: 2
+      p: { xs: 0, sm: 2 }
     }}>
-      <Card sx={{ maxWidth: 600, width: '100%' }}>
-        <CardContent>
-          <Box sx={{ mb: 4 }}>
-            <Typography variant="h4" align="center" gutterBottom>
+      <Card sx={{ 
+        maxWidth: { xs: '100%', sm: 600 }, 
+        width: '100%',
+        mx: { xs: 0, sm: 0 },
+        borderRadius: { xs: 0, sm: 1 },
+        boxShadow: { xs: 'none', sm: 1 },
+        display: 'flex',
+        flexDirection: 'column',
+        height: { xs: '100vh', sm: 'auto' }
+      }}>
+        <CardContent sx={{ 
+          p: { xs: 1, sm: 3 },
+          display: 'flex',
+          flexDirection: 'column',
+          flex: 1
+        }}>
+          <Box sx={{ mb: { xs: 2, sm: 4 } }}>
+            <Typography 
+              variant={isMobile ? "h5" : "h4"} 
+              align="center" 
+              gutterBottom
+              sx={{ fontSize: { xs: '1.5rem', sm: '2.125rem' } }}
+            >
               Digital Nutritionist
             </Typography>
-            <Typography variant="body1" align="center" color="text.secondary">
+            <Typography 
+              variant="body2" 
+              align="center" 
+              color="text.secondary"
+              sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
+            >
               Create your personalized nutrition plan
             </Typography>
           </Box>
 
-          <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
-            {steps.map((label) => (
-              <Step key={label}>
-                <StepLabel>{label}</StepLabel>
-              </Step>
-            ))}
-          </Stepper>
+          {isMobile ? (
+            <Box sx={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              mb: 3,
+              gap: 1
+            }}>
+              {steps.map((_, index) => (
+                <Box
+                  key={index}
+                  sx={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    bgcolor: index === activeStep ? 'primary.main' : 'grey.300',
+                    transition: 'background-color 0.2s'
+                  }}
+                />
+              ))}
+            </Box>
+          ) : (
+            <Stepper 
+              activeStep={activeStep} 
+              sx={{ mb: 4 }}
+            >
+              {steps.map((label) => (
+                <Step key={label}>
+                  <StepLabel>{label}</StepLabel>
+                </Step>
+              ))}
+            </Stepper>
+          )}
 
-          {renderStepContent()}
+          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            {renderStepContent()}
+          </Box>
 
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>
@@ -410,10 +657,23 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
             </Alert>
           )}
           
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: { xs: 'column', sm: 'row' },
+            justifyContent: 'space-between', 
+            mt: 'auto',
+            pt: 3,
+            gap: { xs: 2, sm: 0 }
+          }}>
             <Button
               disabled={activeStep === 0 || loading}
               onClick={handleBack}
+              fullWidth={isMobile}
+              variant={isMobile ? "outlined" : "text"}
+              sx={{ 
+                height: { xs: '48px', sm: '36px' },
+                fontSize: { xs: '0.875rem', sm: '0.875rem' }
+              }}
             >
               Back
             </Button>
@@ -422,6 +682,11 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
               onClick={handleNext}
               disabled={!canProceed() || loading}
               startIcon={loading ? <CircularProgress size={20} /> : undefined}
+              fullWidth={isMobile}
+              sx={{ 
+                height: { xs: '48px', sm: '36px' },
+                fontSize: { xs: '0.875rem', sm: '0.875rem' }
+              }}
             >
               {activeStep === steps.length - 1 ? 'Complete Setup' : 'Next'}
             </Button>
