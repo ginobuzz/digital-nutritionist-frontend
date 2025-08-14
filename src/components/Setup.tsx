@@ -19,8 +19,11 @@ import {
   FormLabel,
   Chip,
   Alert,
+  CircularProgress,
 } from '@mui/material';
 import { User } from '../types';
+import { apiService, convertUserToBackend, convertUserFromBackend } from '../services/api';
+import { calculateDailyExpenditure } from '../utils/calculations';
 
 interface SetupProps {
   onComplete: (user: User) => void;
@@ -28,6 +31,8 @@ interface SetupProps {
 
 const Setup: React.FC<SetupProps> = ({ onComplete }) => {
   const [activeStep, setActiveStep] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [userData, setUserData] = useState<Partial<User>>({
     name: '',
     age: 25,
@@ -47,23 +52,59 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
     'Review & Complete'
   ];
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (activeStep === steps.length - 1) {
       // Complete setup
-      const completeUser: User = {
-        id: '1',
-        name: userData.name!,
-        age: userData.age!,
-        height: userData.height!,
-        weight: userData.weight!,
-        gender: userData.gender!,
-        activityLevel: userData.activityLevel!,
-        targetWeight: userData.targetWeight!,
-        targetDate: userData.targetDate!,
-        dailyCalorieTarget: 0, // Will be calculated
-        dailyDeficitTarget: 0, // Will be calculated
-      };
-      onComplete(completeUser);
+      setLoading(true);
+      setError(null);
+      
+      try {
+        // Calculate daily calorie target and deficit
+        const dailyExpenditure = calculateDailyExpenditure({
+          id: '',
+          name: userData.name!,
+          age: userData.age!,
+          height: userData.height!,
+          weight: userData.weight!,
+          gender: userData.gender!,
+          activityLevel: userData.activityLevel!,
+          targetWeight: userData.targetWeight!,
+          targetDate: userData.targetDate!,
+          dailyCalorieTarget: 0,
+          dailyDeficitTarget: 0,
+        });
+        
+        const weightToLose = userData.weight! - userData.targetWeight!;
+        const daysToTarget = Math.ceil((userData.targetDate!.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+        const dailyDeficitTarget = Math.round(weightToLose * 3500 / daysToTarget); // 3500 calories = 1 lb
+
+        const completeUser: User = {
+          id: '', // Will be set by backend
+          name: userData.name!,
+          age: userData.age!,
+          height: userData.height!,
+          weight: userData.weight!,
+          gender: userData.gender!,
+          activityLevel: userData.activityLevel!,
+          targetWeight: userData.targetWeight!,
+          targetDate: userData.targetDate!,
+          dailyCalorieTarget: dailyExpenditure - dailyDeficitTarget,
+          dailyDeficitTarget: dailyDeficitTarget,
+        };
+
+        // Convert to backend format and create user
+        const backendUserData = convertUserToBackend(completeUser);
+        const createdUser = await apiService.createUser(backendUserData);
+        
+        // Convert back to frontend format
+        const frontendUser = convertUserFromBackend(createdUser);
+        onComplete(frontendUser);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to create user profile');
+        console.error('Error creating user:', err);
+      } finally {
+        setLoading(false);
+      }
     } else {
       setActiveStep((prevStep) => prevStep + 1);
     }
@@ -363,9 +404,15 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
 
           {renderStepContent()}
 
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
+          
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
             <Button
-              disabled={activeStep === 0}
+              disabled={activeStep === 0 || loading}
               onClick={handleBack}
             >
               Back
@@ -373,7 +420,8 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
             <Button
               variant="contained"
               onClick={handleNext}
-              disabled={!canProceed()}
+              disabled={!canProceed() || loading}
+              startIcon={loading ? <CircularProgress size={20} /> : undefined}
             >
               {activeStep === steps.length - 1 ? 'Complete Setup' : 'Next'}
             </Button>
