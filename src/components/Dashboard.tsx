@@ -3,14 +3,10 @@ import {
   Box,
   Typography,
   LinearProgress,
-  IconButton,
   Card,
   CardContent,
   Chip,
 } from '@mui/material';
-import {
-  Add,
-} from '@mui/icons-material';
 import { User, DailyProgress } from '../types';
 import { mockAPI } from '../data/mockData';
 
@@ -79,7 +75,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       case 'current':
         return dailyProgress.totalActual > user.dailyCalorieTarget ? '✗' : '✓';
       case 'planned':
-        return '';
+        return '+';
       default:
         return '';
     }
@@ -123,15 +119,25 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                 }}
               />
             </Box>
-            <IconButton 
+            <Typography 
               onClick={handleAddFood}
               sx={{ 
                 color: '#1976d2',
-                flexShrink: 0
+                flexShrink: 0,
+                fontSize: '1.5rem',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                userSelect: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 32,
+                height: 32,
+                lineHeight: 1
               }}
             >
-              <Add />
-            </IconButton>
+              +
+            </Typography>
           </Box>
           <Typography 
             variant="body1" 
@@ -178,20 +184,18 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                       variant="h4" 
                       sx={{ 
                         color: getStatusColor(entry.status),
-                        fontWeight: 'bold'
+                        fontWeight: 'bold',
+                        fontSize: '1.5rem',
+                        lineHeight: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: 32,
+                        height: 32
                       }}
                     >
                       {getStatusIcon(entry.status)}
                     </Typography>
-                    {entry.status === 'planned' && (
-                      <IconButton 
-                        size="small" 
-                        onClick={handleAddFood}
-                        sx={{ color: getStatusColor(entry.status) }}
-                      >
-                        <Add />
-                      </IconButton>
-                    )}
                   </Box>
                 </Box>
                 <Chip 
