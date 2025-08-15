@@ -114,21 +114,35 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
           p: 3, 
           border: '2px solid #e3f2fd', 
           borderRadius: 2, 
-          bgcolor: '#f3f8ff'
+          bgcolor: '#f3f8ff',
+          position: 'relative'
         }}>
-          <LinearProgress
-            variant="determinate"
-            value={Math.min((dailyProgress.totalActual / user.dailyCalorieTarget) * 100, 100)}
-            sx={{ 
-              height: 12, 
-              borderRadius: 6,
-              bgcolor: '#e0e0e0',
-              '& .MuiLinearProgress-bar': {
-                bgcolor: dailyProgress.totalActual > user.dailyCalorieTarget ? '#ff6b6b' : '#4caf50'
-              }
-            }}
-          />
-          <Typography variant="body1" sx={{ mt: 1, textAlign: 'center', fontWeight: 500 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+            <Box sx={{ flex: 1 }}>
+              <LinearProgress
+                variant="determinate"
+                value={Math.min((dailyProgress.totalActual / user.dailyCalorieTarget) * 100, 100)}
+                sx={{ 
+                  height: 12, 
+                  borderRadius: 6,
+                  bgcolor: '#e0e0e0',
+                  '& .MuiLinearProgress-bar': {
+                    bgcolor: dailyProgress.totalActual > user.dailyCalorieTarget ? '#ff6b6b' : '#4caf50'
+                  }
+                }}
+              />
+            </Box>
+            <IconButton 
+              onClick={handleAddFood}
+              sx={{ 
+                color: '#1976d2',
+                flexShrink: 0
+              }}
+            >
+              <Add />
+            </IconButton>
+          </Box>
+          <Typography variant="body1" sx={{ textAlign: 'center', fontWeight: 500 }}>
             Today: {Math.round(dailyProgress.totalActual)}/{Math.round(user.dailyCalorieTarget)} calories
           </Typography>
         </Box>
