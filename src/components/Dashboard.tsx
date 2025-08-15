@@ -109,7 +109,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       {/* Main Content */}
       <Box sx={{ flex: 1, p: 2, overflow: 'auto' }}>
         {/* Progress Bar */}
-        <Box sx={{ mb: 3 }}>
+        <Box sx={{ 
+          mb: 3, 
+          p: 3, 
+          border: '2px solid #e3f2fd', 
+          borderRadius: 2, 
+          bgcolor: '#f3f8ff'
+        }}>
           <LinearProgress
             variant="determinate"
             value={Math.min((dailyProgress.totalActual / user.dailyCalorieTarget) * 100, 100)}
