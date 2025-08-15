@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -93,11 +93,7 @@ const Log: React.FC = () => {
     time: ''
   });
 
-  useEffect(() => {
-    fetchLogData();
-  }, [selectedDate]);
-
-  const fetchLogData = async () => {
+  const fetchLogData = useCallback(async () => {
     try {
       setLoading(true);
       const [planned, actual, acts] = await Promise.all([
@@ -113,7 +109,11 @@ const Log: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedDate]);
+
+  useEffect(() => {
+    fetchLogData();
+  }, [fetchLogData]);
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
