@@ -4,8 +4,6 @@ import {
   Typography,
   LinearProgress,
   IconButton,
-  AppBar,
-  Toolbar,
   BottomNavigation,
   BottomNavigationAction,
   Paper,
@@ -14,7 +12,6 @@ import {
   Chip,
 } from '@mui/material';
 import {
-  Menu,
   Add,
   Home,
   Timeline,
@@ -109,21 +106,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       height: '100vh',
       bgcolor: '#f5f5f5'
     }}>
-      {/* App Header */}
-      <AppBar position="static" elevation={0} sx={{ bgcolor: 'white', color: 'black' }}>
-        <Toolbar sx={{ justifyContent: 'space-between' }}>
-          <IconButton edge="start" color="inherit" aria-label="menu">
-            <Menu />
-          </IconButton>
-          <Typography variant="h6" component="div" sx={{ fontWeight: 600 }}>
-            Digital Nutritionist
-          </Typography>
-          <IconButton color="inherit" onClick={handleAddFood}>
-            <Add />
-          </IconButton>
-        </Toolbar>
-      </AppBar>
-
       {/* Main Content */}
       <Box sx={{ flex: 1, p: 2, overflow: 'auto' }}>
         {/* Progress Bar */}
