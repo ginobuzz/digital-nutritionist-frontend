@@ -5,8 +5,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
-import Plan from './components/Plan';
-import Reality from './components/Reality';
+import Log from './components/Log';
 import Chat from './components/Chat';
 import Profile from './components/Profile';
 import Setup from './components/Setup';
@@ -132,8 +131,7 @@ function App() {
         <Layout user={user!}>
           <Routes>
             <Route path="/" element={<Dashboard user={user!} />} />
-            <Route path="/plan" element={<Plan />} />
-            <Route path="/reality" element={<Reality />} />
+            <Route path="/log" element={<Log />} />
             <Route path="/chat" element={<Chat />} />
             <Route path="/profile" element={<Profile user={user!} onUserUpdate={setUser} />} />
             <Route path="/api-test" element={<ApiTest />} />

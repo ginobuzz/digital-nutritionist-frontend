@@ -17,7 +17,6 @@ import {
   Home,
   Timeline,
   Person,
-  Settings,
   Chat,
 } from '@mui/icons-material';
 import { User } from '../types';
@@ -39,15 +38,12 @@ const Layout: React.FC<LayoutProps> = ({ children, user }) => {
         navigate('/');
         break;
       case 1:
-        navigate('/plan');
+        navigate('/log');
         break;
       case 2:
-        navigate('/reality');
-        break;
-      case 3:
         navigate('/chat');
         break;
-      case 4:
+      case 3:
         navigate('/profile');
         break;
       default:
@@ -57,8 +53,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user }) => {
 
   const navigationItems = [
     { label: 'Home', icon: <Home />, path: '/' },
-    { label: 'Plan', icon: <Settings />, path: '/plan' },
-    { label: 'Reality', icon: <Timeline />, path: '/reality' },
+    { label: 'Log', icon: <Timeline />, path: '/log' },
     { label: 'Chat', icon: <Chat />, path: '/chat' },
     { label: 'Profile', icon: <Person />, path: '/profile' },
   ];

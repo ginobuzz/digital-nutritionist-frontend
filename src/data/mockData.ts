@@ -162,7 +162,30 @@ export const mockDailyProgress: DailyProgress = {
   deficit: 350,
   weight: 161.7, // 73.5 kg ≈ 161.7 lbs
   meals: [...mockPlannedMeals, ...mockActualMeals],
-  activities: mockActivities
+  activities: mockActivities,
+  logEntries: [
+    ...mockPlannedMeals.map(meal => ({
+      id: `log-${meal.id}`,
+      date: meal.time,
+      type: 'meal' as const,
+      isPlanned: true,
+      data: meal
+    })),
+    ...mockActualMeals.map(meal => ({
+      id: `log-${meal.id}`,
+      date: meal.time,
+      type: 'meal' as const,
+      isPlanned: false,
+      data: meal
+    })),
+    ...mockActivities.map(activity => ({
+      id: `log-${activity.id}`,
+      date: activity.time,
+      type: 'activity' as const,
+      isPlanned: false,
+      data: activity
+    }))
+  ]
 };
 
 // Mock API functions

@@ -6,6 +6,7 @@ import {
   Card,
   CardContent,
   Chip,
+  Button,
 } from '@mui/material';
 import { User, DailyProgress } from '../types';
 import { mockAPI } from '../data/mockData';
@@ -154,8 +155,38 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
           </Typography>
         </Box>
 
+        {/* Quick Actions */}
+        <Card sx={{ mb: 3, bgcolor: '#f8f9fa', border: '1px solid #e9ecef' }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              Quick Actions
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+              <Button
+                variant="outlined"
+                color="primary"
+                onClick={() => window.location.href = '/log'}
+                sx={{ minWidth: 120 }}
+              >
+                View Log
+              </Button>
+              <Button
+                variant="outlined"
+                color="secondary"
+                onClick={handleAddFood}
+                sx={{ minWidth: 120 }}
+              >
+                Log Food
+              </Button>
+            </Box>
+          </CardContent>
+        </Card>
+
         {/* Daily Entries */}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Typography variant="h6" sx={{ mb: 2, color: 'text.secondary' }}>
+            Recent Days
+          </Typography>
           {dailyEntries.map((entry, index) => (
             <Card 
               key={index} 

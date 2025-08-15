@@ -67,6 +67,14 @@ export interface ChatMessage {
   type: 'meal_log' | 'planning' | 'encouragement' | 'reminder' | 'general';
 }
 
+export interface LogEntry {
+  id: string;
+  date: Date;
+  type: 'meal' | 'activity';
+  isPlanned: boolean;
+  data: PlannedMeal | ActualMeal | Activity;
+}
+
 export interface DailyProgress {
   date: Date;
   totalPlanned: number;
@@ -76,6 +84,7 @@ export interface DailyProgress {
   weight?: number;
   meals: (PlannedMeal | ActualMeal)[];
   activities: Activity[];
+  logEntries: LogEntry[];
 }
 
 export interface WeeklyProgress {
