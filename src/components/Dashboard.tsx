@@ -1,58 +1,44 @@
 import React, { useState, useEffect } from 'react';
 import {
+  Box,
+  Typography,
+  LinearProgress,
+  IconButton,
+  AppBar,
+  Toolbar,
+  BottomNavigation,
+  BottomNavigationAction,
+  Paper,
   Card,
   CardContent,
-  Typography,
-  Box,
-  LinearProgress,
   Chip,
-  Avatar,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemAvatar,
-  Divider,
-  Button,
-  useTheme,
-  useMediaQuery,
 } from '@mui/material';
 import {
-  Restaurant,
-  FitnessCenter,
-  Timeline,
-  CheckCircle,
-  Warning,
+  Menu,
   Add,
-  Chat
+  Home,
+  Timeline,
+  Person,
+  Settings,
 } from '@mui/icons-material';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { User, DailyProgress, WeightLog } from '../types';
-import { calculateProgressPercentage } from '../utils/calculations';
+import { User, DailyProgress } from '../types';
 import { mockAPI } from '../data/mockData';
-import JourneyMap from './JourneyMap';
 
 interface DashboardProps {
   user: User;
-  onNavigateToChat?: () => void; // Add navigation callback
+  onNavigateToChat?: () => void;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  
   const [dailyProgress, setDailyProgress] = useState<DailyProgress | null>(null);
-  const [weightLogs, setWeightLogs] = useState<WeightLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedTab, setSelectedTab] = useState(0);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [progress, logs] = await Promise.all([
-          mockAPI.getDailyProgress(new Date()),
-          mockAPI.getWeightLogs()
-        ]);
+        const progress = await mockAPI.getDailyProgress(new Date());
         setDailyProgress(progress);
-        setWeightLogs(logs);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       } finally {
@@ -71,596 +57,169 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
     return <Typography>No data available</Typography>;
   }
 
-  const currentWeight = weightLogs[weightLogs.length - 1]?.weight || user.weight;
-  const progressPercentage = calculateProgressPercentage(user, currentWeight);
-  const weightLost = user.weight - currentWeight;
+  // Mock daily entries data based on the sketch
+  const dailyEntries = [
+    { date: '8/13', calories: 2900, status: 'over', label: 'Over Budget' },
+    { date: '8/14', calories: 1980, status: 'under', label: 'On Track' },
+    { date: 'Today', calories: Math.round(dailyProgress.totalActual), status: 'current', label: 'Current' },
+    { date: '8/16', calories: 300, status: 'planned', label: 'Planned' },
+    { date: '8/17', calories: 0, status: 'planned', label: 'Planned' },
+  ];
 
-  // Prepare chart data
-  const chartData = weightLogs.map(log => ({
-    date: new Date(log.date).toLocaleDateString(),
-    weight: log.weight,
-    target: user.targetWeight
-  }));
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'over':
+        return '#ff6b6b'; // Red for over budget
+      case 'under':
+        return '#4caf50'; // Green for on track
+      case 'current':
+        return dailyProgress.totalActual > user.dailyCalorieTarget ? '#ff6b6b' : '#4caf50';
+      case 'planned':
+        return '#2196f3'; // Blue for planned
+      default:
+        return '#757575';
+    }
+  };
 
-
-
-  // For demo, mock completedDays as 3
-  const completedDays = 3;
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'over':
+        return '✗';
+      case 'under':
+        return '✓';
+      case 'current':
+        return dailyProgress.totalActual > user.dailyCalorieTarget ? '✗' : '✓';
+      case 'planned':
+        return '+';
+      default:
+        return '';
+    }
+  };
 
   const handleAddFood = () => {
     if (onNavigateToChat) {
       onNavigateToChat();
-    } else {
-      // Fallback: could navigate to chat route or show chat modal
-      console.log('Navigate to chat to add food');
     }
   };
 
   return (
     <Box sx={{ 
-      p: { xs: 1, sm: 2, md: 3 },
-      width: '100%',
-      overflow: 'hidden',
-      boxSizing: 'border-box'
+      display: 'flex', 
+      flexDirection: 'column', 
+      height: '100vh',
+      bgcolor: '#f5f5f5'
     }}>
-      <JourneyMap user={user} completedDays={completedDays} />
-      
-      <Typography 
-        variant={isMobile ? "h5" : "h4"} 
-        gutterBottom 
-        sx={{ 
-          mb: { xs: 2, sm: 3 },
-          fontSize: { xs: '1.5rem', sm: '2.125rem' }
-        }}
-      >
-        Welcome back, {user.name}! 👋
-      </Typography>
+      {/* App Header */}
+      <AppBar position="static" elevation={0} sx={{ bgcolor: 'white', color: 'black' }}>
+        <Toolbar sx={{ justifyContent: 'space-between' }}>
+          <IconButton edge="start" color="inherit" aria-label="menu">
+            <Menu />
+          </IconButton>
+          <Typography variant="h6" component="div" sx={{ fontWeight: 600 }}>
+            Digital Nutritionist
+          </Typography>
+          <IconButton color="inherit" onClick={handleAddFood}>
+            <Add />
+          </IconButton>
+        </Toolbar>
+      </AppBar>
 
-      {/* Prominent Calorie Progress Display */}
-      <Card sx={{ 
-        width: '100%',
-        mb: { xs: 2, sm: 3 },
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        color: 'white',
-        '& .MuiCardContent-root': { p: { xs: 3, sm: 4 } }
-      }}>
-        <CardContent>
-          <Box sx={{ 
-            display: 'flex', 
-            flexDirection: { xs: 'column', sm: 'row' },
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: { xs: 2, sm: 3 }
-          }}>
-            <Box sx={{ textAlign: { xs: 'center', sm: 'left' }, flex: 1 }}>
-              <Typography 
-                variant={isMobile ? "h6" : "h5"} 
-                sx={{ 
-                  mb: 1,
-                  opacity: 0.9,
-                  fontSize: { xs: '1rem', sm: '1.25rem' }
-                }}
-              >
-                Today's Calorie Progress
-              </Typography>
-              
-              {/* Calorie Progress Bar */}
-              <Box sx={{ mb: 2 }}>
+      {/* Main Content */}
+      <Box sx={{ flex: 1, p: 2, overflow: 'auto' }}>
+        {/* Progress Bar */}
+        <Box sx={{ mb: 3 }}>
+          <LinearProgress
+            variant="determinate"
+            value={Math.min((dailyProgress.totalActual / user.dailyCalorieTarget) * 100, 100)}
+            sx={{ 
+              height: 12, 
+              borderRadius: 6,
+              bgcolor: '#e0e0e0',
+              '& .MuiLinearProgress-bar': {
+                bgcolor: dailyProgress.totalActual > user.dailyCalorieTarget ? '#ff6b6b' : '#4caf50'
+              }
+            }}
+          />
+          <Typography variant="body1" sx={{ mt: 1, textAlign: 'center', fontWeight: 500 }}>
+            Today: {Math.round(dailyProgress.totalActual)}/{Math.round(user.dailyCalorieTarget)} calories
+          </Typography>
+        </Box>
+
+        {/* Daily Entries */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {dailyEntries.map((entry, index) => (
+            <Card 
+              key={index} 
+              sx={{ 
+                borderRadius: 2,
+                border: `2px solid ${getStatusColor(entry.status)}`,
+                bgcolor: 'white'
+              }}
+            >
+              <CardContent sx={{ p: 2 }}>
                 <Box sx={{ 
                   display: 'flex', 
                   justifyContent: 'space-between', 
-                  alignItems: 'center',
-                  mb: 1
+                  alignItems: 'center' 
                 }}>
-                  <Typography 
-                    variant="body2" 
-                    sx={{ 
-                      opacity: 0.9,
-                      fontSize: { xs: '0.875rem', sm: '1rem' }
-                    }}
-                  >
-                    {Math.round(dailyProgress.totalActual)} / {Math.round(user.dailyCalorieTarget)} calories
-                  </Typography>
-                  <Typography 
-                    variant="body2" 
-                    sx={{ 
-                      opacity: 0.9,
-                      fontSize: { xs: '0.875rem', sm: '1rem' }
-                    }}
-                  >
-                    {Math.round((dailyProgress.totalActual / user.dailyCalorieTarget) * 100)}%
-                  </Typography>
-                </Box>
-                <LinearProgress
-                  variant="determinate"
-                  value={Math.min((dailyProgress.totalActual / user.dailyCalorieTarget) * 100, 100)}
-                  sx={{ 
-                    height: { xs: 12, sm: 16 }, 
-                    borderRadius: { xs: 6, sm: 8 },
-                    bgcolor: 'rgba(255,255,255,0.3)',
-                    '& .MuiLinearProgress-bar': {
-                      bgcolor: dailyProgress.totalActual > user.dailyCalorieTarget ? '#ff6b6b' : '#4caf50'
-                    }
-                  }}
-                />
-              </Box>
-              
-              {/* Status and Remaining Calories */}
-              <Box sx={{ 
-                display: 'flex', 
-                flexDirection: { xs: 'column', sm: 'row' },
-                gap: { xs: 1, sm: 2 },
-                alignItems: { xs: 'center', sm: 'flex-start' }
-              }}>
-                <Chip
-                  icon={dailyProgress.totalActual > user.dailyCalorieTarget ? <Warning /> : <CheckCircle />}
-                  label={dailyProgress.totalActual > user.dailyCalorieTarget ? 'Over Goal' : 'On Track'}
-                  color={dailyProgress.totalActual > user.dailyCalorieTarget ? 'warning' : 'success'}
-                  variant="filled"
-                  size={isMobile ? "small" : "medium"}
-                  sx={{ 
-                    bgcolor: 'rgba(255,255,255,0.2)',
-                    color: 'white',
-                    border: '1px solid rgba(255,255,255,0.3)'
-                  }}
-                />
-                <Typography 
-                  variant="body2" 
-                  sx={{ 
-                    opacity: 0.8,
-                    fontSize: { xs: '0.875rem', sm: '1rem' }
-                  }}
-                >
-                  {dailyProgress.totalActual > user.dailyCalorieTarget 
-                    ? `${Math.round(dailyProgress.totalActual - user.dailyCalorieTarget)} calories over`
-                    : `${Math.round(user.dailyCalorieTarget - dailyProgress.totalActual)} calories remaining`
-                  }
-                </Typography>
-              </Box>
-            </Box>
-            
-            <Box sx={{ 
-              display: 'flex', 
-              flexDirection: 'column',
-              alignItems: { xs: 'center', sm: 'flex-end' },
-              gap: 2
-            }}>
-              {/* Net Calories (Consumed - Burned) */}
-              <Box sx={{ textAlign: { xs: 'center', sm: 'right' } }}>
-                <Typography 
-                  variant="body2" 
-                  sx={{ 
-                    opacity: 0.8,
-                    fontSize: { xs: '0.875rem', sm: '1rem' }
-                  }}
-                >
-                  Net Calories
-                </Typography>
-                <Typography 
-                  variant={isMobile ? "h5" : "h4"} 
-                  sx={{ 
-                    fontWeight: 600,
-                    color: dailyProgress.totalActual - dailyProgress.totalBurned > user.dailyCalorieTarget ? '#ff6b6b' : '#4caf50'
-                  }}
-                >
-                  {Math.round(dailyProgress.totalActual - dailyProgress.totalBurned)}
-                </Typography>
-                <Typography 
-                  variant="caption" 
-                  sx={{ 
-                    opacity: 0.7,
-                    fontSize: { xs: '0.75rem', sm: '0.875rem' }
-                  }}
-                >
-                  (consumed - burned)
-                </Typography>
-              </Box>
-              
-              {/* Add Food CTA Button */}
-              <Button
-                variant="contained"
-                size={isMobile ? "large" : "large"}
-                startIcon={<Add />}
-                onClick={handleAddFood}
-                sx={{
-                  bgcolor: 'rgba(255,255,255,0.9)',
-                  color: '#667eea',
-                  fontWeight: 600,
-                  px: { xs: 3, sm: 4 },
-                  py: { xs: 1.5, sm: 2 },
-                  fontSize: { xs: '1rem', sm: '1.125rem' },
-                  '&:hover': {
-                    bgcolor: 'rgba(255,255,255,1)',
-                    transform: 'translateY(-2px)',
-                    boxShadow: '0 8px 25px rgba(0,0,0,0.15)'
-                  },
-                  transition: 'all 0.3s ease',
-                  boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
-                }}
-              >
-                Add Food
-              </Button>
-              
-              <Typography 
-                variant="caption" 
-                sx={{ 
-                  opacity: 0.7,
-                  textAlign: { xs: 'center', sm: 'right' },
-                  fontSize: { xs: '0.75rem', sm: '0.875rem' }
-                }}
-              >
-                Chat with AI to log meals
-              </Typography>
-            </Box>
-          </Box>
-        </CardContent>
-      </Card>
-      
-      <Box sx={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
-        gap: { xs: 2, sm: 3 },
-        width: '100%',
-        overflow: 'hidden'
-      }}>
-        {/* Progress Overview */}
-        <Box sx={{ 
-          display: 'flex', 
-          flexDirection: { xs: 'column', md: 'row' },
-          gap: { xs: 2, sm: 3 },
-          width: '100%'
-        }}>
-          <Card sx={{ 
-            flex: { xs: '1 1 auto', md: '1 1 600px' },
-            width: '100%',
-            '& .MuiCardContent-root': { p: { xs: 2, sm: 3 } }
-          }}>
-            <CardContent>
-              <Typography 
-                variant={isMobile ? "h6" : "h6"} 
-                gutterBottom
-                sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}
-              >
-                Weight Loss Progress
-              </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <LinearProgress
-                  variant="determinate"
-                  value={progressPercentage}
-                  sx={{ 
-                    flexGrow: 1, 
-                    mr: 2, 
-                    height: { xs: 8, sm: 10 }, 
-                    borderRadius: { xs: 4, sm: 5 } 
-                  }}
-                />
-                <Typography 
-                  variant="body2" 
-                  color="text.secondary"
-                  sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
-                >
-                  {progressPercentage.toFixed(1)}%
-                </Typography>
-              </Box>
-              <Box sx={{ 
-                display: 'flex', 
-                flexDirection: { xs: 'column', sm: 'row' },
-                justifyContent: 'space-between', 
-                mb: 2,
-                gap: { xs: 1, sm: 0 }
-              }}>
-                <Typography variant="body2" sx={{ fontSize: { xs: '0.875rem', sm: '0.875rem' } }}>
-                  Starting: {user.weight}lbs
-                </Typography>
-                <Typography variant="body2" sx={{ fontSize: { xs: '0.875rem', sm: '0.875rem' } }}>
-                  Current: {currentWeight}lbs
-                </Typography>
-                <Typography variant="body2" sx={{ fontSize: { xs: '0.875rem', sm: '0.875rem' } }}>
-                  Target: {user.targetWeight}lbs
-                </Typography>
-              </Box>
-              <Typography 
-                variant={isMobile ? "h6" : "h6"} 
-                color="primary"
-                sx={{ fontSize: { xs: '1.125rem', sm: '1.25rem' } }}
-              >
-                {weightLost.toFixed(1)}lbs lost so far! 🎉
-              </Typography>
-            </CardContent>
-          </Card>
-
-          {/* Quick Add Food Card */}
-          <Card sx={{ 
-            flex: { xs: '1 1 auto', md: '0 1 300px' },
-            width: '100%',
-            '& .MuiCardContent-root': { p: { xs: 2, sm: 3 } }
-          }}>
-            <CardContent>
-              <Typography 
-                variant={isMobile ? "h6" : "h6"} 
-                gutterBottom
-                sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}
-              >
-                Quick Actions
-              </Typography>
-              
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <Button
-                  variant="outlined"
-                  size="large"
-                  startIcon={<Chat />}
-                  onClick={handleAddFood}
-                  fullWidth
-                  sx={{
-                    py: 1.5,
-                    fontSize: { xs: '0.875rem', sm: '1rem' },
-                    borderColor: 'primary.main',
-                    color: 'primary.main',
-                    '&:hover': {
-                      borderColor: 'primary.dark',
-                      bgcolor: 'primary.light',
-                      color: 'primary.dark'
-                    }
-                  }}
-                >
-                  Chat with AI
-                </Button>
-                
-                <Typography 
-                  variant="body2" 
-                  color="text.secondary"
-                  sx={{ 
-                    textAlign: 'center',
-                    fontSize: { xs: '0.75rem', sm: '0.875rem' }
-                  }}
-                >
-                  Get personalized nutrition advice
-                </Typography>
-              </Box>
-            </CardContent>
-          </Card>
-        </Box>
-
-        {/* Daily Summary and Weight Chart */}
-        <Box sx={{ 
-          display: 'flex', 
-          flexDirection: { xs: 'column', lg: 'row' },
-          gap: { xs: 2, sm: 3 },
-          width: '100%'
-        }}>
-          <Card sx={{ 
-            flex: { xs: '1 1 auto', lg: '1 1 400px' },
-            width: '100%',
-            '& .MuiCardContent-root': { p: { xs: 2, sm: 3 } }
-          }}>
-            <CardContent>
-              <Typography 
-                variant={isMobile ? "h6" : "h6"} 
-                gutterBottom
-                sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}
-              >
-                Today's Summary
-              </Typography>
-              <List dense sx={{ py: 0 }}>
-                <ListItem sx={{ px: 0 }}>
-                  <ListItemAvatar>
-                    <Avatar 
-                      sx={{ 
-                        bgcolor: 'primary.light',
-                        width: { xs: 32, sm: 40 },
-                        height: { xs: 32, sm: 40 }
-                      }}
-                    >
-                      <Restaurant sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }} />
-                    </Avatar>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary={
-                      <Typography sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
-                        Daily Calorie Goal
-                      </Typography>
-                    }
-                    secondary={
-                      <Typography sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                        {Math.round(user.dailyCalorieTarget)} calories
-                      </Typography>
-                    }
-                  />
-                </ListItem>
-                <Divider />
-                <ListItem sx={{ px: 0 }}>
-                  <ListItemAvatar>
-                    <Avatar 
-                      sx={{ 
-                        bgcolor: 'secondary.light',
-                        width: { xs: 32, sm: 40 },
-                        height: { xs: 32, sm: 40 }
-                      }}
-                    >
-                      <Timeline sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }} />
-                    </Avatar>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary={
-                      <Typography sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
-                        Calories Consumed
-                      </Typography>
-                    }
-                    secondary={
-                      <Typography sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                        {Math.round(dailyProgress.totalActual)} calories
-                      </Typography>
-                    }
-                  />
-                </ListItem>
-                <Divider />
-                <ListItem sx={{ px: 0 }}>
-                  <ListItemAvatar>
-                    <Avatar 
-                      sx={{ 
-                        bgcolor: 'success.light',
-                        width: { xs: 32, sm: 40 },
-                        height: { xs: 32, sm: 40 }
-                      }}
-                    >
-                      <FitnessCenter sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }} />
-                    </Avatar>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary={
-                      <Typography sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
-                        Calories Burned
-                      </Typography>
-                    }
-                    secondary={
-                      <Typography sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                        {Math.round(dailyProgress.totalBurned)} calories
-                      </Typography>
-                    }
-                  />
-                </ListItem>
-              </List>
-            </CardContent>
-          </Card>
-
-          <Card sx={{ 
-            flex: { xs: '1 1 auto', lg: '1 1 400px' },
-            width: '100%',
-            '& .MuiCardContent-root': { p: { xs: 2, sm: 3 } }
-          }}>
-            <CardContent>
-              <Typography 
-                variant={isMobile ? "h6" : "h6"} 
-                gutterBottom
-                sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}
-              >
-                Weight Progress
-              </Typography>
-              <ResponsiveContainer width="100%" height={isMobile ? 150 : 200}>
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis 
-                    dataKey="date" 
-                    tick={{ fontSize: isMobile ? 10 : 12 }}
-                  />
-                  <YAxis tick={{ fontSize: isMobile ? 10 : 12 }} />
-                  <Tooltip />
-                  <Line
-                    type="monotone"
-                    dataKey="weight"
-                    stroke="#8884d8"
-                    strokeWidth={isMobile ? 1.5 : 2}
-                    dot={{ fill: '#8884d8', strokeWidth: isMobile ? 1.5 : 2, r: isMobile ? 3 : 4 }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="target"
-                    stroke="#82ca9d"
-                    strokeWidth={isMobile ? 1.5 : 2}
-                    strokeDasharray="5 5"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-              <Typography 
-                variant="body2" 
-                color="text.secondary" 
-                sx={{ 
-                  mt: 1,
-                  fontSize: { xs: '0.75rem', sm: '0.875rem' }
-                }}
-              >
-                Track your weight progress over time
-              </Typography>
-            </CardContent>
-          </Card>
-        </Box>
-
-        {/* Recent Meals */}
-        <Card sx={{ 
-          width: '100%',
-          '& .MuiCardContent-root': { p: { xs: 2, sm: 3 } }
-        }}>
-          <CardContent>
-            <Box sx={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center',
-              mb: 2
-            }}>
-              <Typography 
-                variant={isMobile ? "h6" : "h6"} 
-                sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}
-              >
-                Today's Meals
-              </Typography>
-              
-              <Button
-                variant="text"
-                size="small"
-                startIcon={<Add />}
-                onClick={handleAddFood}
-                sx={{
-                  color: 'primary.main',
-                  fontSize: { xs: '0.75rem', sm: '0.875rem' }
-                }}
-              >
-                Add Meal
-              </Button>
-            </Box>
-            
-            <List sx={{ py: 0 }}>
-              {dailyProgress.meals.slice(0, isMobile ? 3 : 5).map((meal) => (
-                <ListItem 
-                  key={meal.id} 
-                  sx={{ 
-                    px: 0,
-                    flexDirection: { xs: 'column', sm: 'row' },
-                    alignItems: { xs: 'flex-start', sm: 'center' },
-                    gap: { xs: 1, sm: 0 }
-                  }}
-                >
-                  <Box sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    width: '100%',
-                    gap: 1
-                  }}>
-                    <ListItemAvatar>
-                      <Avatar 
-                        sx={{ 
-                          bgcolor: meal.isPlanned ? 'primary.light' : 'secondary.light',
-                          width: { xs: 32, sm: 40 },
-                          height: { xs: 32, sm: 40 }
-                        }}
-                      >
-                        <Restaurant sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }} />
-                      </Avatar>
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={
-                        <Typography sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
-                          {meal.name}
-                        </Typography>
-                      }
-                      secondary={
-                        <Typography sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                          {Math.round(meal.calories)} calories • {meal.type} • {new Date(meal.time).toLocaleTimeString()}
-                        </Typography>
-                      }
-                    />
+                  <Box>
+                    <Typography variant="h6" sx={{ fontWeight: 600, color: getStatusColor(entry.status) }}>
+                      {entry.date}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {entry.calories} kcal
+                    </Typography>
                   </Box>
-                  <Chip
-                    label={meal.isPlanned ? 'Planned' : 'Actual'}
-                    color={meal.isPlanned ? 'primary' : 'secondary'}
-                    size={isMobile ? "small" : "small"}
-                    sx={{ alignSelf: { xs: 'flex-end', sm: 'center' } }}
-                  />
-                </ListItem>
-              ))}
-            </List>
-          </CardContent>
-        </Card>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography 
+                      variant="h4" 
+                      sx={{ 
+                        color: getStatusColor(entry.status),
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      {getStatusIcon(entry.status)}
+                    </Typography>
+                    {entry.status === 'planned' && (
+                      <IconButton 
+                        size="small" 
+                        onClick={handleAddFood}
+                        sx={{ color: getStatusColor(entry.status) }}
+                      >
+                        <Add />
+                      </IconButton>
+                    )}
+                  </Box>
+                </Box>
+                <Chip 
+                  label={entry.label} 
+                  size="small" 
+                  sx={{ 
+                    mt: 1,
+                    bgcolor: getStatusColor(entry.status),
+                    color: 'white',
+                    fontSize: '0.75rem'
+                  }} 
+                />
+              </CardContent>
+            </Card>
+          ))}
+        </Box>
       </Box>
+
+      {/* Bottom Navigation */}
+      <Paper sx={{ position: 'fixed', bottom: 0, left: 0, right: 0 }} elevation={3}>
+        <BottomNavigation
+          value={selectedTab}
+          onChange={(event, newValue) => setSelectedTab(newValue)}
+          showLabels
+        >
+          <BottomNavigationAction label="Home" icon={<Home />} />
+          <BottomNavigationAction label="Progress" icon={<Timeline />} />
+          <BottomNavigationAction label="Profile" icon={<Person />} />
+          <BottomNavigationAction label="Settings" icon={<Settings />} />
+        </BottomNavigation>
+      </Paper>
     </Box>
   );
 };
