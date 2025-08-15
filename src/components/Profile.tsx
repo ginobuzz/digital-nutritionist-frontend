@@ -282,7 +282,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate }) => {
                   </ListItemAvatar>
                   <ListItemText
                     primary="Daily Calorie Deficit"
-                    secondary={`${user.dailyDeficitTarget} calories per day`}
+                    secondary={`${Math.round(user.dailyDeficitTarget)} calories per day`}
                   />
                 </ListItem>
                 <ListItem>
@@ -349,7 +349,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate }) => {
                   </ListItemAvatar>
                   <ListItemText
                     primary="Daily Calorie Target"
-                    secondary={`${user.dailyCalorieTarget} calories per day`}
+                    secondary={`${Math.round(user.dailyCalorieTarget)} calories per day`}
                   />
                 </ListItem>
                 <ListItem>
@@ -360,7 +360,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate }) => {
                   </ListItemAvatar>
                   <ListItemText
                     primary="Daily Calorie Expenditure"
-                    secondary={`${dailyExpenditure} calories per day`}
+                    secondary={`${Math.round(dailyExpenditure)} calories per day`}
                   />
                 </ListItem>
               </List>

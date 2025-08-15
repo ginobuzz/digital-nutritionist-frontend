@@ -177,7 +177,7 @@ const Plan: React.FC = () => {
           </Typography>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h4" color="primary">
-              {totalPlannedCalories}
+              {Math.round(totalPlannedCalories)}
             </Typography>
             <Typography variant="body1" color="text.secondary">
               planned calories
@@ -244,7 +244,7 @@ const Plan: React.FC = () => {
                     secondary={
                       <Box>
                         <Typography variant="body2" color="text.secondary">
-                          {meal.calories} calories
+                          {Math.round(meal.calories)} calories
                         </Typography>
                         {meal.description && (
                           <Typography variant="body2" color="text.secondary">

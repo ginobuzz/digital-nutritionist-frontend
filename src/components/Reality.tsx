@@ -288,7 +288,7 @@ const Reality: React.FC = () => {
               Calories Consumed
             </Typography>
             <Typography variant="h4" color="secondary">
-              {totalActualCalories}
+              {Math.round(totalActualCalories)}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               {actualMeals.length} meals logged
@@ -302,7 +302,7 @@ const Reality: React.FC = () => {
               Calories Burned
             </Typography>
             <Typography variant="h4" color="success.main">
-              {totalCaloriesBurned}
+              {Math.round(totalCaloriesBurned)}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               {activities.length} activities logged
@@ -384,7 +384,7 @@ const Reality: React.FC = () => {
                         secondary={
                           <Box>
                             <Typography variant="body2" color="text.secondary">
-                              {meal.actualCalories || meal.calories} calories
+                              {Math.round(meal.actualCalories || meal.calories)} calories
                             </Typography>
                             {meal.description && (
                               <Typography variant="body2" color="text.secondary">
@@ -491,7 +491,7 @@ const Reality: React.FC = () => {
                         secondary={
                           <Box>
                             <Typography variant="body2" color="text.secondary">
-                              {activity.caloriesBurned} calories burned • {activity.duration} minutes
+                              {Math.round(activity.caloriesBurned)} calories burned • {activity.duration} minutes
                             </Typography>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
                               <Schedule sx={{ fontSize: 16 }} />
