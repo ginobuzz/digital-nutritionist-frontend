@@ -41,14 +41,14 @@ html {
   }
 }
 
-/* Override Material-UI Card default styles for mobile */
+/* Mobile overrides only for Setup flow card */
 @media (max-width: 600px) {
-  .MuiCard-root {
+  .mobile-setup-container {
     height: 100vh !important;
     max-height: 100vh !important;
   }
-  
-  .MuiCardContent-root {
+
+  .mobile-setup-container .MuiCardContent-root {
     height: 100% !important;
     display: flex !important;
     flex-direction: column !important;

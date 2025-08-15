@@ -92,10 +92,15 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
     <Box sx={{ 
       display: 'flex', 
       flexDirection: 'column', 
-      height: '100vh'
+      minHeight: '100vh',
+      '& .MuiCardContent-root': {
+        height: 'auto !important',
+        minHeight: 'auto !important',
+        maxHeight: 'none !important'
+      }
     }}>
       {/* Main Content */}
-      <Box sx={{ flex: 1, p: 2, overflow: 'auto' }}>
+      <Box sx={{ flex: 1, p: 2, overflow: 'visible' }}>
         {/* Progress Bar */}
         <Box sx={{ 
           mb: 3, 
@@ -183,8 +188,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
         </Card>
 
         {/* Daily Entries */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Typography variant="h6" sx={{ mb: 2, color: 'text.secondary' }}>
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          gap: 1,
+          mb: 2
+        }}>
+          <Typography variant="h6" sx={{ mb: 1, color: 'text.secondary' }}>
             Recent Days
           </Typography>
           {dailyEntries.map((entry, index) => (
@@ -193,20 +203,42 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
               sx={{ 
                 borderRadius: 2,
                 border: `2px solid ${getStatusColor(entry.status)}`,
-                bgcolor: 'white'
+                bgcolor: 'white',
+                minHeight: 'auto',
+                '& .MuiCardContent-root': {
+                  padding: '8px 12px',
+                  '&:last-child': {
+                    paddingBottom: '8px'
+                  },
+                  height: 'auto !important',
+                  minHeight: 'auto !important',
+                  maxHeight: 'none !important'
+                }
               }}
             >
-              <CardContent sx={{ p: 2 }}>
+              <CardContent sx={{ 
+                p: 0,
+                height: 'auto !important',
+                minHeight: 'auto !important',
+                maxHeight: 'none !important'
+              }}>
                 <Box sx={{ 
                   display: 'flex', 
                   justifyContent: 'space-between', 
-                  alignItems: 'center' 
+                  alignItems: 'center',
+                  minHeight: '40px'
                 }}>
                   <Box>
-                    <Typography variant="h6" sx={{ fontWeight: 600, color: getStatusColor(entry.status) }}>
+                    <Typography variant="h6" sx={{ 
+                      fontWeight: 600, 
+                      color: getStatusColor(entry.status),
+                      fontSize: '1rem',
+                      lineHeight: 1.2,
+                      mb: 0.5
+                    }}>
                       {entry.date}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
                       {entry.calories} kcal
                     </Typography>
                   </Box>
@@ -216,13 +248,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                       sx={{ 
                         color: getStatusColor(entry.status),
                         fontWeight: 'bold',
-                        fontSize: '1.5rem',
+                        fontSize: '1.25rem',
                         lineHeight: 1,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        width: 32,
-                        height: 32
+                        width: 28,
+                        height: 28
                       }}
                     >
                       {getStatusIcon(entry.status)}
@@ -233,10 +265,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                   label={entry.label} 
                   size="small" 
                   sx={{ 
-                    mt: 1,
+                    mt: 0.25,
                     bgcolor: getStatusColor(entry.status),
                     color: 'white',
-                    fontSize: '0.75rem'
+                    fontSize: '0.75rem',
+                    height: '18px'
                   }} 
                 />
               </CardContent>
