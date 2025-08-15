@@ -5,6 +5,54 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-overflow-scrolling: touch;
+  overflow-x: hidden;
+}
+
+html {
+  -webkit-overflow-scrolling: touch;
+  overflow-x: hidden;
+}
+
+/* Mobile-specific scrolling fixes */
+.mobile-scroll-container {
+  -webkit-overflow-scrolling: touch;
+  overflow-y: auto;
+  overflow-x: hidden;
+  height: 100%;
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Ensure proper flexbox behavior on mobile */
+.mobile-setup-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* iOS Safari specific fixes */
+@supports (-webkit-touch-callout: none) {
+  .mobile-scroll-container {
+    -webkit-overflow-scrolling: touch;
+    -webkit-transform: translateZ(0);
+  }
+}
+
+/* Override Material-UI Card default styles for mobile */
+@media (max-width: 600px) {
+  .MuiCard-root {
+    height: 100vh !important;
+    max-height: 100vh !important;
+  }
+  
+  .MuiCardContent-root {
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
 }
 
 code {

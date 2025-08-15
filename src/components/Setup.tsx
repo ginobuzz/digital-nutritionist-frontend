@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Card,
@@ -38,6 +38,16 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Debug logging for mobile scrolling issues
+  useEffect(() => {
+    if (isMobile) {
+      console.log('Setup component mounted on mobile device');
+      console.log('Active step:', activeStep);
+      console.log('Window height:', window.innerHeight);
+      console.log('Document height:', document.documentElement.scrollHeight);
+    }
+  }, [isMobile, activeStep]);
   const [userData, setUserData] = useState<Partial<User>>({
     name: '',
     age: 25,
@@ -129,7 +139,7 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
         return (
           <Box sx={{ 
             p: { xs: 1, sm: 3 },
-            minHeight: { xs: '300px', sm: 'auto' },
+            minHeight: { xs: 'auto', sm: 'auto' },
             '& .MuiTextField-root': { mb: 3 },
             '& .MuiFormControl-root': { mb: 3 }
           }}>
@@ -227,7 +237,7 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
         return (
           <Box sx={{ 
             p: { xs: 1, sm: 3 },
-            minHeight: { xs: '300px', sm: 'auto' },
+            minHeight: { xs: 'auto', sm: 'auto' },
             '& .MuiTextField-root': { mb: 3 },
             '& .MuiFormControl-root': { mb: 3 }
           }}>
@@ -315,7 +325,7 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
         return (
           <Box sx={{ 
             p: { xs: 1, sm: 3 },
-            minHeight: { xs: '300px', sm: 'auto' },
+            minHeight: { xs: 'auto', sm: 'auto' },
             '& .MuiTextField-root': { mb: 3 },
             '& .MuiFormControl-root': { mb: 3 }
           }}>
@@ -402,7 +412,7 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
         return (
           <Box sx={{ 
             p: { xs: 1, sm: 3 },
-            minHeight: { xs: '300px', sm: 'auto' },
+            minHeight: { xs: 'auto', sm: 'auto' },
             '& .MuiTextField-root': { mb: 3 },
             '& .MuiFormControl-root': { mb: 3 }
           }}>
@@ -411,7 +421,7 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
               gutterBottom 
               sx={{ 
                 fontSize: { xs: '1.25rem', sm: '1.5rem' },
-                mb: { xs: 2, sm: 3 }
+                mb: 3
               }}
             >
               Your Goals
@@ -472,7 +482,7 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
         return (
           <Box sx={{ 
             p: { xs: 1, sm: 3 },
-            minHeight: { xs: '300px', sm: 'auto' },
+            minHeight: { xs: 'auto', sm: 'auto' },
             '& .MuiTextField-root': { mb: 3 },
             '& .MuiFormControl-root': { mb: 3 }
           }}>
@@ -576,23 +586,31 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
       alignItems: 'center', 
       justifyContent: 'center',
       bgcolor: 'background.default',
-      p: { xs: 0, sm: 2 }
+      p: { xs: 0, sm: 2 },
+      WebkitOverflowScrolling: 'touch'
     }}>
-      <Card sx={{ 
-        maxWidth: { xs: '100%', sm: 600 }, 
-        width: '100%',
-        mx: { xs: 0, sm: 0 },
-        borderRadius: { xs: 0, sm: 1 },
-        boxShadow: { xs: 'none', sm: 1 },
-        display: 'flex',
-        flexDirection: 'column',
-        height: { xs: '100vh', sm: 'auto' }
-      }}>
+      <Card 
+        className={isMobile ? 'mobile-setup-container' : ''}
+        sx={{ 
+          maxWidth: { xs: '100%', sm: 600 }, 
+          width: '100%',
+          mx: { xs: 0, sm: 0 },
+          borderRadius: { xs: 0, sm: 1 },
+          boxShadow: { xs: 'none', sm: 1 },
+          display: 'flex',
+          flexDirection: 'column',
+          height: { xs: '100vh', sm: 'auto' },
+          overflow: 'hidden',
+          position: 'relative'
+        }}
+      >
         <CardContent sx={{ 
           p: { xs: 1, sm: 3 },
           display: 'flex',
           flexDirection: 'column',
-          flex: 1
+          flex: 1,
+          overflow: 'hidden',
+          height: '100%'
         }}>
           <Box sx={{ mb: { xs: 2, sm: 4 } }}>
             <Typography 
@@ -646,7 +664,19 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
             </Stepper>
           )}
 
-          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <Box 
+            className="mobile-scroll-container"
+            sx={{ 
+              flex: 1, 
+              display: 'flex', 
+              flexDirection: 'column',
+              overflow: 'auto',
+              minHeight: 0,
+              pb: 2,
+              WebkitOverflowScrolling: 'touch',
+              border: '1px solid transparent'
+            }}
+          >
             {renderStepContent()}
           </Box>
 
@@ -662,7 +692,8 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
             justifyContent: 'space-between', 
             mt: 'auto',
             pt: 3,
-            gap: { xs: 2, sm: 0 }
+            gap: { xs: 2, sm: 0 },
+            flexShrink: 0
           }}>
             <Button
               disabled={activeStep === 0 || loading}
