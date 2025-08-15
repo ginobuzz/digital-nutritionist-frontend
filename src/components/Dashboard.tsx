@@ -87,7 +87,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       case 'current':
         return dailyProgress.totalActual > user.dailyCalorieTarget ? '✗' : '✓';
       case 'planned':
-        return '+';
+        return '';
       default:
         return '';
     }
