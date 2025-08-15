@@ -103,8 +103,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
     <Box sx={{ 
       display: 'flex', 
       flexDirection: 'column', 
-      height: '100vh',
-      bgcolor: '#f5f5f5'
+      height: '100vh'
     }}>
       {/* Main Content */}
       <Box sx={{ flex: 1, p: 2, overflow: 'auto' }}>
