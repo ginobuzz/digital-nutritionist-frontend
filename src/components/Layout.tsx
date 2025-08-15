@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   AppBar,
   Toolbar,
@@ -6,25 +7,19 @@ import {
   Box,
   Container,
   Avatar,
-  IconButton,
-  Drawer,
-  List,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
   useTheme,
-  useMediaQuery
+  useMediaQuery,
+  BottomNavigation,
+  BottomNavigationAction,
+  Paper
 } from '@mui/material';
 import {
-  Menu as MenuIcon,
-  Dashboard,
-  Restaurant,
+  Home,
   Timeline,
-  Chat,
   Person,
-  Close
+  Settings,
+  Chat,
 } from '@mui/icons-material';
-import { useNavigate, useLocation } from 'react-router-dom';
 import { User } from '../types';
 
 interface LayoutProps {
@@ -33,82 +28,54 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children, user }) => {
-  const [drawerOpen, setDrawerOpen] = React.useState(false);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
   const location = useLocation();
 
-  const menuItems = [
-    { text: 'Dashboard', icon: <Dashboard />, path: '/' },
-    { text: 'My Plan', icon: <Restaurant />, path: '/plan' },
-    { text: 'My Reality', icon: <Timeline />, path: '/reality' },
-    { text: 'Chat Coach', icon: <Chat />, path: '/chat' },
-    { text: 'Profile', icon: <Person />, path: '/profile' },
-  ];
-
-  const handleNavigation = (path: string) => {
-    navigate(path);
-    if (isMobile) {
-      setDrawerOpen(false);
+  const handleNavigationChange = (event: React.SyntheticEvent, newValue: number) => {
+    switch (newValue) {
+      case 0:
+        navigate('/');
+        break;
+      case 1:
+        navigate('/plan');
+        break;
+      case 2:
+        navigate('/reality');
+        break;
+      case 3:
+        navigate('/chat');
+        break;
+      case 4:
+        navigate('/profile');
+        break;
+      default:
+        navigate('/');
     }
   };
 
-  const drawer = (
-    <Box sx={{ width: 250 }}>
-      <Box sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
-        <Avatar sx={{ bgcolor: 'primary.main' }}>
-          {user.name.charAt(0)}
-        </Avatar>
-        <Box>
-          <Typography variant="subtitle1" fontWeight="bold">
-            {user.name}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {user.weight}lbs → {user.targetWeight}lbs
-          </Typography>
-        </Box>
-      </Box>
-      <List>
-        {menuItems.map((item) => (
-          <ListItemButton
-            key={item.text}
-            onClick={() => handleNavigation(item.path)}
-            selected={location.pathname === item.path}
-            sx={{
-              '&.Mui-selected': {
-                backgroundColor: 'primary.light',
-                '&:hover': {
-                  backgroundColor: 'primary.light',
-                },
-              },
-            }}
-          >
-            <ListItemIcon sx={{ color: location.pathname === item.path ? 'primary.main' : 'inherit' }}>
-              {item.icon}
-            </ListItemIcon>
-            <ListItemText primary={item.text} />
-          </ListItemButton>
-        ))}
-      </List>
-    </Box>
-  );
+  const navigationItems = [
+    { label: 'Home', icon: <Home />, path: '/' },
+    { label: 'Plan', icon: <Settings />, path: '/plan' },
+    { label: 'Reality', icon: <Timeline />, path: '/reality' },
+    { label: 'Chat', icon: <Chat />, path: '/chat' },
+    { label: 'Profile', icon: <Person />, path: '/profile' },
+  ];
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <AppBar position="static">
         <Toolbar>
-          {isMobile && (
-            <IconButton
-              color="inherit"
-              edge="start"
-              onClick={() => setDrawerOpen(!drawerOpen)}
-              sx={{ mr: 2 }}
-            >
-              <MenuIcon />
-            </IconButton>
-          )}
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+          <Typography 
+            variant="h6" 
+            component="div" 
+            sx={{ 
+              flexGrow: 1, 
+              textAlign: 'center',
+              fontWeight: 'bold'
+            }}
+          >
             Digital Nutritionist
           </Typography>
           {!isMobile && (
@@ -122,50 +89,12 @@ const Layout: React.FC<LayoutProps> = ({ children, user }) => {
       </AppBar>
 
       <Box sx={{ display: 'flex', flex: 1 }}>
-        {!isMobile && (
-          <Drawer
-            variant="permanent"
-            sx={{
-              width: 250,
-              flexShrink: 0,
-              '& .MuiDrawer-paper': {
-                width: 250,
-                boxSizing: 'border-box',
-                top: '64px',
-                height: 'calc(100vh - 64px)',
-              },
-            }}
-          >
-            {drawer}
-          </Drawer>
-        )}
-
-        {isMobile && (
-          <Drawer
-            anchor="left"
-            open={drawerOpen}
-            onClose={() => setDrawerOpen(false)}
-            sx={{
-              '& .MuiDrawer-paper': {
-                width: 250,
-                boxSizing: 'border-box',
-              },
-            }}
-          >
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', p: 1 }}>
-              <IconButton onClick={() => setDrawerOpen(false)}>
-                <Close />
-              </IconButton>
-            </Box>
-            {drawer}
-          </Drawer>
-        )}
-
         <Box
           component="main"
           sx={{
             flexGrow: 1,
             p: 3,
+            pb: 8, // Add bottom padding to account for fixed bottom navigation
             backgroundColor: 'grey.50',
             minHeight: 'calc(100vh - 64px)',
           }}
@@ -175,6 +104,23 @@ const Layout: React.FC<LayoutProps> = ({ children, user }) => {
           </Container>
         </Box>
       </Box>
+      
+      {/* Bottom Navigation */}
+      <Paper sx={{ position: 'fixed', bottom: 0, left: 0, right: 0 }} elevation={3}>
+        <BottomNavigation
+          showLabels
+          value={navigationItems.findIndex(item => item.path === location.pathname) || 0}
+          onChange={handleNavigationChange}
+        >
+          {navigationItems.map((item) => (
+            <BottomNavigationAction
+              key={item.label}
+              label={item.label}
+              icon={item.icon}
+            />
+          ))}
+        </BottomNavigation>
+      </Paper>
     </Box>
   );
 };

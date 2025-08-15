@@ -4,19 +4,12 @@ import {
   Typography,
   LinearProgress,
   IconButton,
-  BottomNavigation,
-  BottomNavigationAction,
-  Paper,
   Card,
   CardContent,
   Chip,
 } from '@mui/material';
 import {
   Add,
-  Home,
-  Timeline,
-  Person,
-  Settings,
 } from '@mui/icons-material';
 import { User, DailyProgress } from '../types';
 import { mockAPI } from '../data/mockData';
@@ -29,7 +22,6 @@ interface DashboardProps {
 const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   const [dailyProgress, setDailyProgress] = useState<DailyProgress | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedTab, setSelectedTab] = useState(0);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -217,20 +209,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
           ))}
         </Box>
       </Box>
-
-      {/* Bottom Navigation */}
-      <Paper sx={{ position: 'fixed', bottom: 0, left: 0, right: 0 }} elevation={3}>
-        <BottomNavigation
-          value={selectedTab}
-          onChange={(event, newValue) => setSelectedTab(newValue)}
-          showLabels
-        >
-          <BottomNavigationAction label="Home" icon={<Home />} />
-          <BottomNavigationAction label="Progress" icon={<Timeline />} />
-          <BottomNavigationAction label="Profile" icon={<Person />} />
-          <BottomNavigationAction label="Settings" icon={<Settings />} />
-        </BottomNavigation>
-      </Paper>
     </Box>
   );
 };
