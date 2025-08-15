@@ -141,7 +141,17 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
               <Add />
             </IconButton>
           </Box>
-          <Typography variant="body1" sx={{ textAlign: 'center', fontWeight: 500 }}>
+          <Typography 
+            variant="body1" 
+            sx={{ 
+              textAlign: 'left', 
+              fontWeight: 500,
+              maxWidth: '100%',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}
+          >
             Today: {Math.round(dailyProgress.totalActual)}/{Math.round(user.dailyCalorieTarget)} calories
           </Typography>
         </Box>
