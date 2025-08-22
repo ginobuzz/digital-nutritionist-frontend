@@ -43,6 +43,9 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
   const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [heightFeetInput, setHeightFeetInput] = useState<string>(() => (5).toString());
+  const [heightInchesInput, setHeightInchesInput] = useState<string>(() => (8).toString());
+  const [weightInput, setWeightInput] = useState<string>(() => (150).toString());
 
   // Debug logging for mobile scrolling issues
   useEffect(() => {
@@ -236,8 +239,11 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
               fullWidth
               label="Age"
               type="number"
-              value={userData.age}
-              onChange={(e) => updateUserData('age', parseIntOr(userData.age || 0, e.target.value))}
+              value={userData.age?.toString() ?? ''}
+              onChange={(e) => {
+                const next = e.target.value;
+                updateUserData('age', next === '' ? 0 : parseInt(next, 10));
+              }}
               inputProps={{ min: 13, max: 100 }}
               size={isMobile ? "small" : "medium"}
               sx={{ 
@@ -326,11 +332,15 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
               <TextField
                 label="Height (feet)"
                 type="number"
-                value={userData.height?.feet}
-                onChange={(e) => updateUserData('height', { 
-                  ...userData.height!, 
-                  feet: parseIntOr(userData.height?.feet || 0, e.target.value) 
-                })}
+                value={heightFeetInput}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setHeightFeetInput(next);
+                  updateUserData('height', {
+                    ...userData.height!,
+                    feet: next === '' ? 0 : parseInt(next, 10)
+                  });
+                }}
                 inputProps={{ min: 3, max: 8 }}
                 size={isMobile ? "small" : "medium"}
                 sx={{ 
@@ -343,11 +353,15 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
               <TextField
                 label="Height (inches)"
                 type="number"
-                value={userData.height?.inches}
-                onChange={(e) => updateUserData('height', { 
-                  ...userData.height!, 
-                  inches: parseIntOr(userData.height?.inches || 0, e.target.value) 
-                })}
+                value={heightInchesInput}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setHeightInchesInput(next);
+                  updateUserData('height', {
+                    ...userData.height!,
+                    inches: next === '' ? 0 : parseInt(next, 10)
+                  });
+                }}
                 inputProps={{ min: 0, max: 11 }}
                 size={isMobile ? "small" : "medium"}
                 sx={{ 
@@ -363,8 +377,12 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
               fullWidth
               label="Current Weight (lbs)"
               type="number"
-              value={userData.weight}
-              onChange={(e) => updateUserData('weight', parseIntOr(userData.weight || 0, e.target.value))}
+              value={weightInput}
+              onChange={(e) => {
+                const next = e.target.value;
+                setWeightInput(next);
+                updateUserData('weight', next === '' ? 0 : parseInt(next, 10));
+              }}
               inputProps={{ min: 50, max: 500 }}
               size={isMobile ? "small" : "medium"}
               sx={{ 
@@ -496,8 +514,11 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
               fullWidth
               label="Target Weight (lbs)"
               type="number"
-              value={userData.targetWeight}
-              onChange={(e) => updateUserData('targetWeight', parseIntOr(userData.targetWeight || 0, e.target.value))}
+              value={userData.targetWeight?.toString() ?? ''}
+              onChange={(e) => {
+                const next = e.target.value;
+                updateUserData('targetWeight', next === '' ? 0 : parseInt(next, 10));
+              }}
               inputProps={{ min: 50, max: 500 }}
               size={isMobile ? "small" : "medium"}
               sx={{ 
@@ -621,14 +642,30 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
 
   const canProceed = () => {
     switch (activeStep) {
-      case 0:
-        return userData.name && userData.age && userData.gender;
-      case 1:
-        return userData.height?.feet && userData.height?.inches && userData.weight;
+      case 0: {
+        const hasName = Boolean(userData.name);
+        const hasAge = typeof userData.age === 'number' && !Number.isNaN(userData.age) && userData.age >= 13;
+        const hasGender = Boolean(userData.gender);
+        return hasName && hasAge && hasGender;
+      }
+      case 1: {
+        const feet = userData.height?.feet;
+        const inches = userData.height?.inches;
+        const weight = userData.weight;
+        const feetOk = typeof feet === 'number' && !Number.isNaN(feet) && feet >= 3 && feet <= 8;
+        const inchesOk = typeof inches === 'number' && !Number.isNaN(inches) && inches >= 0 && inches <= 11; // allow 0
+        const weightOk = typeof weight === 'number' && !Number.isNaN(weight) && weight >= 50;
+        return feetOk && inchesOk && weightOk;
+      }
       case 2:
-        return userData.activityLevel;
-      case 3:
-        return userData.targetWeight && userData.targetDate;
+        return Boolean(userData.activityLevel);
+      case 3: {
+        const tw = userData.targetWeight;
+        const td = userData.targetDate;
+        const twOk = typeof tw === 'number' && !Number.isNaN(tw) && tw >= 50;
+        const tdOk = td instanceof Date && !Number.isNaN(td.getTime());
+        return twOk && tdOk;
+      }
       default:
         return true;
     }
