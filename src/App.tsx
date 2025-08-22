@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 
@@ -10,8 +10,10 @@ import Chat from './components/Chat';
 import Profile from './components/Profile';
 import Setup from './components/Setup';
 import ApiTest from './components/ApiTest';
+import SignIn from './components/SignIn';
 import { User } from './types';
 import { calculateDailyExpenditure } from './utils/calculations';
+import { apiService } from './services/api';
 
 // Create a custom theme
 const theme = createTheme({
@@ -77,9 +79,17 @@ function App() {
   const [setupComplete, setSetupComplete] = useState(false);
 
   useEffect(() => {
-    // Check if user has completed setup (in a real app, this would check localStorage or API)
-    // For now, we'll start with setup incomplete
-    setSetupComplete(false);
+    const token = localStorage.getItem('dn_access_token');
+    const storedUser = localStorage.getItem('user');
+    if (token) {
+      apiService.setAuthToken(token);
+    }
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+      setSetupComplete(true);
+    } else {
+      setSetupComplete(false);
+    }
   }, []);
 
   const handleSetupComplete = (setupUser: User) => {
@@ -114,7 +124,32 @@ function App() {
     );
   }
 
-  // If setup is not complete, show setup flow
+  // If not authenticated, show unauthenticated router with SignIn and Setup
+  if (!localStorage.getItem('dn_access_token')) {
+    return (
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Router>
+          <Routes>
+            <Route
+              path="/signin"
+              element={
+                <SignIn onSignedIn={(me: User) => {
+                  setUser(me);
+                  setSetupComplete(true);
+                }} />
+              }
+            />
+            <Route path="/setup" element={<Setup onComplete={handleSetupComplete} />} />
+            <Route path="/" element={<Navigate to="/signin" replace />} />
+            <Route path="*" element={<Navigate to="/signin" replace />} />
+          </Routes>
+        </Router>
+      </ThemeProvider>
+    );
+  }
+
+  // If signed-in but setup not complete, show setup flow
   if (!setupComplete) {
     return (
       <ThemeProvider theme={theme}>
