@@ -157,12 +157,6 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
     setUserData(prev => ({ ...prev, [field]: value }));
   };
 
-  const parseIntOr = (current: number, next: string) => {
-    if (next === '' || next === undefined || next === null) return current;
-    const parsed = parseInt(next, 10);
-    return Number.isNaN(parsed) ? current : parsed;
-  };
-
   const renderStepContent = () => {
     switch (activeStep) {
       case 0:
