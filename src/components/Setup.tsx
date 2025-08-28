@@ -22,9 +22,12 @@ import {
   CircularProgress,
   useTheme,
   useMediaQuery,
+  Link,
 } from '@mui/material';
+import { Link as RouterLink } from 'react-router-dom';
 import { User } from '../types';
 import { apiService, convertUserToBackend, convertUserFromBackend } from '../services/api';
+import { authService } from '../services/auth';
 import { calculateDailyExpenditure } from '../utils/calculations';
 
 interface SetupProps {
@@ -38,6 +41,11 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [heightFeetInput, setHeightFeetInput] = useState<string>(() => (5).toString());
+  const [heightInchesInput, setHeightInchesInput] = useState<string>(() => (8).toString());
+  const [weightInput, setWeightInput] = useState<string>(() => (150).toString());
 
   // Debug logging for mobile scrolling issues
   useEffect(() => {
@@ -107,9 +115,25 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
           dailyDeficitTarget: dailyDeficitTarget,
         };
 
-        // Convert to backend format and create user
+        // Convert to backend format and signup user via auth
         const backendUserData = convertUserToBackend(completeUser);
-        const createdUser = await apiService.createUser(backendUserData);
+        const signupPayload = { ...backendUserData, email: email || backendUserData.email, password: password || backendUserData.password } as any;
+        await authService.signup(signupPayload);
+
+        // Immediately log in to obtain token
+        const loginResult = await authService.login(signupPayload.email, signupPayload.password);
+        authService.setToken(loginResult.access_token);
+        apiService.setAuthToken(loginResult.access_token);
+
+        // Fetch current user, fallback to id from token if /me unsupported
+        let createdUser;
+        try {
+          createdUser = await apiService.getCurrentUser();
+        } catch {
+          const id = authService.getUserIdFromToken(loginResult.access_token);
+          if (id === null || id === undefined) throw new Error('Unable to resolve user from token');
+          createdUser = await apiService.getUser(String(id));
+        }
         
         // Convert back to frontend format
         const frontendUser = convertUserFromBackend(createdUser);
@@ -131,6 +155,12 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
 
   const updateUserData = (field: keyof User, value: any) => {
     setUserData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const parseIntOr = (current: number, next: string) => {
+    if (next === '' || next === undefined || next === null) return current;
+    const parsed = parseInt(next, 10);
+    return Number.isNaN(parsed) ? current : parsed;
   };
 
   const renderStepContent = () => {
@@ -176,13 +206,44 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
                 }
               }}
             />
+
+            <TextField
+              fullWidth
+              label="Email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              size={isMobile ? "small" : "medium"}
+              sx={{ 
+                '& .MuiInputBase-root': {
+                  height: { xs: '48px', sm: '56px' }
+                }
+              }}
+            />
+
+            <TextField
+              fullWidth
+              label="Password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              size={isMobile ? "small" : "medium"}
+              sx={{ 
+                '& .MuiInputBase-root': {
+                  height: { xs: '48px', sm: '56px' }
+                }
+              }}
+            />
             
             <TextField
               fullWidth
               label="Age"
               type="number"
-              value={userData.age}
-              onChange={(e) => updateUserData('age', parseInt(e.target.value))}
+              value={userData.age?.toString() ?? ''}
+              onChange={(e) => {
+                const next = e.target.value;
+                updateUserData('age', next === '' ? 0 : parseInt(next, 10));
+              }}
               inputProps={{ min: 13, max: 100 }}
               size={isMobile ? "small" : "medium"}
               sx={{ 
@@ -271,11 +332,15 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
               <TextField
                 label="Height (feet)"
                 type="number"
-                value={userData.height?.feet}
-                onChange={(e) => updateUserData('height', { 
-                  ...userData.height!, 
-                  feet: parseInt(e.target.value) 
-                })}
+                value={heightFeetInput}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setHeightFeetInput(next);
+                  updateUserData('height', {
+                    ...userData.height!,
+                    feet: next === '' ? 0 : parseInt(next, 10)
+                  });
+                }}
                 inputProps={{ min: 3, max: 8 }}
                 size={isMobile ? "small" : "medium"}
                 sx={{ 
@@ -288,11 +353,15 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
               <TextField
                 label="Height (inches)"
                 type="number"
-                value={userData.height?.inches}
-                onChange={(e) => updateUserData('height', { 
-                  ...userData.height!, 
-                  inches: parseInt(e.target.value) 
-                })}
+                value={heightInchesInput}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setHeightInchesInput(next);
+                  updateUserData('height', {
+                    ...userData.height!,
+                    inches: next === '' ? 0 : parseInt(next, 10)
+                  });
+                }}
                 inputProps={{ min: 0, max: 11 }}
                 size={isMobile ? "small" : "medium"}
                 sx={{ 
@@ -308,8 +377,12 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
               fullWidth
               label="Current Weight (lbs)"
               type="number"
-              value={userData.weight}
-              onChange={(e) => updateUserData('weight', parseInt(e.target.value))}
+              value={weightInput}
+              onChange={(e) => {
+                const next = e.target.value;
+                setWeightInput(next);
+                updateUserData('weight', next === '' ? 0 : parseInt(next, 10));
+              }}
               inputProps={{ min: 50, max: 500 }}
               size={isMobile ? "small" : "medium"}
               sx={{ 
@@ -441,8 +514,11 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
               fullWidth
               label="Target Weight (lbs)"
               type="number"
-              value={userData.targetWeight}
-              onChange={(e) => updateUserData('targetWeight', parseInt(e.target.value))}
+              value={userData.targetWeight?.toString() ?? ''}
+              onChange={(e) => {
+                const next = e.target.value;
+                updateUserData('targetWeight', next === '' ? 0 : parseInt(next, 10));
+              }}
               inputProps={{ min: 50, max: 500 }}
               size={isMobile ? "small" : "medium"}
               sx={{ 
@@ -566,14 +642,30 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
 
   const canProceed = () => {
     switch (activeStep) {
-      case 0:
-        return userData.name && userData.age && userData.gender;
-      case 1:
-        return userData.height?.feet && userData.height?.inches && userData.weight;
+      case 0: {
+        const hasName = Boolean(userData.name);
+        const hasAge = typeof userData.age === 'number' && !Number.isNaN(userData.age) && userData.age >= 13;
+        const hasGender = Boolean(userData.gender);
+        return hasName && hasAge && hasGender;
+      }
+      case 1: {
+        const feet = userData.height?.feet;
+        const inches = userData.height?.inches;
+        const weight = userData.weight;
+        const feetOk = typeof feet === 'number' && !Number.isNaN(feet) && feet >= 3 && feet <= 8;
+        const inchesOk = typeof inches === 'number' && !Number.isNaN(inches) && inches >= 0 && inches <= 11; // allow 0
+        const weightOk = typeof weight === 'number' && !Number.isNaN(weight) && weight >= 50;
+        return feetOk && inchesOk && weightOk;
+      }
       case 2:
-        return userData.activityLevel;
-      case 3:
-        return userData.targetWeight && userData.targetDate;
+        return Boolean(userData.activityLevel);
+      case 3: {
+        const tw = userData.targetWeight;
+        const td = userData.targetDate;
+        const twOk = typeof tw === 'number' && !Number.isNaN(tw) && tw >= 50;
+        const tdOk = td instanceof Date && !Number.isNaN(td.getTime());
+        return twOk && tdOk;
+      }
       default:
         return true;
     }
@@ -628,6 +720,10 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
               sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
             >
               Create your personalized nutrition plan
+            </Typography>
+            <Typography variant="body2" align="center" sx={{ mt: 1 }}>
+              Already have an account?{' '}
+              <Link component={RouterLink} to="/signin">Sign in</Link>
             </Typography>
           </Box>
 

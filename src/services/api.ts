@@ -133,9 +133,14 @@ export const convertWeightLogFromBackend = (logResponse: WeightLogResponse): Wei
 // API service class
 class ApiService {
   private baseUrl: string;
+  private authToken: string | null = null;
 
   constructor(baseUrl: string = API_BASE_URL) {
     this.baseUrl = baseUrl;
+  }
+
+  setAuthToken(token: string | null) {
+    this.authToken = token;
   }
 
   private async request<T>(
@@ -143,12 +148,16 @@ class ApiService {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      ...options.headers,
+    };
+    if (this.authToken) {
+      (headers as any).Authorization = `Bearer ${this.authToken}`;
+    }
     const response = await fetch(url, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        ...options.headers,
-      },
+      headers,
       mode: 'cors',
       credentials: 'omit',
       ...options,
@@ -217,6 +226,10 @@ class ApiService {
 
   async getUser(userId: string): Promise<UserResponse> {
     return this.request<UserResponse>(`/users/${userId}`);
+  }
+
+  async getCurrentUser(): Promise<UserResponse> {
+    return this.request<UserResponse>(`/users/me`);
   }
 
   async updateUser(userId: string, userData: Partial<CreateUserRequest>): Promise<UserResponse> {
