@@ -1,7 +1,7 @@
 import { User, WeightLog } from '../types';
 
-// Use absolute URLs to avoid proxy issues
-const API_BASE_URL = 'https://sundaymornings-backend-297759956270.europe-west1.run.app';
+// Use env-configurable base URL for local dev; fallback to production
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://sundaymornings-backend-297759956270.europe-west1.run.app';
 
 // API Response types based on FastAPI backend
 export interface UserResponse {
