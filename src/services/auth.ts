@@ -74,7 +74,11 @@ export const authService = {
           'Network or CORS error: Unable to reach authentication service. Ensure the backend allows this origin and method.'
         );
       }
-      throw error as Error;
+      // Always throw proper Error instances for linter and reliability
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error(String(error));
     }
   },
   async signup(payload: any): Promise<SignupResponse> {
@@ -105,7 +109,11 @@ export const authService = {
           'Network or CORS error: Your browser blocked the signup request. Ask the backend to enable CORS for this origin (e.g., https://glockstock.github.io).'
         );
       }
-      throw error as Error;
+      // Always throw proper Error instances for linter and reliability
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error(String(error));
     }
   },
   logout() {
