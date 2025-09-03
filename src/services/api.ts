@@ -164,6 +164,18 @@ class ApiService {
     });
 
     if (!response.ok) {
+      // Special-case 404 for endpoints that might not exist yet in dev (e.g., weight logs)
+      if (response.status === 404) {
+        // If the caller expects an array, return empty array; otherwise throw
+        try {
+          // Peek at method and endpoint to detect list endpoints we control
+          const isGet = (options.method ?? 'GET').toString().toUpperCase() === 'GET';
+          const looksLikeWeightLogs = endpoint.includes('/weight-logs') || endpoint.includes('/weight_logs');
+          if (isGet && looksLikeWeightLogs) {
+            return ([] as unknown) as T;
+          }
+        } catch {}
+      }
       let errorMessage = `API request failed: ${response.status} ${response.statusText}`;
       
       // Try to get more detailed error information for 422 errors

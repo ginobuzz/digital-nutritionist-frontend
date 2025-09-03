@@ -85,7 +85,16 @@ function App() {
       apiService.setAuthToken(token);
     }
     if (storedUser) {
-      setUser(JSON.parse(storedUser));
+      try {
+        const raw = JSON.parse(storedUser);
+        // Revive date-like fields
+        if (raw && raw.targetDate && typeof raw.targetDate === 'string') {
+          raw.targetDate = new Date(raw.targetDate);
+        }
+        setUser(raw);
+      } catch {
+        setUser(null);
+      }
       setSetupComplete(true);
     } else {
       setSetupComplete(false);
@@ -154,7 +163,12 @@ function App() {
     return (
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <Setup onComplete={handleSetupComplete} />
+        <Router>
+          <Routes>
+            <Route path="/setup" element={<Setup onComplete={handleSetupComplete} />} />
+            <Route path="*" element={<Navigate to="/setup" replace />} />
+          </Routes>
+        </Router>
       </ThemeProvider>
     );
   }
@@ -166,10 +180,13 @@ function App() {
         <Layout user={user!}>
           <Routes>
             <Route path="/" element={<Dashboard user={user!} />} />
+            <Route path="/setup" element={<Navigate to="/" replace />} />
+            <Route path="/signin" element={<Navigate to="/" replace />} />
             <Route path="/log" element={<Log />} />
             <Route path="/chat" element={<Chat />} />
             <Route path="/profile" element={<Profile user={user!} onUserUpdate={setUser} />} />
             <Route path="/api-test" element={<ApiTest />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Layout>
       </Router>
