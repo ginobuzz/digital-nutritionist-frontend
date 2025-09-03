@@ -3,6 +3,7 @@ const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://sundaymornin
 export interface LoginResponse {
   access_token: string;
   token_type: string;
+  user?: { id: string | number; email?: string };
 }
 
 export interface SignupResponse {
@@ -25,6 +26,9 @@ export const authService = {
   },
   getUserIdFromToken(token: string): string | number | null {
     try {
+      // Our backend may return a non-JWT token (e.g., itsdangerous). In that case,
+      // there will be no "." segments and we cannot decode a user id from it.
+      if (typeof token !== 'string' || !token.includes('.')) return null;
       const [, payload] = token.split('.');
       if (!payload) return null;
       const json = JSON.parse(atob(payload));
@@ -53,7 +57,16 @@ export const authService = {
         const msg = await res.text().catch(() => '');
         throw new Error(`Login failed: ${res.status} ${res.statusText}${msg ? ` - ${msg}` : ''}`);
       }
-      return res.json();
+      const data = await res.json();
+      // Normalize backend response (which currently returns { token, ...user fields })
+      const normalized: LoginResponse = {
+        access_token: data.access_token ?? data.token,
+        token_type: data.token_type ?? 'bearer',
+        user: data.user
+          ? { id: data.user.id, email: data.user.email }
+          : (typeof data.id !== 'undefined' ? { id: data.id, email: data.email } : undefined),
+      };
+      return normalized;
     } catch (error) {
       if (error instanceof TypeError) {
         // Network/CORS errors surface as TypeError in fetch
@@ -77,7 +90,14 @@ export const authService = {
         const msg = await res.text().catch(() => '');
         throw new Error(`Signup failed: ${res.status} ${res.statusText}${msg ? ` - ${msg}` : ''}`);
       }
-      return res.json();
+      const data = await res.json();
+      // Provide fallback fields so callers can pull user id directly
+      return {
+        access_token: data.access_token ?? data.token,
+        token_type: data.token_type ?? 'bearer',
+        id: data.user?.id ?? data.id,
+        email: data.user?.email ?? data.email,
+      };
     } catch (error) {
       if (error instanceof TypeError) {
         // Network/CORS errors surface as TypeError in fetch

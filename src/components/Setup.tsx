@@ -118,15 +118,18 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
         // Convert to backend format and signup user via auth
         const backendUserData = convertUserToBackend(completeUser);
         const signupPayload = { ...backendUserData, email: email || backendUserData.email, password: password || backendUserData.password } as any;
-        await authService.signup(signupPayload);
+        const signupResult = await authService.signup(signupPayload);
 
         // Immediately log in to obtain token
         const loginResult = await authService.login(signupPayload.email, signupPayload.password);
         authService.setToken(loginResult.access_token);
         apiService.setAuthToken(loginResult.access_token);
 
-        // Resolve user id from token and fetch user
-        const id = authService.getUserIdFromToken(loginResult.access_token);
+        // Resolve user id from auth response first, falling back to token
+        const idFromAuth = loginResult.user?.id ?? signupResult.id;
+        const id = (idFromAuth !== undefined && idFromAuth !== null)
+          ? idFromAuth
+          : authService.getUserIdFromToken(loginResult.access_token);
         if (id === null || id === undefined) throw new Error('Unable to resolve user from token');
         const createdUser = await apiService.getUser(String(id));
         

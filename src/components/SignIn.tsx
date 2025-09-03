@@ -20,11 +20,16 @@ const SignIn: React.FC<SignInProps> = ({ onSignedIn }) => {
     setErr(null);
     setLoading(true);
     try {
-      const { access_token } = await authService.login(email, password);
-      authService.setToken(access_token);
-      apiService.setAuthToken(access_token);
+      const loginResult = await authService.login(email, password);
+      const accessToken = loginResult.access_token;
+      authService.setToken(accessToken);
+      apiService.setAuthToken(accessToken);
 
-      const id = authService.getUserIdFromToken(access_token);
+      // Prefer user id returned from auth response; fall back to token decoding
+      const idFromAuth = loginResult.user?.id;
+      const id = (idFromAuth !== undefined && idFromAuth !== null)
+        ? idFromAuth
+        : authService.getUserIdFromToken(accessToken);
       if (id === null || id === undefined) throw new Error('Unable to resolve user from token');
       const userResponse = await apiService.getUser(String(id));
       const user = convertUserFromBackend(userResponse);
