@@ -24,15 +24,9 @@ const SignIn: React.FC<SignInProps> = ({ onSignedIn }) => {
       authService.setToken(access_token);
       apiService.setAuthToken(access_token);
 
-      let userResponse;
-      try {
-        userResponse = await apiService.getCurrentUser();
-      } catch {
-        // Fallback: decode user id from token and fetch by id
-        const id = authService.getUserIdFromToken(access_token);
-        if (id === null || id === undefined) throw new Error('Unable to resolve user from token');
-        userResponse = await apiService.getUser(String(id));
-      }
+      const id = authService.getUserIdFromToken(access_token);
+      if (id === null || id === undefined) throw new Error('Unable to resolve user from token');
+      const userResponse = await apiService.getUser(String(id));
       const user = convertUserFromBackend(userResponse);
       localStorage.setItem('user', JSON.stringify(user));
       localStorage.setItem('setupComplete', 'true');

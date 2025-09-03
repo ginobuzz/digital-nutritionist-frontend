@@ -125,15 +125,10 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
         authService.setToken(loginResult.access_token);
         apiService.setAuthToken(loginResult.access_token);
 
-        // Fetch current user, fallback to id from token if /me unsupported
-        let createdUser;
-        try {
-          createdUser = await apiService.getCurrentUser();
-        } catch {
-          const id = authService.getUserIdFromToken(loginResult.access_token);
-          if (id === null || id === undefined) throw new Error('Unable to resolve user from token');
-          createdUser = await apiService.getUser(String(id));
-        }
+        // Resolve user id from token and fetch user
+        const id = authService.getUserIdFromToken(loginResult.access_token);
+        if (id === null || id === undefined) throw new Error('Unable to resolve user from token');
+        const createdUser = await apiService.getUser(String(id));
         
         // Convert back to frontend format
         const frontendUser = convertUserFromBackend(createdUser);

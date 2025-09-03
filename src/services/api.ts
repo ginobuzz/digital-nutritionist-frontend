@@ -218,7 +218,7 @@ class ApiService {
   // User endpoints
   async createUser(userData: CreateUserRequest): Promise<UserResponse> {
     console.log('Sending user data to backend:', userData);
-    return this.request<UserResponse>('/users/', {
+    return this.request<UserResponse>('/users', {
       method: 'POST',
       body: JSON.stringify(userData),
     });
@@ -228,9 +228,7 @@ class ApiService {
     return this.request<UserResponse>(`/users/${userId}`);
   }
 
-  async getCurrentUser(): Promise<UserResponse> {
-    return this.request<UserResponse>(`/users/me`);
-  }
+  
 
   async updateUser(userId: string, userData: Partial<CreateUserRequest>): Promise<UserResponse> {
     return this.request<UserResponse>(`/users/${userId}`, {
@@ -251,7 +249,7 @@ class ApiService {
   }
 
   async createWeightLog(weightLogData: CreateWeightLogRequest): Promise<WeightLogResponse> {
-    return this.request<WeightLogResponse>('/weight-logs/', {
+    return this.request<WeightLogResponse>('/weight-logs', {
       method: 'POST',
       body: JSON.stringify(weightLogData),
     });
