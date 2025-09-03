@@ -41,28 +41,52 @@ export const authService = {
     }
   },
   async login(email: string, password: string): Promise<LoginResponse> {
-    const res = await fetch(`${API_BASE_URL}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
-    if (!res.ok) {
-      const msg = await res.text().catch(() => '');
-      throw new Error(`Login failed: ${res.status} ${res.statusText}${msg ? ` - ${msg}` : ''}`);
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ email, password }),
+        mode: 'cors',
+        credentials: 'omit',
+      });
+      if (!res.ok) {
+        const msg = await res.text().catch(() => '');
+        throw new Error(`Login failed: ${res.status} ${res.statusText}${msg ? ` - ${msg}` : ''}`);
+      }
+      return res.json();
+    } catch (error) {
+      if (error instanceof TypeError) {
+        // Network/CORS errors surface as TypeError in fetch
+        throw new Error(
+          'Network or CORS error: Unable to reach authentication service. Ensure the backend allows this origin and method.'
+        );
+      }
+      throw error as Error;
     }
-    return res.json();
   },
   async signup(payload: any): Promise<SignupResponse> {
-    const res = await fetch(`${API_BASE_URL}/auth/signup`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) {
-      const msg = await res.text().catch(() => '');
-      throw new Error(`Signup failed: ${res.status} ${res.statusText}${msg ? ` - ${msg}` : ''}`);
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(payload),
+        mode: 'cors',
+        credentials: 'omit',
+      });
+      if (!res.ok) {
+        const msg = await res.text().catch(() => '');
+        throw new Error(`Signup failed: ${res.status} ${res.statusText}${msg ? ` - ${msg}` : ''}`);
+      }
+      return res.json();
+    } catch (error) {
+      if (error instanceof TypeError) {
+        // Network/CORS errors surface as TypeError in fetch
+        throw new Error(
+          'Network or CORS error: Your browser blocked the signup request. Ask the backend to enable CORS for this origin (e.g., https://glockstock.github.io).'
+        );
+      }
+      throw error as Error;
     }
-    return res.json();
   },
   logout() {
     this.setToken(null);
