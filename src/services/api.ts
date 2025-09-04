@@ -55,6 +55,16 @@ export interface CreateWeightLogRequest {
   notes?: string;
 }
 
+// Meal log types (align with FastAPI backend models)
+export interface MealLogResponse {
+  id: string;
+  user_id: string | number;
+  date: string; // YYYY-MM-DD
+  meal_type?: string | null;
+  user_description: string;
+  estimated_calories?: number | null;
+}
+
 // Helper functions to convert between frontend and backend formats
 export const convertUserToBackend = (user: User): CreateUserRequest => {
   // Split name into first and last name
@@ -278,6 +288,15 @@ class ApiService {
     await this.request(`/weight-logs/${logId}`, {
       method: 'DELETE',
     });
+  }
+
+  // Meal log list endpoint (date range)
+  async getMealLogs(params: { userId: string | number; start?: Date; end?: Date }): Promise<MealLogResponse[]> {
+    const qs = new URLSearchParams();
+    qs.set('user_id', String(params.userId));
+    if (params.start) qs.set('start', params.start.toISOString().slice(0, 10));
+    if (params.end) qs.set('end', params.end.toISOString().slice(0, 10));
+    return this.request<MealLogResponse[]>(`/meal-logs?${qs.toString()}`);
   }
 }
 
