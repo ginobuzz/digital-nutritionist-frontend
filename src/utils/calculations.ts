@@ -17,11 +17,13 @@ export const cmToFeetInches = (cm: number): { feet: number; inches: number } => 
 export const calculateBMR = (user: User): number => {
   const { weight, height, age, gender } = user;
   const heightCm = feetInchesToCm(height.feet, height.inches);
+  // The app stores weight in pounds; Mifflin-St Jeor expects kilograms
+  const weightKg = weight * 0.45359237;
   
   if (gender === 'male') {
-    return 10 * weight + 6.25 * heightCm - 5 * age + 5;
+    return 10 * weightKg + 6.25 * heightCm - 5 * age + 5;
   } else {
-    return 10 * weight + 6.25 * heightCm - 5 * age - 161;
+    return 10 * weightKg + 6.25 * heightCm - 5 * age - 161;
   }
 };
 
