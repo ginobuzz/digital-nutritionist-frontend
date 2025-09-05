@@ -9,7 +9,7 @@ import {
   Button,
 } from '@mui/material';
 import { User, DailyProgress } from '../types';
-import { mockAPI } from '../data/mockData';
+import { apiService } from '../services/api';
 
 interface DashboardProps {
   user: User;
@@ -19,12 +19,67 @@ interface DashboardProps {
 const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   const [dailyProgress, setDailyProgress] = useState<DailyProgress | null>(null);
   const [loading, setLoading] = useState(true);
+  const [recentEntries, setRecentEntries] = useState<{ date: string; calories: number; status: string; label: string; }[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const progress = await mockAPI.getDailyProgress(new Date());
+        // Determine current user id from persisted user
+        const raw = localStorage.getItem('user');
+        const parsed = raw ? JSON.parse(raw) : null;
+        const userId = parsed?.id || user.id;
+
+        // Fetch today's logs and a few recent days for the list
+        const today = new Date();
+        const start = new Date(today);
+        start.setDate(start.getDate() - 4); // Last 5 days including today
+        const logs = await apiService.getMealLogs({ userId, start, end: today });
+
+        // Aggregate calories per day
+        const caloriesByDate: Record<string, number> = {};
+        for (const log of logs) {
+          const key = log.date; // already YYYY-MM-DD
+          const cals = Number(log.estimated_calories || 0);
+          caloriesByDate[key] = (caloriesByDate[key] || 0) + cals;
+        }
+
+        const todayKey = today.toISOString().slice(0,10);
+        const totalActual = caloriesByDate[todayKey] || 0;
+        const progress: DailyProgress = {
+          date: today,
+          totalPlanned: 0,
+          totalActual,
+          totalBurned: 0,
+          deficit: Math.max(0, user.dailyCalorieTarget - totalActual),
+          meals: [],
+          activities: [],
+          logEntries: [],
+        };
         setDailyProgress(progress);
+
+        // Build recent entries list from the map
+        const entries = Array.from({ length: 5 }, (_, i) => {
+          const d = new Date();
+          d.setDate(d.getDate() - (4 - i));
+          const key = d.toISOString().slice(0, 10);
+          const isToday = key === todayKey;
+          const calories = Math.round(caloriesByDate[key] || 0);
+          let status: string;
+          let statusLabel: string;
+          if (isToday) {
+            status = calories > user.dailyCalorieTarget ? 'over' : 'current';
+            statusLabel = calories > user.dailyCalorieTarget ? 'Over Budget' : 'Current';
+          } else if (calories > 0) {
+            status = calories > user.dailyCalorieTarget ? 'over' : 'under';
+            statusLabel = calories > user.dailyCalorieTarget ? 'Over Budget' : 'On Track';
+          } else {
+            status = 'planned';
+            statusLabel = 'Planned';
+          }
+          const label = isToday ? 'Today' : `${d.getMonth() + 1}/${d.getDate()}`;
+          return { date: label, calories, status, label: statusLabel };
+        });
+        setRecentEntries(entries);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       } finally {
@@ -43,14 +98,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
     return <Typography>No data available</Typography>;
   }
 
-  // Mock daily entries data based on the sketch
-  const dailyEntries = [
-    { date: '8/13', calories: 2900, status: 'over', label: 'Over Budget' },
-    { date: '8/14', calories: 1980, status: 'under', label: 'On Track' },
-    { date: 'Today', calories: Math.round(dailyProgress.totalActual), status: 'current', label: 'Current' },
-    { date: '8/16', calories: 300, status: 'planned', label: 'Planned' },
-    { date: '8/17', calories: 0, status: 'planned', label: 'Planned' },
-  ];
+  // Entries are computed in state from the API response
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -197,7 +245,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
           <Typography variant="h6" sx={{ mb: 1, color: 'text.secondary' }}>
             Recent Days
           </Typography>
-          {dailyEntries.map((entry, index) => (
+          {recentEntries.map((entry, index) => (
             <Card 
               key={index} 
               sx={{ 
