@@ -1,7 +1,7 @@
 # Backend Integration Summary
 
 ## Overview
-Successfully integrated the Digital Nutritionist frontend with the FastAPI backend at `https://sundaymornings-backend-297759956270.europe-west1.run.app`.
+Successfully integrated the Digital Nutritionist frontend with the local FastAPI backend at `http://localhost:8000` (from the `digital-nutritionist-backend` project).
 
 ## Files Created/Modified
 
@@ -107,8 +107,8 @@ const frontendLogs = weightLogs.map(convertWeightLogFromBackend);
 ```
 
 ## Backend URL
-- **Production**: `https://sundaymornings-backend-297759956270.europe-west1.run.app`
-- **Documentation**: `https://sundaymornings-backend-297759956270.europe-west1.run.app/docs`
+- **Local**: `http://localhost:8000`
+- **Documentation**: `http://localhost:8000/docs`
 
 ## Notes
 - All API calls include proper error handling

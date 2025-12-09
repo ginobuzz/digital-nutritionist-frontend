@@ -9,8 +9,10 @@ This directory contains the API service layer that connects the frontend to the 
 
 ## Backend Integration
 
-The frontend connects to the FastAPI backend at:
-`https://sundaymornings-backend-297759956270.europe-west1.run.app`
+By default the frontend points to the local FastAPI backend started from the sibling `digital-nutritionist-backend` folder:
+`http://localhost:8000`
+
+Override the base URL with the `REACT_APP_API_BASE_URL` environment variable when running against a different backend host.
 
 ## API Endpoints
 
