@@ -1,10 +1,12 @@
 import { apiService } from '../services/api';
 
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+
 export const testApiConnection = async (): Promise<{ success: boolean; message: string }> => {
   try {
     // Test the API connection by making a simple request
     // We'll try to get the API docs or health endpoint
-    const response = await fetch('https://sundaymornings-backend-297759956270.europe-west1.run.app/docs');
+    const response = await fetch(`${API_BASE_URL}/docs`);
     
     if (response.ok) {
       return {
