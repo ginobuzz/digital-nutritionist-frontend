@@ -22,9 +22,9 @@ A FastAPI backend that mirrors the REST interface expected by the digital nutrit
    OPENAI_API_KEY=sk-...
    ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
    ```
-3. Run the API:
+3. Run the API (use the virtualenv so dependencies like `fastapi` are available):
    ```bash
-   uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+   python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
    ```
 
 ## Docker Compose for local full-stack dev
