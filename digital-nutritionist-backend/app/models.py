@@ -30,6 +30,34 @@ class WeightLogUpdate(SQLModel):
     notes: Optional[str] = None
 
 
+class MealLogBase(SQLModel):
+    date: date
+    user_description: str
+    meal_type: Optional[str] = None
+    estimated_calories: Optional[int] = None
+
+
+class MealLog(MealLogBase, table=True):
+    __tablename__ = "meal_logs"
+
+    id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True, index=True)
+    user_id: str = Field(foreign_key="users.id", index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    user: "User" = Relationship(back_populates="meal_logs")
+
+
+class MealLogCreate(MealLogBase):
+    user_id: str
+
+
+class MealLogUpdate(SQLModel):
+    date: Optional[date] = None
+    user_description: Optional[str] = None
+    meal_type: Optional[str] = None
+    estimated_calories: Optional[int] = None
+
+
 class UserBase(SQLModel):
     email: str = Field(index=True, unique=True)
     first_name: str
@@ -52,6 +80,7 @@ class User(UserBase, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     weight_logs: list[WeightLog] = Relationship(back_populates="user")
+    meal_logs: list["MealLog"] = Relationship(back_populates="user")
 
 
 class UserCreate(UserBase):
@@ -83,6 +112,14 @@ class UserRead(UserBase):
 class WeightLogRead(WeightLogBase):
     id: str
     user_id: str
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MealLogRead(MealLogBase):
+    id: str
+    user_id: str
+    created_at: datetime
+    updated_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
 
