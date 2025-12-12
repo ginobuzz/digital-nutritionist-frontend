@@ -30,6 +30,11 @@ def signup(*, session: Session = Depends(get_session), payload: UserCreate):
     if existing:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
 
+    try:
+        password_hash = hash_password(payload.password)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
     db_user = User(
         email=payload.email,
         first_name=payload.first_name,
@@ -42,7 +47,7 @@ def signup(*, session: Session = Depends(get_session), payload: UserCreate):
         goal_weight_lb=payload.goal_weight_lb,
         goal_weight_date=payload.goal_weight_date,
         daily_calorie_budget=payload.daily_calorie_budget,
-        password_hash=hash_password(payload.password),
+        password_hash=password_hash,
     )
     session.add(db_user)
     session.commit()
@@ -55,7 +60,13 @@ def signup(*, session: Session = Depends(get_session), payload: UserCreate):
 @router.post("/login", response_model=TokenResponse)
 def login(*, session: Session = Depends(get_session), payload: LoginRequest):
     user = session.exec(select(User).where(User.email == payload.email)).first()
-    if not user or not verify_password(payload.password, user.password_hash):
+    password_valid = False
+    if user:
+        try:
+            password_valid = verify_password(payload.password, user.password_hash)
+        except ValueError:
+            password_valid = False
+    if not user or not password_valid:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
 
     token = create_access_token(user.id, extra_claims={"email": user.email})
