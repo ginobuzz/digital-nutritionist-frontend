@@ -1,7 +1,8 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Optional
 from uuid import uuid4
 
+from pydantic import ConfigDict
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -30,8 +31,12 @@ class WeightLogUpdate(SQLModel):
 
 
 class UserBase(SQLModel):
+    email: str = Field(index=True, unique=True)
     first_name: str
     last_name: str
+    age: Optional[int] = None
+    gender: Optional[str] = None
+    activity_level: Optional[str] = None
     height_in: Optional[float] = None
     starting_weight_lb: Optional[float] = None
     goal_weight_lb: Optional[float] = None
@@ -43,16 +48,24 @@ class User(UserBase, table=True):
     __tablename__ = "users"
 
     id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True, index=True)
+    password_hash: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
     weight_logs: list[WeightLog] = Relationship(back_populates="user")
 
 
 class UserCreate(UserBase):
-    pass
+    password: str
 
 
 class UserUpdate(SQLModel):
+    email: Optional[str] = None
+    password: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+    age: Optional[int] = None
+    gender: Optional[str] = None
+    activity_level: Optional[str] = None
     height_in: Optional[float] = None
     starting_weight_lb: Optional[float] = None
     goal_weight_lb: Optional[float] = None
@@ -62,11 +75,15 @@ class UserUpdate(SQLModel):
 
 class UserRead(UserBase):
     id: str
+    created_at: datetime
+    updated_at: datetime
+    model_config = ConfigDict(from_attributes=True)
 
 
 class WeightLogRead(WeightLogBase):
     id: str
     user_id: str
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PaginatedWeightLogs(SQLModel):

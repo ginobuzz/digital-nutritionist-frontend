@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .db import init_db
-from .routers import chat, users, weight_logs
+from .routers import auth, chat, users, weight_logs
 
 app = FastAPI(title="Digital Nutritionist Backend")
 
@@ -29,3 +29,4 @@ def health_check() -> dict[str, str]:
 app.include_router(users.router)
 app.include_router(weight_logs.router)
 app.include_router(chat.router)
+app.include_router(auth.router)

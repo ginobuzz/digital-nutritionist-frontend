@@ -21,6 +21,7 @@ A FastAPI backend that mirrors the REST interface expected by the digital nutrit
    DATABASE_URL=postgresql+psycopg://user:password@localhost:5432/digital_nutritionist
    OPENAI_API_KEY=sk-...
    ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+   JWT_SECRET_KEY=dev-secret-change-me
    ```
 3. Run the API (use the virtualenv so dependencies like `fastapi` are available):
    ```bash
