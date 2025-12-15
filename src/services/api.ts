@@ -65,6 +65,14 @@ export interface MealLogResponse {
   estimated_calories?: number | null;
 }
 
+export interface CreateMealLogRequest {
+  user_id: string | number;
+  date: string; // YYYY-MM-DD
+  user_description: string;
+  meal_type?: string | null;
+  estimated_calories?: number | null;
+}
+
 // Helper functions to convert between frontend and backend formats
 export const convertUserToBackend = (user: User): CreateUserRequest => {
   // Split name into first and last name
@@ -297,6 +305,13 @@ class ApiService {
     if (params.start) qs.set('start', params.start.toISOString().slice(0, 10));
     if (params.end) qs.set('end', params.end.toISOString().slice(0, 10));
     return this.request<MealLogResponse[]>(`/meal-logs?${qs.toString()}`);
+  }
+
+  async createMealLog(payload: CreateMealLogRequest): Promise<MealLogResponse> {
+    return this.request<MealLogResponse>('/meal-logs', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
   }
 }
 
