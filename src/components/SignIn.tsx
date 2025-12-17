@@ -44,10 +44,30 @@ const SignIn: React.FC<SignInProps> = ({ onSignedIn }) => {
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
-      <Card sx={{ maxWidth: 420, width: '100%' }}>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        p: 2,
+      }}
+    >
+      <Box sx={{ width: '100%', maxWidth: 420 }}>
+        <Box sx={{ textAlign: 'center', mb: 2.5 }}>
+          <Typography variant="h4" sx={{ fontWeight: 900, mb: 0.5 }}>
+            Digital Nutritionist
+          </Typography>
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+            Quick check-ins. Clear progress. Calm coaching.
+          </Typography>
+        </Box>
+
+        <Card>
         <CardContent>
-          <Typography variant="h5" gutterBottom>Sign In</Typography>
+          <Typography variant="h5" gutterBottom sx={{ fontWeight: 900 }}>
+            Welcome back
+          </Typography>
           {err && <Alert severity="error" sx={{ mb: 2 }}>{err}</Alert>}
           <Box component="form" onSubmit={handleSubmit}>
             <TextField fullWidth label="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} sx={{ mb: 2 }} />
@@ -61,11 +81,11 @@ const SignIn: React.FC<SignInProps> = ({ onSignedIn }) => {
             <Link component={RouterLink} to="/setup">Create one</Link>
           </Typography>
         </CardContent>
-      </Card>
+        </Card>
+      </Box>
     </Box>
   );
 };
 
 export default SignIn;
-
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Box, Typography, Avatar, Tooltip, useTheme, useMediaQuery } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import LockIcon from '@mui/icons-material/Lock';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import DirectionsWalkIcon from '@mui/icons-material/DirectionsWalk';
@@ -73,18 +74,21 @@ const JourneyMap: React.FC<JourneyMapProps> = ({ user, completedDays }) => {
   if (isMobile) {
     const mobileNodes = getMobileNodes();
     
-    return (
-      <Box sx={{
-        width: '100%',
-        py: 2,
-        mb: 3,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        background: 'linear-gradient(180deg, #e3f2fd 0%, #fffde7 100%)',
-        borderRadius: 2,
-        boxShadow: 1,
-      }}>
+	    return (
+	      <Box sx={{
+	        width: '100%',
+	        py: 2,
+	        mb: 3,
+	        display: 'flex',
+	        flexDirection: 'column',
+	        alignItems: 'center',
+	        background: `linear-gradient(180deg, ${alpha(theme.palette.primary.main, 0.12)} 0%, ${alpha(
+	          theme.palette.secondary.main,
+	          0.08
+	        )} 100%)`,
+	        borderRadius: 2,
+	        boxShadow: 1,
+	      }}>
         <Typography 
           variant="h6" 
           align="center" 
@@ -115,22 +119,22 @@ const JourneyMap: React.FC<JourneyMapProps> = ({ user, completedDays }) => {
               gap: 2,
               position: 'relative',
             }}>
-              <Avatar
-                sx={{
-                  bgcolor:
-                    status === 'goal' ? 'warning.light'
-                    : status === 'complete' ? 'success.light'
-                    : status === 'missed' ? 'error.light'
-                    : status === 'today' ? 'primary.light'
-                    : 'grey.200',
-                  width: 40,
-                  height: 40,
-                  border: status === 'today' ? '2px solid #1976d2' : undefined,
-                  boxShadow: status === 'goal' ? '0 0 8px 2px #ffeb3b' : undefined,
-                  fontSize: 20,
-                  flexShrink: 0,
-                }}
-              >
+	              <Avatar
+	                sx={{
+	                  bgcolor:
+	                    status === 'goal' ? 'warning.light'
+	                    : status === 'complete' ? 'success.light'
+	                    : status === 'missed' ? 'error.light'
+	                    : status === 'today' ? 'primary.light'
+	                    : 'grey.200',
+	                  width: 40,
+	                  height: 40,
+	                  border: status === 'today' ? `2px solid ${theme.palette.primary.main}` : undefined,
+	                  boxShadow: status === 'goal' ? '0 0 8px 2px #ffeb3b' : undefined,
+	                  fontSize: 20,
+	                  flexShrink: 0,
+	                }}
+	              >
                 {getNodeIcon(status as any)}
               </Avatar>
               
@@ -191,19 +195,22 @@ const JourneyMap: React.FC<JourneyMapProps> = ({ user, completedDays }) => {
   }
 
   // Desktop version (original horizontal layout)
-  return (
-    <Box sx={{
-      width: '100%',
-      overflowX: 'auto',
-      py: 3,
-      mb: 4,
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      background: 'linear-gradient(90deg, #e3f2fd 0%, #fffde7 100%)',
-      borderRadius: 4,
-      boxShadow: 2,
-    }}>
+	  return (
+	    <Box sx={{
+	      width: '100%',
+	      overflowX: 'auto',
+	      py: 3,
+	      mb: 4,
+	      display: 'flex',
+	      flexDirection: 'column',
+	      alignItems: 'center',
+	      background: `linear-gradient(90deg, ${alpha(theme.palette.primary.main, 0.10)} 0%, ${alpha(
+	        theme.palette.secondary.main,
+	        0.08
+	      )} 100%)`,
+	      borderRadius: 4,
+	      boxShadow: 2,
+	    }}>
       <Typography variant="h5" align="center" sx={{ mb: 2, fontWeight: 700 }}>
         Your Weight Loss Journey <span role="img" aria-label="map">🗺️</span>
       </Typography>
@@ -228,25 +235,25 @@ const JourneyMap: React.FC<JourneyMapProps> = ({ user, completedDays }) => {
             flexShrink: 0, // Prevent nodes from shrinking
           }}>
             <Tooltip title={getDayLabel(i, todayIndex, totalDays)} arrow>
-              <Avatar
-                sx={{
-                  bgcolor:
-                    status === 'goal' ? 'warning.light'
-                    : status === 'complete' ? 'success.light'
-                    : status === 'missed' ? 'error.light'
-                    : status === 'today' ? 'primary.light'
-                    : 'grey.200',
-                  width: 56,
-                  height: 56,
-                  border: status === 'today' ? '3px solid #1976d2' : undefined,
-                  boxShadow: status === 'goal' ? '0 0 12px 2px #ffeb3b' : undefined,
-                  fontSize: 32,
-                  mb: 1,
-                  transition: 'all 0.3s',
-                  position: 'relative',
-                  opacity: status === 'missed' ? 0.7 : 1,
-                }}
-              >
+	              <Avatar
+	                sx={{
+	                  bgcolor:
+	                    status === 'goal' ? 'warning.light'
+	                    : status === 'complete' ? 'success.light'
+	                    : status === 'missed' ? 'error.light'
+	                    : status === 'today' ? 'primary.light'
+	                    : 'grey.200',
+	                  width: 56,
+	                  height: 56,
+	                  border: status === 'today' ? `3px solid ${theme.palette.primary.main}` : undefined,
+	                  boxShadow: status === 'goal' ? '0 0 12px 2px #ffeb3b' : undefined,
+	                  fontSize: 32,
+	                  mb: 1,
+	                  transition: 'all 0.3s',
+	                  position: 'relative',
+	                  opacity: status === 'missed' ? 0.7 : 1,
+	                }}
+	              >
                 {getNodeIcon(status as any)}
               </Avatar>
             </Tooltip>
@@ -255,18 +262,18 @@ const JourneyMap: React.FC<JourneyMapProps> = ({ user, completedDays }) => {
             </Typography>
             {/* Draw whimsical path line */}
             {i < nodes.length - 1 && (
-              <Box
-                sx={{
-                  width: 40,
-                  height: 16,
-                  borderBottom: '4px dotted #90caf9',
-                  borderRadius: '0 0 16px 16px',
-                  position: 'absolute',
-                  left: '50%',
-                  top: 40,
-                  transform: `translateX(0) rotate(${i % 2 === 0 ? 20 : -20}deg)`
-                }}
-              />
+	              <Box
+	                sx={{
+	                  width: 40,
+	                  height: 16,
+	                  borderBottom: `4px dotted ${alpha(theme.palette.primary.main, 0.45)}`,
+	                  borderRadius: '0 0 16px 16px',
+	                  position: 'absolute',
+	                  left: '50%',
+	                  top: 40,
+	                  transform: `translateX(0) rotate(${i % 2 === 0 ? 20 : -20}deg)`
+	                }}
+	              />
             )}
           </Box>
         ))}

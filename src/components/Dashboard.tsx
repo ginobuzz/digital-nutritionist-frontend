@@ -14,7 +14,15 @@ import {
   TextField,
   MenuItem,
   Alert,
+  useTheme,
 } from '@mui/material';
+import { alpha } from '@mui/material/styles';
+import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
+import TodayRoundedIcon from '@mui/icons-material/TodayRounded';
+import TimelineRoundedIcon from '@mui/icons-material/TimelineRounded';
+import { useNavigate } from 'react-router-dom';
 import { User, DailyProgress } from '../types';
 import { apiService } from '../services/api';
 
@@ -24,6 +32,8 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
+  const theme = useTheme();
+  const navigate = useNavigate();
   const [dailyProgress, setDailyProgress] = useState<DailyProgress | null>(null);
   const [loading, setLoading] = useState(true);
   const [recentEntries, setRecentEntries] = useState<{ date: string; calories: number; status: string; label: string; }[]>([]);
@@ -130,30 +140,34 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'over':
-        return '#ff6b6b'; // Red for over budget
+        return theme.palette.error.main;
       case 'under':
-        return '#4caf50'; // Green for on track
+        return theme.palette.success.main;
       case 'current':
-        return dailyProgress.totalActual > user.dailyCalorieTarget ? '#ff6b6b' : '#4caf50';
+        return dailyProgress.totalActual > user.dailyCalorieTarget
+          ? theme.palette.error.main
+          : theme.palette.success.main;
       case 'planned':
-        return '#2196f3'; // Blue for planned
+        return theme.palette.info.main;
       default:
-        return '#757575';
+        return theme.palette.text.secondary;
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'over':
-        return '✗';
+        return <CloseRoundedIcon fontSize="small" />;
       case 'under':
-        return '✓';
+        return <CheckRoundedIcon fontSize="small" />;
       case 'current':
-        return dailyProgress.totalActual > user.dailyCalorieTarget ? '✗' : '✓';
+        return dailyProgress.totalActual > user.dailyCalorieTarget
+          ? <CloseRoundedIcon fontSize="small" />
+          : <CheckRoundedIcon fontSize="small" />;
       case 'planned':
-        return '+';
+        return <AddRoundedIcon fontSize="small" />;
       default:
-        return '';
+        return null;
     }
   };
 
@@ -211,193 +225,157 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   };
 
   return (
-    <Box sx={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
-      minHeight: '100vh',
-      '& .MuiCardContent-root': {
-        height: 'auto !important',
-        minHeight: 'auto !important',
-        maxHeight: 'none !important'
-      }
-    }}>
-      {/* Main Content */}
-      <Box sx={{ flex: 1, p: 2, overflow: 'visible' }}>
-        {/* Progress Bar */}
-        <Box sx={{ 
-          mb: 3, 
-          p: 3, 
-          border: '2px solid #e3f2fd', 
-          borderRadius: 2, 
-          bgcolor: '#f3f8ff',
-          position: 'relative'
-        }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-            <Box sx={{ flex: 1 }}>
-              <LinearProgress
-                variant="determinate"
-                value={Math.min((dailyProgress.totalActual / user.dailyCalorieTarget) * 100, 100)}
-                sx={{ 
-                  height: 12, 
-                  borderRadius: 6,
-                  bgcolor: '#e0e0e0',
-                  '& .MuiLinearProgress-bar': {
-                    bgcolor: dailyProgress.totalActual > user.dailyCalorieTarget ? '#ff6b6b' : '#4caf50'
-                  }
-                }}
-              />
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      {/* Progress */}
+      <Card
+        sx={{
+          overflow: 'hidden',
+          background: `linear-gradient(135deg, ${alpha(
+            theme.palette.primary.main,
+            0.12
+          )} 0%, ${alpha(theme.palette.secondary.main, 0.10)} 60%), ${
+            theme.palette.background.paper
+          }`,
+        }}
+      >
+        <CardContent sx={{ p: 2.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, mb: 1.5 }}>
+            <Box sx={{ minWidth: 0 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                <TodayRoundedIcon sx={{ color: 'text.secondary', fontSize: 18 }} />
+                <Typography variant="overline" sx={{ color: 'text.secondary', lineHeight: 1 }}>
+                  Today
+                </Typography>
+              </Box>
+              <Typography variant="h5" sx={{ lineHeight: 1.1 }}>
+                {Math.round(dailyProgress.totalActual)} / {Math.round(user.dailyCalorieTarget)} kcal
+              </Typography>
+              <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
+                {dailyProgress.totalActual > user.dailyCalorieTarget
+                  ? `Over by ${Math.round(dailyProgress.totalActual - user.dailyCalorieTarget)} kcal`
+                  : `${Math.max(0, Math.round(user.dailyCalorieTarget - dailyProgress.totalActual))} kcal left`}
+              </Typography>
             </Box>
-            <Typography 
+
+            <Button
+              variant="contained"
+              color="primary"
               onClick={openLogDialog}
-              sx={{ 
-                color: '#1976d2',
-                flexShrink: 0,
-                fontSize: '1.5rem',
-                fontWeight: 'bold',
-                cursor: 'pointer',
-                userSelect: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: 32,
-                height: 32,
-                lineHeight: 1
-              }}
+              startIcon={<AddRoundedIcon />}
+              sx={{ flexShrink: 0 }}
             >
-              +
-            </Typography>
+              Log
+            </Button>
           </Box>
-          <Typography 
-            variant="body1" 
-            sx={{ 
-              textAlign: 'left', 
-              fontWeight: 500,
-              maxWidth: '100%',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap'
+
+          <LinearProgress
+            variant="determinate"
+            value={Math.min((dailyProgress.totalActual / user.dailyCalorieTarget) * 100, 100)}
+            sx={{
+              height: 12,
+              borderRadius: 999,
+              bgcolor: alpha(theme.palette.text.primary, 0.06),
+              '& .MuiLinearProgress-bar': {
+                borderRadius: 999,
+                backgroundColor: getStatusColor('current'),
+              },
             }}
-          >
-            Today: {Math.round(dailyProgress.totalActual)}/{Math.round(user.dailyCalorieTarget)} calories
-          </Typography>
-        </Box>
+          />
+        </CardContent>
+      </Card>
 
-        {/* Quick Actions */}
-        <Card sx={{ mb: 3, bgcolor: '#f8f9fa', border: '1px solid #e9ecef' }}>
-          <CardContent>
-            <Typography variant="h6" gutterBottom>
-              Quick Actions
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-              <Button
-                variant="outlined"
-                color="primary"
-                onClick={() => window.location.href = '/log'}
-                sx={{ minWidth: 120 }}
-              >
-                View Log
-              </Button>
-              <Button
-                variant="outlined"
-                color="secondary"
-                onClick={openLogDialog}
-                sx={{ minWidth: 120 }}
-              >
-                Log Food
-              </Button>
-            </Box>
-          </CardContent>
-        </Card>
-
-        {/* Daily Entries */}
-        <Box sx={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
-          gap: 1,
-          mb: 2
-        }}>
-          <Typography variant="h6" sx={{ mb: 1, color: 'text.secondary' }}>
-            Recent Days
+      {/* Quick Actions */}
+      <Card>
+        <CardContent sx={{ p: 2.5 }}>
+          <Typography variant="h6" sx={{ mb: 1.5 }}>
+            Quick Actions
           </Typography>
-          {recentEntries.map((entry, index) => (
-            <Card 
-              key={index} 
-              sx={{ 
-                borderRadius: 2,
-                border: `2px solid ${getStatusColor(entry.status)}`,
-                bgcolor: 'white',
-                minHeight: 'auto',
-                '& .MuiCardContent-root': {
-                  padding: '8px 12px',
-                  '&:last-child': {
-                    paddingBottom: '8px'
-                  },
-                  height: 'auto !important',
-                  minHeight: 'auto !important',
-                  maxHeight: 'none !important'
-                }
+          <Box sx={{ display: 'flex', gap: 1.5 }}>
+            <Button
+              fullWidth
+              variant="outlined"
+              color="primary"
+              onClick={() => navigate('/log')}
+              startIcon={<TimelineRoundedIcon />}
+            >
+              View Log
+            </Button>
+            <Button
+              fullWidth
+              variant="contained"
+              color="secondary"
+              onClick={openLogDialog}
+              startIcon={<AddRoundedIcon />}
+            >
+              Log Food
+            </Button>
+          </Box>
+        </CardContent>
+      </Card>
+
+      {/* Recent Days */}
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <Typography variant="h6" sx={{ color: 'text.secondary', px: 0.5 }}>
+          Recent Days
+        </Typography>
+        {recentEntries.map((entry, index) => {
+          const color = getStatusColor(entry.status);
+          return (
+            <Card
+              key={index}
+              sx={{
+                borderColor: alpha(color, 0.35),
+                backgroundColor: alpha(color, 0.06),
               }}
             >
-              <CardContent sx={{ 
-                p: 0,
-                height: 'auto !important',
-                minHeight: 'auto !important',
-                maxHeight: 'none !important'
-              }}>
-                <Box sx={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'center',
-                  minHeight: '40px'
-                }}>
-                  <Box>
-                    <Typography variant="h6" sx={{ 
-                      fontWeight: 600, 
-                      color: getStatusColor(entry.status),
-                      fontSize: '1rem',
-                      lineHeight: 1.2,
-                      mb: 0.5
-                    }}>
+              <CardContent sx={{ p: 1.75, '&:last-child': { pb: 1.75 } }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography
+                      variant="subtitle1"
+                      sx={{
+                        fontWeight: 900,
+                        color,
+                        lineHeight: 1.2,
+                      }}
+                    >
                       {entry.date}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
+                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                       {entry.calories} kcal
                     </Typography>
                   </Box>
+
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Typography 
-                      variant="h4" 
-                      sx={{ 
-                        color: getStatusColor(entry.status),
-                        fontWeight: 'bold',
-                        fontSize: '1.25rem',
-                        lineHeight: 1,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: 28,
-                        height: 28
+                    <Chip
+                      label={entry.label}
+                      size="small"
+                      sx={{
+                        bgcolor: alpha(color, 0.14),
+                        color,
+                        border: `1px solid ${alpha(color, 0.26)}`,
+                      }}
+                    />
+                    <Box
+                      sx={{
+                        width: 34,
+                        height: 34,
+                        display: 'grid',
+                        placeItems: 'center',
+                        borderRadius: 999,
+                        color,
+                        backgroundColor: alpha(color, 0.14),
+                        border: `1px solid ${alpha(color, 0.26)}`,
                       }}
                     >
                       {getStatusIcon(entry.status)}
-                    </Typography>
+                    </Box>
                   </Box>
                 </Box>
-                <Chip 
-                  label={entry.label} 
-                  size="small" 
-                  sx={{ 
-                    mt: 0.25,
-                    bgcolor: getStatusColor(entry.status),
-                    color: 'white',
-                    fontSize: '0.75rem',
-                    height: '18px'
-                  }} 
-                />
               </CardContent>
             </Card>
-          ))}
-        </Box>
+          );
+        })}
       </Box>
 
       <Dialog open={logDialogOpen} onClose={handleCloseLogDialog} maxWidth="xs" fullWidth>
