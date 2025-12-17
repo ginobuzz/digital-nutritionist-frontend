@@ -669,18 +669,22 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
       display: 'flex', 
       alignItems: 'center', 
       justifyContent: 'center',
-      bgcolor: 'background.default',
       p: { xs: 0, sm: 2 },
       WebkitOverflowScrolling: 'touch'
     }}>
       <Card 
         className={isMobile ? 'mobile-setup-container' : ''}
-        sx={{ 
+        sx={{
           maxWidth: { xs: '100%', sm: 600 }, 
           width: '100%',
           mx: { xs: 0, sm: 0 },
-          borderRadius: { xs: 0, sm: 1 },
-          boxShadow: { xs: 'none', sm: 1 },
+          ...(isMobile
+            ? {
+                borderRadius: 0,
+                boxShadow: 'none',
+                border: 0,
+              }
+            : {}),
           display: 'flex',
           flexDirection: 'column',
           height: { xs: '100vh', sm: 'auto' },
@@ -701,7 +705,7 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
               variant={isMobile ? "h5" : "h4"} 
               align="center" 
               gutterBottom
-              sx={{ fontSize: { xs: '1.5rem', sm: '2.125rem' } }}
+              sx={{ fontSize: { xs: '1.5rem', sm: '2.125rem' }, fontWeight: 900 }}
             >
               Digital Nutritionist
             </Typography>

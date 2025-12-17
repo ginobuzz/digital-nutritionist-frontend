@@ -58,28 +58,38 @@ const Layout: React.FC<LayoutProps> = ({ children, user }) => {
     { label: 'Profile', icon: <Person />, path: '/profile' },
   ];
 
+  const activeIndexRaw = navigationItems.findIndex(item => item.path === location.pathname);
+  const activeIndex = activeIndexRaw >= 0 ? activeIndexRaw : 0;
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <AppBar position="static">
-        <Toolbar>
+      <AppBar position="sticky">
+        <Toolbar sx={{ px: 2 }}>
+          <Avatar
+            sx={{
+              width: 34,
+              height: 34,
+              bgcolor: 'primary.main',
+              color: 'primary.contrastText',
+              fontWeight: 900,
+              boxShadow: 1,
+            }}
+          >
+            {user.name.charAt(0)}
+          </Avatar>
           <Typography 
-            variant="h6" 
+            variant="h6"
             component="div" 
             sx={{ 
               flexGrow: 1, 
               textAlign: 'center',
-              fontWeight: 'bold'
+              fontWeight: 900,
+              letterSpacing: '-0.02em',
             }}
           >
             Digital Nutritionist
           </Typography>
-          {!isMobile && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Avatar sx={{ bgcolor: 'primary.light' }}>
-                {user.name.charAt(0)}
-              </Avatar>
-            </Box>
-          )}
+          <Box sx={{ width: 34, height: 34, flexShrink: 0 }} />
         </Toolbar>
       </AppBar>
 
@@ -88,23 +98,23 @@ const Layout: React.FC<LayoutProps> = ({ children, user }) => {
           component="main"
           sx={{
             flexGrow: 1,
-            p: 3,
-            pb: 8, // Add bottom padding to account for fixed bottom navigation
-            backgroundColor: 'grey.50',
-            minHeight: 'calc(100vh - 64px)',
+            px: { xs: 2, sm: 3 },
+            pt: { xs: 2, sm: 3 },
+            pb: 'calc(88px + env(safe-area-inset-bottom))',
+            minHeight: 'calc(100vh - 60px)',
           }}
         >
-          <Container maxWidth="lg">
+          <Container maxWidth={isMobile ? 'sm' : 'md'} disableGutters sx={{ px: 0 }}>
             {children}
           </Container>
         </Box>
       </Box>
       
       {/* Bottom Navigation */}
-      <Paper sx={{ position: 'fixed', bottom: 0, left: 0, right: 0 }} elevation={3}>
+      <Paper sx={{ position: 'fixed', bottom: 0, left: 0, right: 0 }} elevation={0} square={false}>
         <BottomNavigation
           showLabels
-          value={navigationItems.findIndex(item => item.path === location.pathname) || 0}
+          value={activeIndex}
           onChange={handleNavigationChange}
         >
           {navigationItems.map((item) => (

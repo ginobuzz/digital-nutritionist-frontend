@@ -471,12 +471,14 @@ const Log: React.FC = () => {
                           </Avatar>
                         </ListItemAvatar>
                         
-                        <ListItemText
-                          primary={
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <Typography variant="subtitle1" fontWeight="bold">
-                                {meal.name}
-                              </Typography>
+	                        <ListItemText
+	                          primaryTypographyProps={{ component: 'div' }}
+	                          secondaryTypographyProps={{ component: 'div' }}
+	                          primary={
+	                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+	                              <Typography variant="subtitle1" fontWeight="bold">
+	                                {meal.name}
+	                              </Typography>
                               <Chip
                                 label={meal.type}
                                 size="small"
