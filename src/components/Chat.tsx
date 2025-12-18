@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import {
   Box,
   Card,
@@ -19,27 +19,34 @@ import {
   SmartToy,
   Person
 } from '@mui/icons-material';
-import { ChatMessage } from '../types';
-import { mockAPI } from '../data/mockData';
+import { ChatMessage, User } from '../types';
+import { apiService, ChatTurn } from '../services/api';
 
-const Chat: React.FC = () => {
+interface ChatProps {
+  user?: User;
+}
+
+const Chat: React.FC<ChatProps> = ({ user }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const fetchMessages = async () => {
-      try {
-        const chatMessages = await mockAPI.getChatMessages();
-        setMessages(chatMessages);
-      } catch (error) {
-        console.error('Error fetching chat messages:', error);
-      }
-    };
-
-    fetchMessages();
-  }, []);
+    const firstName = user?.name?.split(' ')?.[0]?.trim();
+    const greeting = firstName
+      ? `Hi ${firstName}! Tell me what you ate (or drank) and I’ll log it for you.`
+      : `Hi! Tell me what you ate (or drank) and I’ll log it for you.`;
+    setMessages([
+      {
+        id: 'welcome',
+        text: greeting,
+        sender: 'ai',
+        timestamp: new Date(),
+        type: 'reminder',
+      },
+    ]);
+  }, [user?.name]);
 
   useEffect(() => {
     scrollToBottom();
@@ -49,8 +56,22 @@ const Chat: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const activeUserId = useMemo(() => {
+    try {
+      const raw = localStorage.getItem('user');
+      const parsed = raw ? JSON.parse(raw) : null;
+      return parsed?.id || user?.id || null;
+    } catch {
+      return user?.id || null;
+    }
+  }, [user?.id]);
+
   const handleSendMessage = async () => {
     if (!inputMessage.trim()) return;
+
+    const history: ChatTurn[] = messages
+      .slice(-10)
+      .map((m) => ({ role: m.sender === 'user' ? 'user' : 'assistant', content: m.text }));
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
@@ -64,37 +85,34 @@ const Chat: React.FC = () => {
     setInputMessage('');
     setLoading(true);
 
-    // Simulate AI response
-    setTimeout(() => {
+    try {
+      const response = await apiService.chat({
+        message: userMessage.text,
+        user_id: activeUserId ?? undefined,
+        history,
+      });
+
+      const createdCount = response.created_meal_logs?.length ?? 0;
       const aiResponse: ChatMessage = {
         id: (Date.now() + 1).toString(),
-        text: generateAIResponse(inputMessage),
+        text: response.reply || 'OK.',
         sender: 'ai',
         timestamp: new Date(),
-        type: 'encouragement'
+        type: createdCount > 0 ? 'encouragement' : 'general',
       };
       setMessages(prev => [...prev, aiResponse]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Sorry — something went wrong.';
+      const aiResponse: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        text: message,
+        sender: 'ai',
+        timestamp: new Date(),
+        type: 'general',
+      };
+      setMessages(prev => [...prev, aiResponse]);
+    } finally {
       setLoading(false);
-    }, 1000);
-  };
-
-  const generateAIResponse = (userInput: string): string => {
-    const lowerInput = userInput.toLowerCase();
-    
-    if (lowerInput.includes('breakfast') || lowerInput.includes('ate') || lowerInput.includes('had')) {
-      return "Great! I've logged your meal. How are you feeling about your food choices today? 😊";
-    } else if (lowerInput.includes('lunch')) {
-      return "Perfect! I've updated your lunch log. You're doing great with staying mindful of your nutrition! 🥗";
-    } else if (lowerInput.includes('dinner')) {
-      return "Excellent! I've recorded your dinner. You're making great progress toward your goals! 🌟";
-    } else if (lowerInput.includes('exercise') || lowerInput.includes('workout') || lowerInput.includes('run')) {
-      return "That's fantastic! Exercise is such an important part of your journey. I've logged your activity! 💪";
-    } else if (lowerInput.includes('weight') || lowerInput.includes('scale')) {
-      return "Thanks for updating your weight! I can see you're making steady progress. Keep up the great work! 📊";
-    } else if (lowerInput.includes('help') || lowerInput.includes('advice')) {
-      return "I'm here to help! You can log meals, track exercise, or ask me about nutrition. What would you like to know? 🤔";
-    } else {
-      return "Thanks for sharing! I'm here to support you on your nutrition journey. Is there anything specific you'd like to track or discuss? 💬";
     }
   };
 

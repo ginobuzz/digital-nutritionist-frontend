@@ -73,6 +73,24 @@ export interface CreateMealLogRequest {
   estimated_calories?: number | null;
 }
 
+export interface ChatTurn {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface ChatRequest {
+  message: string;
+  user_id?: string | number;
+  history?: ChatTurn[];
+}
+
+export interface ChatResponse {
+  reply: string;
+  model?: string | null;
+  usage?: any;
+  created_meal_logs?: MealLogResponse[];
+}
+
 // Helper functions to convert between frontend and backend formats
 export const convertUserToBackend = (user: User): CreateUserRequest => {
   // Split name into first and last name
@@ -195,14 +213,21 @@ class ApiService {
         } catch {}
       }
       let errorMessage = `API request failed: ${response.status} ${response.statusText}`;
+      const responseText = await response.text().catch(() => '');
+      let errorData: any = null;
+      if (responseText) {
+        try {
+          errorData = JSON.parse(responseText);
+        } catch {
+          errorData = null;
+        }
+      }
       
       // Try to get more detailed error information for 422 errors
       if (response.status === 422) {
         try {
-          const errorData = await response.json();
-          
           // Provide user-friendly error messages for common validation errors
-          if (Array.isArray(errorData.detail)) {
+          if (errorData && Array.isArray(errorData.detail)) {
             const userFriendlyErrors = errorData.detail.map((error: any) => {
               if (error.type === 'int_from_float' && error.loc.includes('daily_calorie_budget')) {
                 return 'Daily calorie budget must be a whole number. The system has automatically rounded this value for you.';
@@ -221,21 +246,25 @@ class ApiService {
             } else {
               errorMessage += ` - ${JSON.stringify(errorData)}`;
             }
-          } else {
+          } else if (errorData) {
             errorMessage += ` - ${JSON.stringify(errorData)}`;
           }
         } catch (e) {
           // If we can't parse the error response, just use the status
         }
       }
-      
-      // For 500 errors, try to get the response text
-      if (response.status === 500) {
-        try {
-          const errorText = await response.text();
-          errorMessage += ` - ${errorText}`;
-        } catch (e) {
-          // If we can't read the response, just use the status
+
+      // For non-422 errors, surface FastAPI-style `{detail: ...}` or raw text.
+      if (response.status !== 422) {
+        const detail = errorData?.detail;
+        if (typeof detail === 'string' && detail.trim()) {
+          errorMessage += ` - ${detail}`;
+        } else if (detail) {
+          errorMessage += ` - ${JSON.stringify(detail)}`;
+        } else if (errorData) {
+          errorMessage += ` - ${JSON.stringify(errorData)}`;
+        } else if (responseText) {
+          errorMessage += ` - ${responseText}`;
         }
       }
       
@@ -309,6 +338,14 @@ class ApiService {
 
   async createMealLog(payload: CreateMealLogRequest): Promise<MealLogResponse> {
     return this.request<MealLogResponse>('/meal-logs', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  // Chat endpoint (LLM-backed)
+  async chat(payload: ChatRequest): Promise<ChatResponse> {
+    return this.request<ChatResponse>('/chat', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
