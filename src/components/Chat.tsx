@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import {
   Box,
   Card,
@@ -19,27 +19,23 @@ import {
   SmartToy,
   Person
 } from '@mui/icons-material';
-import { ChatMessage } from '../types';
-import { mockAPI } from '../data/mockData';
+import Markdown from 'markdown-to-jsx';
+import { ChatMessage, User } from '../types';
+import { apiService, ChatTurn } from '../services/api';
 
-const Chat: React.FC = () => {
+interface ChatProps {
+  user?: User;
+}
+
+type PersistedChatMessage = Omit<ChatMessage, 'timestamp'> & { timestamp: string };
+
+const CHAT_HISTORY_STORAGE_PREFIX = 'dn.chat.history.v1';
+
+const Chat: React.FC<ChatProps> = ({ user }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const fetchMessages = async () => {
-      try {
-        const chatMessages = await mockAPI.getChatMessages();
-        setMessages(chatMessages);
-      } catch (error) {
-        console.error('Error fetching chat messages:', error);
-      }
-    };
-
-    fetchMessages();
-  }, []);
 
   useEffect(() => {
     scrollToBottom();
@@ -49,8 +45,87 @@ const Chat: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const activeUserId = useMemo(() => {
+    try {
+      const raw = localStorage.getItem('user');
+      const parsed = raw ? JSON.parse(raw) : null;
+      return parsed?.id || user?.id || null;
+    } catch {
+      return user?.id || null;
+    }
+  }, [user?.id]);
+
+  const storageKey = useMemo(() => {
+    return `${CHAT_HISTORY_STORAGE_PREFIX}:${activeUserId ?? 'anon'}`;
+  }, [activeUserId]);
+
+  const buildWelcomeMessage = (): ChatMessage => {
+    const firstName = user?.name?.split(' ')?.[0]?.trim();
+    const greeting = firstName
+      ? `Hi ${firstName}! Tell me what you ate (or drank) and I’ll log it for you.`
+      : `Hi! Tell me what you ate (or drank) and I’ll log it for you.`;
+    return {
+      id: 'welcome',
+      text: greeting,
+      sender: 'ai',
+      timestamp: new Date(),
+      type: 'reminder',
+    };
+  };
+
+  const getMarkdownText = (message: ChatMessage) => {
+    if (message.sender !== 'ai') return message.text;
+    if (message.text.includes('\n- ')) return message.text;
+    return message.text.replace(/ - (?=\*\*)/g, '\n- ');
+  };
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) {
+        setMessages([buildWelcomeMessage()]);
+        return;
+      }
+
+      const parsed = JSON.parse(raw) as { messages?: PersistedChatMessage[] } | PersistedChatMessage[];
+      const persistedMessages = Array.isArray(parsed) ? parsed : (parsed.messages ?? []);
+      if (!persistedMessages.length) {
+        setMessages([buildWelcomeMessage()]);
+        return;
+      }
+
+      setMessages(
+        persistedMessages.map((m) => ({
+          ...m,
+          timestamp: new Date(m.timestamp),
+        }))
+      );
+    } catch {
+      setMessages([buildWelcomeMessage()]);
+    }
+    // Intentionally re-load when switching users (or when the user's name becomes available).
+  }, [storageKey, user?.name]);
+
+  useEffect(() => {
+    if (!messages.length) return;
+
+    try {
+      const toPersist: PersistedChatMessage[] = messages.slice(-200).map((m) => ({
+        ...m,
+        timestamp: m.timestamp.toISOString(),
+      }));
+      localStorage.setItem(storageKey, JSON.stringify({ v: 1, messages: toPersist }));
+    } catch {
+      // Ignore persistence errors (e.g. storage full / blocked).
+    }
+  }, [messages, storageKey]);
+
   const handleSendMessage = async () => {
     if (!inputMessage.trim()) return;
+
+    const history: ChatTurn[] = messages
+      .slice(-10)
+      .map((m) => ({ role: m.sender === 'user' ? 'user' : 'assistant', content: m.text }));
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
@@ -64,37 +139,34 @@ const Chat: React.FC = () => {
     setInputMessage('');
     setLoading(true);
 
-    // Simulate AI response
-    setTimeout(() => {
+    try {
+      const response = await apiService.chat({
+        message: userMessage.text,
+        user_id: activeUserId ?? undefined,
+        history,
+      });
+
+      const createdCount = response.created_meal_logs?.length ?? 0;
       const aiResponse: ChatMessage = {
         id: (Date.now() + 1).toString(),
-        text: generateAIResponse(inputMessage),
+        text: response.reply || 'OK.',
         sender: 'ai',
         timestamp: new Date(),
-        type: 'encouragement'
+        type: createdCount > 0 ? 'encouragement' : 'general',
       };
       setMessages(prev => [...prev, aiResponse]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Sorry — something went wrong.';
+      const aiResponse: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        text: message,
+        sender: 'ai',
+        timestamp: new Date(),
+        type: 'general',
+      };
+      setMessages(prev => [...prev, aiResponse]);
+    } finally {
       setLoading(false);
-    }, 1000);
-  };
-
-  const generateAIResponse = (userInput: string): string => {
-    const lowerInput = userInput.toLowerCase();
-    
-    if (lowerInput.includes('breakfast') || lowerInput.includes('ate') || lowerInput.includes('had')) {
-      return "Great! I've logged your meal. How are you feeling about your food choices today? 😊";
-    } else if (lowerInput.includes('lunch')) {
-      return "Perfect! I've updated your lunch log. You're doing great with staying mindful of your nutrition! 🥗";
-    } else if (lowerInput.includes('dinner')) {
-      return "Excellent! I've recorded your dinner. You're making great progress toward your goals! 🌟";
-    } else if (lowerInput.includes('exercise') || lowerInput.includes('workout') || lowerInput.includes('run')) {
-      return "That's fantastic! Exercise is such an important part of your journey. I've logged your activity! 💪";
-    } else if (lowerInput.includes('weight') || lowerInput.includes('scale')) {
-      return "Thanks for updating your weight! I can see you're making steady progress. Keep up the great work! 📊";
-    } else if (lowerInput.includes('help') || lowerInput.includes('advice')) {
-      return "I'm here to help! You can log meals, track exercise, or ask me about nutrition. What would you like to know? 🤔";
-    } else {
-      return "Thanks for sharing! I'm here to support you on your nutrition journey. Is there anything specific you'd like to track or discuss? 💬";
     }
   };
 
@@ -166,9 +238,35 @@ const Chat: React.FC = () => {
                         wordBreak: 'break-word'
                       }}
                     >
-                      <Typography variant="body1">
-                        {message.text}
-                      </Typography>
+                      <Box
+                        sx={{
+                          '& p': { m: 0 },
+                          '& ul, & ol': { m: 0, pl: 3 },
+                          '& li': { mb: 0.5 },
+                          '& li:last-child': { mb: 0 },
+                          '& a': { color: 'inherit' },
+                          '& code': {
+                            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                            fontSize: '0.9em',
+                          },
+                          '& pre': {
+                            overflowX: 'auto',
+                            p: 1,
+                            borderRadius: 1,
+                            backgroundColor: message.sender === 'user' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.06)',
+                          },
+                          '& pre code': { fontSize: '0.85em' },
+                        }}
+                      >
+                        <Markdown
+                          options={{
+                            disableParsingRawHTML: true,
+                            forceBlock: true,
+                          }}
+                        >
+                          {getMarkdownText(message)}
+                        </Markdown>
+                      </Box>
                     </Paper>
                     
                     <Box sx={{ mt: 1, display: 'flex', gap: 1, alignItems: 'center' }}>
