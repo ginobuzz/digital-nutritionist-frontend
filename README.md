@@ -25,6 +25,7 @@ The Digital Nutritionist is designed to help users achieve their weight loss goa
 - **Calorie Calculations**: Mifflin-St Jeor BMR calculation with activity multipliers
 - **Weight Loss Tracking**: Progress visualization and milestone tracking
 - **Responsive Design**: Mobile-friendly interface with Material-UI components
+- **Chat Continuity**: Chat history is retained locally per user (browser `localStorage`)
 - **Mock Data**: Simulated backend APIs for demonstration purposes
 
 ## 🛠️ Technology Stack

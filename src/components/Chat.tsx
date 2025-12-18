@@ -26,27 +26,15 @@ interface ChatProps {
   user?: User;
 }
 
+type PersistedChatMessage = Omit<ChatMessage, 'timestamp'> & { timestamp: string };
+
+const CHAT_HISTORY_STORAGE_PREFIX = 'dn.chat.history.v1';
+
 const Chat: React.FC<ChatProps> = ({ user }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const firstName = user?.name?.split(' ')?.[0]?.trim();
-    const greeting = firstName
-      ? `Hi ${firstName}! Tell me what you ate (or drank) and I’ll log it for you.`
-      : `Hi! Tell me what you ate (or drank) and I’ll log it for you.`;
-    setMessages([
-      {
-        id: 'welcome',
-        text: greeting,
-        sender: 'ai',
-        timestamp: new Date(),
-        type: 'reminder',
-      },
-    ]);
-  }, [user?.name]);
 
   useEffect(() => {
     scrollToBottom();
@@ -65,6 +53,65 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
       return user?.id || null;
     }
   }, [user?.id]);
+
+  const storageKey = useMemo(() => {
+    return `${CHAT_HISTORY_STORAGE_PREFIX}:${activeUserId ?? 'anon'}`;
+  }, [activeUserId]);
+
+  const buildWelcomeMessage = (): ChatMessage => {
+    const firstName = user?.name?.split(' ')?.[0]?.trim();
+    const greeting = firstName
+      ? `Hi ${firstName}! Tell me what you ate (or drank) and I’ll log it for you.`
+      : `Hi! Tell me what you ate (or drank) and I’ll log it for you.`;
+    return {
+      id: 'welcome',
+      text: greeting,
+      sender: 'ai',
+      timestamp: new Date(),
+      type: 'reminder',
+    };
+  };
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) {
+        setMessages([buildWelcomeMessage()]);
+        return;
+      }
+
+      const parsed = JSON.parse(raw) as { messages?: PersistedChatMessage[] } | PersistedChatMessage[];
+      const persistedMessages = Array.isArray(parsed) ? parsed : (parsed.messages ?? []);
+      if (!persistedMessages.length) {
+        setMessages([buildWelcomeMessage()]);
+        return;
+      }
+
+      setMessages(
+        persistedMessages.map((m) => ({
+          ...m,
+          timestamp: new Date(m.timestamp),
+        }))
+      );
+    } catch {
+      setMessages([buildWelcomeMessage()]);
+    }
+    // Intentionally re-load when switching users (or when the user's name becomes available).
+  }, [storageKey, user?.name]);
+
+  useEffect(() => {
+    if (!messages.length) return;
+
+    try {
+      const toPersist: PersistedChatMessage[] = messages.slice(-200).map((m) => ({
+        ...m,
+        timestamp: m.timestamp.toISOString(),
+      }));
+      localStorage.setItem(storageKey, JSON.stringify({ v: 1, messages: toPersist }));
+    } catch {
+      // Ignore persistence errors (e.g. storage full / blocked).
+    }
+  }, [messages, storageKey]);
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim()) return;
