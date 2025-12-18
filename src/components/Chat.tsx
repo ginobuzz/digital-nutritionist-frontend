@@ -19,6 +19,7 @@ import {
   SmartToy,
   Person
 } from '@mui/icons-material';
+import Markdown from 'markdown-to-jsx';
 import { ChatMessage, User } from '../types';
 import { apiService, ChatTurn } from '../services/api';
 
@@ -70,6 +71,12 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
       timestamp: new Date(),
       type: 'reminder',
     };
+  };
+
+  const getMarkdownText = (message: ChatMessage) => {
+    if (message.sender !== 'ai') return message.text;
+    if (message.text.includes('\n- ')) return message.text;
+    return message.text.replace(/ - (?=\*\*)/g, '\n- ');
   };
 
   useEffect(() => {
@@ -231,9 +238,35 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
                         wordBreak: 'break-word'
                       }}
                     >
-                      <Typography variant="body1">
-                        {message.text}
-                      </Typography>
+                      <Box
+                        sx={{
+                          '& p': { m: 0 },
+                          '& ul, & ol': { m: 0, pl: 3 },
+                          '& li': { mb: 0.5 },
+                          '& li:last-child': { mb: 0 },
+                          '& a': { color: 'inherit' },
+                          '& code': {
+                            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                            fontSize: '0.9em',
+                          },
+                          '& pre': {
+                            overflowX: 'auto',
+                            p: 1,
+                            borderRadius: 1,
+                            backgroundColor: message.sender === 'user' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.06)',
+                          },
+                          '& pre code': { fontSize: '0.85em' },
+                        }}
+                      >
+                        <Markdown
+                          options={{
+                            disableParsingRawHTML: true,
+                            forceBlock: true,
+                          }}
+                        >
+                          {getMarkdownText(message)}
+                        </Markdown>
+                      </Box>
                     </Paper>
                     
                     <Box sx={{ mt: 1, display: 'flex', gap: 1, alignItems: 'center' }}>
