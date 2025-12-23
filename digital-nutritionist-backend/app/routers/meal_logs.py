@@ -15,7 +15,16 @@ def create_meal_log(*, session: Session = Depends(get_session), payload: MealLog
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
-    log = MealLog.model_validate(payload)
+    log = MealLog(
+        user_id=payload.user_id,
+        date=payload.date,
+        user_description=payload.user_description,
+        meal_type=payload.meal_type,
+        estimated_calories=payload.estimated_calories,
+    )
+    if payload.time:
+        log.created_at = payload.time
+        log.updated_at = payload.time
     session.add(log)
     session.commit()
     session.refresh(log)
@@ -54,8 +63,13 @@ def update_meal_log(*, session: Session = Depends(get_session), log_id: str, pay
     if not log:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meal log not found")
 
-    for key, value in payload.model_dump(exclude_unset=True).items():
+    update_data = payload.model_dump(exclude_unset=True)
+    # Store `time` updates in `created_at` so UI can edit time-of-day without schema changes.
+    time_value = update_data.pop("time", None)
+    for key, value in update_data.items():
         setattr(log, key, value)
+    if time_value:
+        log.created_at = time_value
     log.updated_at = datetime.utcnow()
     session.add(log)
     session.commit()

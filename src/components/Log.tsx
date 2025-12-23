@@ -39,8 +39,56 @@ import {
   CalendarToday
 } from '@mui/icons-material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { PlannedMeal, ActualMeal, Activity } from '../types';
-import { mockAPI } from '../data/mockData';
+import { ActualMeal, Activity, PlannedMeal, User } from '../types';
+import { apiService, MealLogResponse, PlannedMealResponse, ActivityLogResponse } from '../services/api';
+
+const toIsoDate = (d: Date) => d.toISOString().slice(0, 10);
+
+const normalizeMealType = (value: string | null | undefined): ActualMeal['type'] => {
+  const v = (value || '').toLowerCase();
+  if (v === 'breakfast' || v === 'lunch' || v === 'dinner' || v === 'snack') return v;
+  return 'snack';
+};
+
+const normalizeActivityType = (value: string | null | undefined): Activity['type'] => {
+  const v = (value || '').toLowerCase();
+  if (v === 'cardio' || v === 'strength' || v === 'flexibility' || v === 'other') return v;
+  return 'other';
+};
+
+const mapMealLogToActualMeal = (log: MealLogResponse): ActualMeal => {
+  const createdAt = log.created_at ? new Date(log.created_at) : new Date(`${log.date}T12:00:00`);
+  const calories = typeof log.estimated_calories === 'number' ? log.estimated_calories : 0;
+  const userDescription = log.user_description || 'Meal';
+  return {
+    id: String(log.id),
+    name: userDescription,
+    calories,
+    actualCalories: calories || undefined,
+    type: normalizeMealType(log.meal_type),
+    time: createdAt,
+    isPlanned: false,
+  };
+};
+
+const mapPlannedMealResponse = (meal: PlannedMealResponse): PlannedMeal => ({
+  id: String(meal.id),
+  name: meal.name,
+  calories: meal.calories,
+  type: normalizeMealType(meal.meal_type),
+  description: meal.description || undefined,
+  time: new Date(meal.time),
+  isPlanned: true,
+});
+
+const mapActivityLogResponse = (activity: ActivityLogResponse): Activity => ({
+  id: String(activity.id),
+  name: activity.name,
+  caloriesBurned: activity.calories_burned,
+  duration: activity.duration,
+  type: normalizeActivityType(activity.type),
+  time: new Date(activity.time),
+});
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -64,7 +112,11 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
-const Log: React.FC = () => {
+interface LogProps {
+  user: User;
+}
+
+const Log: React.FC<LogProps> = ({ user }) => {
   const [tabValue, setTabValue] = useState(0);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [plannedMeals, setPlannedMeals] = useState<PlannedMeal[]>([]);
@@ -97,19 +149,19 @@ const Log: React.FC = () => {
     try {
       setLoading(true);
       const [planned, actual, acts] = await Promise.all([
-        mockAPI.getPlannedMeals(selectedDate),
-        mockAPI.getActualMeals(selectedDate),
-        mockAPI.getActivities(selectedDate)
+        apiService.getPlannedMeals({ userId: user.id, start: selectedDate, end: selectedDate }),
+        apiService.getMealLogs({ userId: user.id, start: selectedDate, end: selectedDate }),
+        apiService.getActivityLogs({ userId: user.id, start: selectedDate, end: selectedDate }),
       ]);
-      setPlannedMeals(planned);
-      setActualMeals(actual);
-      setActivities(acts);
+      setPlannedMeals(planned.map(mapPlannedMealResponse));
+      setActualMeals(actual.map(mapMealLogToActualMeal));
+      setActivities(acts.map(mapActivityLogResponse));
     } catch (error) {
       console.error('Error fetching log data:', error);
     } finally {
       setLoading(false);
     }
-  }, [selectedDate]);
+  }, [selectedDate, user.id]);
 
   useEffect(() => {
     fetchLogData();
@@ -161,56 +213,70 @@ const Log: React.FC = () => {
   };
 
   const handleDeleteMeal = (mealId: string, isPlanned: boolean) => {
-    if (isPlanned) {
-      setPlannedMeals(prev => prev.filter(meal => meal.id !== mealId));
-    } else {
-      setActualMeals(prev => prev.filter(meal => meal.id !== mealId));
-    }
+    (async () => {
+      try {
+        if (isPlanned) {
+          await apiService.deletePlannedMeal(mealId);
+        } else {
+          await apiService.deleteMealLog(mealId);
+        }
+        await fetchLogData();
+      } catch (error) {
+        console.error('Error deleting meal:', error);
+      }
+    })();
   };
 
   const handleSaveMeal = () => {
-    if (!mealFormData.name || !mealFormData.calories) return;
+    if (!mealFormData.name || !mealFormData.calories || !mealFormData.time) return;
 
-    const mealData = {
-      id: editingMeal?.id || Date.now().toString(),
-      name: mealFormData.name,
-      calories: parseInt(mealFormData.calories),
-      type: mealFormData.type,
-      description: mealFormData.description,
-      time: new Date(`${selectedDate.toISOString().split('T')[0]}T${mealFormData.time}:00`),
-    };
+    (async () => {
+      try {
+        const isoDate = toIsoDate(selectedDate);
+        const time = new Date(`${isoDate}T${mealFormData.time}:00`);
+        const calories = parseInt(mealFormData.calories, 10);
 
-    if (mealFormData.isPlanned) {
-      const newPlannedMeal: PlannedMeal = {
-        ...mealData,
-        isPlanned: true
-      };
+        if (mealFormData.isPlanned) {
+          const payload = {
+            user_id: user.id,
+            date: isoDate,
+            name: mealFormData.name,
+            calories,
+            meal_type: mealFormData.type,
+            description: mealFormData.description || null,
+            time: time.toISOString(),
+          };
+          if (editingMeal && editingMeal.isPlanned) {
+            await apiService.updatePlannedMeal(editingMeal.id, payload);
+          } else {
+            await apiService.createPlannedMeal(payload);
+          }
+        } else {
+          const baseDescription = mealFormData.description
+            ? `${mealFormData.name} - ${mealFormData.description}`
+            : mealFormData.name;
+          const userDescription = mealFormData.notes ? `${baseDescription} (Note: ${mealFormData.notes})` : baseDescription;
+          const payload = {
+            user_id: user.id,
+            date: isoDate,
+            user_description: userDescription,
+            meal_type: mealFormData.type,
+            estimated_calories: calories,
+            time: time.toISOString(),
+          };
+          if (editingMeal && !editingMeal.isPlanned) {
+            await apiService.updateMealLog(editingMeal.id, payload);
+          } else {
+            await apiService.createMealLog(payload);
+          }
+        }
 
-      if (editingMeal && editingMeal.isPlanned) {
-        setPlannedMeals(prev => prev.map(meal => 
-          meal.id === editingMeal.id ? newPlannedMeal : meal
-        ));
-      } else {
-        setPlannedMeals(prev => [...prev, newPlannedMeal]);
+        setMealDialogOpen(false);
+        await fetchLogData();
+      } catch (error) {
+        console.error('Error saving meal:', error);
       }
-    } else {
-      const newActualMeal: ActualMeal = {
-        ...mealData,
-        isPlanned: false,
-        actualCalories: parseInt(mealFormData.calories),
-        notes: mealFormData.notes
-      };
-
-      if (editingMeal && !editingMeal.isPlanned) {
-        setActualMeals(prev => prev.map(meal => 
-          meal.id === editingMeal.id ? newActualMeal : meal
-        ));
-      } else {
-        setActualMeals(prev => [...prev, newActualMeal]);
-      }
-    }
-
-    setMealDialogOpen(false);
+    })();
   };
 
   // Activity handlers
@@ -243,30 +309,46 @@ const Log: React.FC = () => {
   };
 
   const handleDeleteActivity = (activityId: string) => {
-    setActivities(prev => prev.filter(activity => activity.id !== activityId));
+    (async () => {
+      try {
+        await apiService.deleteActivityLog(activityId);
+        await fetchLogData();
+      } catch (error) {
+        console.error('Error deleting activity:', error);
+      }
+    })();
   };
 
   const handleSaveActivity = () => {
     if (!activityFormData.name || !activityFormData.caloriesBurned || !activityFormData.duration) return;
+    if (!activityFormData.time) return;
 
-    const newActivity: Activity = {
-      id: editingActivity?.id || Date.now().toString(),
-      name: activityFormData.name,
-      caloriesBurned: parseInt(activityFormData.caloriesBurned),
-      duration: parseInt(activityFormData.duration),
-      type: activityFormData.type,
-      time: new Date(`${selectedDate.toISOString().split('T')[0]}T${activityFormData.time}:00`)
-    };
+    (async () => {
+      try {
+        const isoDate = toIsoDate(selectedDate);
+        const time = new Date(`${isoDate}T${activityFormData.time}:00`);
+        const payload = {
+          user_id: user.id,
+          date: isoDate,
+          name: activityFormData.name,
+          calories_burned: parseInt(activityFormData.caloriesBurned, 10),
+          duration: parseInt(activityFormData.duration, 10),
+          type: activityFormData.type,
+          time: time.toISOString(),
+        };
 
-    if (editingActivity) {
-      setActivities(prev => prev.map(activity => 
-        activity.id === editingActivity.id ? newActivity : activity
-      ));
-    } else {
-      setActivities(prev => [...prev, newActivity]);
-    }
+        if (editingActivity) {
+          await apiService.updateActivityLog(editingActivity.id, payload);
+        } else {
+          await apiService.createActivityLog(payload);
+        }
 
-    setActivityDialogOpen(false);
+        setActivityDialogOpen(false);
+        await fetchLogData();
+      } catch (error) {
+        console.error('Error saving activity:', error);
+      }
+    })();
   };
 
   const getMealTypeIcon = (type: PlannedMeal['type'] | ActualMeal['type']) => {
