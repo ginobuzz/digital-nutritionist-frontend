@@ -124,7 +124,7 @@ function App() {
             <Route path="/" element={<Dashboard user={user!} />} />
             <Route path="/setup" element={<Navigate to="/" replace />} />
             <Route path="/signin" element={<Navigate to="/" replace />} />
-            <Route path="/log" element={<Log />} />
+            <Route path="/log" element={<Log user={user!} />} />
             <Route path="/chat" element={<Chat user={user!} />} />
             <Route path="/profile" element={<Profile user={user!} onUserUpdate={setUser} />} />
             <Route path="/api-test" element={<ApiTest />} />

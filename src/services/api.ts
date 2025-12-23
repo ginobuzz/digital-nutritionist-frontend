@@ -63,6 +63,8 @@ export interface MealLogResponse {
   meal_type?: string | null;
   user_description: string;
   estimated_calories?: number | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface CreateMealLogRequest {
@@ -71,7 +73,61 @@ export interface CreateMealLogRequest {
   user_description: string;
   meal_type?: string | null;
   estimated_calories?: number | null;
+  // Optional time-of-day for UI logging; stored in backend `created_at`.
+  time?: string;
 }
+
+export interface UpdateMealLogRequest extends Partial<CreateMealLogRequest> {}
+
+export interface PlannedMealResponse {
+  id: string;
+  user_id: string;
+  date: string; // YYYY-MM-DD
+  name: string;
+  calories: number;
+  meal_type: string;
+  time: string; // ISO datetime
+  description?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreatePlannedMealRequest {
+  user_id: string;
+  date: string; // YYYY-MM-DD
+  name: string;
+  calories: number;
+  meal_type: string;
+  time: string; // ISO datetime
+  description?: string | null;
+}
+
+export interface UpdatePlannedMealRequest extends Partial<CreatePlannedMealRequest> {}
+
+export interface ActivityLogResponse {
+  id: string;
+  user_id: string;
+  date: string; // YYYY-MM-DD
+  name: string;
+  calories_burned: number;
+  duration: number;
+  type: string;
+  time: string; // ISO datetime
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateActivityLogRequest {
+  user_id: string;
+  date: string; // YYYY-MM-DD
+  name: string;
+  calories_burned: number;
+  duration: number;
+  type: string;
+  time: string; // ISO datetime
+}
+
+export interface UpdateActivityLogRequest extends Partial<CreateActivityLogRequest> {}
 
 export interface ChatTurn {
   role: 'user' | 'assistant';
@@ -341,6 +397,71 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify(payload),
     });
+  }
+
+  async updateMealLog(logId: string, payload: UpdateMealLogRequest): Promise<MealLogResponse> {
+    return this.request<MealLogResponse>(`/meal-logs/${logId}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async deleteMealLog(logId: string): Promise<void> {
+    await this.request(`/meal-logs/${logId}`, { method: 'DELETE' });
+  }
+
+  // Planned meal endpoints
+  async getPlannedMeals(params: { userId: string; start?: Date; end?: Date }): Promise<PlannedMealResponse[]> {
+    const qs = new URLSearchParams();
+    qs.set('user_id', String(params.userId));
+    if (params.start) qs.set('start', params.start.toISOString().slice(0, 10));
+    if (params.end) qs.set('end', params.end.toISOString().slice(0, 10));
+    return this.request<PlannedMealResponse[]>(`/planned-meals?${qs.toString()}`);
+  }
+
+  async createPlannedMeal(payload: CreatePlannedMealRequest): Promise<PlannedMealResponse> {
+    return this.request<PlannedMealResponse>('/planned-meals', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async updatePlannedMeal(mealId: string, payload: UpdatePlannedMealRequest): Promise<PlannedMealResponse> {
+    return this.request<PlannedMealResponse>(`/planned-meals/${mealId}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async deletePlannedMeal(mealId: string): Promise<void> {
+    await this.request(`/planned-meals/${mealId}`, { method: 'DELETE' });
+  }
+
+  // Activity log endpoints
+  async getActivityLogs(params: { userId: string; start?: Date; end?: Date }): Promise<ActivityLogResponse[]> {
+    const qs = new URLSearchParams();
+    qs.set('user_id', String(params.userId));
+    if (params.start) qs.set('start', params.start.toISOString().slice(0, 10));
+    if (params.end) qs.set('end', params.end.toISOString().slice(0, 10));
+    return this.request<ActivityLogResponse[]>(`/activity-logs?${qs.toString()}`);
+  }
+
+  async createActivityLog(payload: CreateActivityLogRequest): Promise<ActivityLogResponse> {
+    return this.request<ActivityLogResponse>('/activity-logs', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async updateActivityLog(activityId: string, payload: UpdateActivityLogRequest): Promise<ActivityLogResponse> {
+    return this.request<ActivityLogResponse>(`/activity-logs/${activityId}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async deleteActivityLog(activityId: string): Promise<void> {
+    await this.request(`/activity-logs/${activityId}`, { method: 'DELETE' });
   }
 
   // Chat endpoint (LLM-backed)
