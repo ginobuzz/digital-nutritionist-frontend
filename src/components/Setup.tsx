@@ -707,7 +707,7 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
               gutterBottom
               sx={{ fontSize: { xs: '1.5rem', sm: '2.125rem' }, fontWeight: 900 }}
             >
-              Digital Nutritionist
+              Sunday Mornings
             </Typography>
             <Typography 
               variant="body2" 

@@ -87,7 +87,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user }) => {
               letterSpacing: '-0.02em',
             }}
           >
-            Digital Nutritionist
+            Sunday Mornings
           </Typography>
           <Box sx={{ width: 34, height: 34, flexShrink: 0 }} />
         </Toolbar>

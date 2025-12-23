@@ -56,7 +56,7 @@ const SignIn: React.FC<SignInProps> = ({ onSignedIn }) => {
       <Box sx={{ width: '100%', maxWidth: 420 }}>
         <Box sx={{ textAlign: 'center', mb: 2.5 }}>
           <Typography variant="h4" sx={{ fontWeight: 900, mb: 0.5 }}>
-            Digital Nutritionist
+            Sunday Mornings
           </Typography>
           <Typography variant="body2" sx={{ color: 'text.secondary' }}>
             Quick check-ins. Clear progress. Calm coaching.
@@ -88,4 +88,3 @@ const SignIn: React.FC<SignInProps> = ({ onSignedIn }) => {
 };
 
 export default SignIn;
-
