@@ -21,13 +21,13 @@ let theme = createTheme({
       main: '#22C55E',
       light: '#86EFAC',
       dark: '#16A34A',
-      contrastText: '#07120A',
+      contrastText: '#FFFFFF',
     },
     secondary: {
       main: '#7C3AED',
       light: '#C4B5FD',
       dark: '#5B21B6',
-      contrastText: '#0B0616',
+      contrastText: '#FFFFFF',
     },
     info: {
       main: '#0EA5E9',
@@ -211,4 +211,3 @@ ${theme.palette.background.default}`,
 theme = responsiveFontSizes(theme, { factor: 2.2 });
 
 export default theme;
-
