@@ -174,8 +174,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       : <CheckRoundedIcon fontSize="small" />;
   };
 
-  const openLogDialog = () => {
-    if (!isSelectedToday) return;
+  const openLogDialog = (date?: Date) => {
+    if (date) {
+      setSelectedDate(date);
+    }
+    if (date && isBefore(startOfDay(date), today)) return;
+    if (!date && isSelectedPast) return;
     setLogError(null);
     setLogForm({
       description: '',
@@ -208,7 +212,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       const userId = getActiveUserId();
       await apiService.createMealLog({
         user_id: userId,
-        date: toIsoDate(new Date()),
+        date: selectedKey,
         user_description: logForm.description.trim(),
         meal_type: logForm.mealType || null,
         estimated_calories: Number(logForm.calories),
@@ -269,14 +273,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
               variant="contained"
               color={isSelectedToday ? 'primary' : 'info'}
               onClick={() => {
-                if (isSelectedToday) openLogDialog();
-                if (isSelectedFuture) navigate(`/log?date=${selectedKey}`);
+                openLogDialog();
               }}
               startIcon={<AddRoundedIcon />}
               sx={{ flexShrink: 0 }}
               disabled={isSelectedPast}
             >
-              {isSelectedToday ? 'Log' : isSelectedFuture ? 'Plan' : 'Locked'}
+              Log
             </Button>
           </Box>
 
@@ -323,13 +326,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
               variant="contained"
               color="secondary"
               onClick={() => {
-                if (isSelectedToday) openLogDialog();
-                if (isSelectedFuture) navigate(`/log?date=${selectedKey}`);
+                openLogDialog();
               }}
               startIcon={<AddRoundedIcon />}
               disabled={isSelectedPast}
             >
-              {isSelectedToday ? 'Log Food' : isSelectedFuture ? 'Plan Meals' : 'Locked'}
+              Log Food
             </Button>
           </Box>
         </CardContent>
@@ -343,7 +345,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
         {dayEntries.map((entry) => {
           const color = getDayColor(entry);
           const isSelected = isSameDay(entry.date, selectedDay);
-          const calories = entry.kind === 'future' ? entry.plannedCalories : entry.actualCalories;
+          const calories = entry.actualCalories > 0 ? entry.actualCalories : entry.plannedCalories;
+          const caloriesLabel =
+            entry.kind === 'future'
+              ? entry.actualCalories > 0
+                ? 'logged'
+                : 'planned'
+              : '';
           return (
             <Card
               key={entry.key}
@@ -355,7 +363,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                 outline: isSelected ? `2px solid ${alpha(color, 0.65)}` : 'none',
                 outlineOffset: 0,
               }}
-              onClick={() => setSelectedDate(entry.date)}
+              onClick={() => {
+                if (entry.kind === 'past') {
+                  setSelectedDate(entry.date);
+                  return;
+                }
+                openLogDialog(entry.date);
+              }}
             >
               <CardContent sx={{ p: 1.75, '&:last-child': { pb: 1.75 } }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
@@ -371,7 +385,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                       {entry.label}
                     </Typography>
                     <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                      {calories} kcal {entry.kind === 'future' ? 'planned' : ''}
+                      {calories} kcal {caloriesLabel}
                     </Typography>
                   </Box>
 
@@ -408,7 +422,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       </Box>
 
       <Dialog open={logDialogOpen} onClose={handleCloseLogDialog} maxWidth="xs" fullWidth>
-        <DialogTitle>Log Today's Meal</DialogTitle>
+        <DialogTitle>Log Meal ({isSelectedToday ? 'Today' : format(selectedDay, 'EEE M/d')})</DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
           {logError && (
             <Alert severity="error" sx={{ mb: 2 }}>
