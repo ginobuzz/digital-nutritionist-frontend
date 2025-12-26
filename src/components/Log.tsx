@@ -39,10 +39,12 @@ import {
   CalendarToday
 } from '@mui/icons-material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { format, isValid, parseISO } from 'date-fns';
 import { ActualMeal, Activity, PlannedMeal, User } from '../types';
 import { apiService, MealLogResponse, PlannedMealResponse, ActivityLogResponse } from '../services/api';
+import { useSearchParams } from 'react-router-dom';
 
-const toIsoDate = (d: Date) => d.toISOString().slice(0, 10);
+const toIsoDate = (d: Date) => format(d, 'yyyy-MM-dd');
 
 const normalizeMealType = (value: string | null | undefined): ActualMeal['type'] => {
   const v = (value || '').toLowerCase();
@@ -117,6 +119,7 @@ interface LogProps {
 }
 
 const Log: React.FC<LogProps> = ({ user }) => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [tabValue, setTabValue] = useState(0);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [plannedMeals, setPlannedMeals] = useState<PlannedMeal[]>([]);
@@ -167,6 +170,15 @@ const Log: React.FC<LogProps> = ({ user }) => {
     fetchLogData();
   }, [fetchLogData]);
 
+  useEffect(() => {
+    const dateParam = searchParams.get('date');
+    if (!dateParam) return;
+    const parsed = parseISO(dateParam);
+    if (!isValid(parsed)) return;
+    if (toIsoDate(parsed) === toIsoDate(selectedDate)) return;
+    setSelectedDate(parsed);
+  }, [searchParams, selectedDate]);
+
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
@@ -174,6 +186,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
   const handleDateChange = (date: Date | null) => {
     if (date) {
       setSelectedDate(date);
+      setSearchParams({ date: toIsoDate(date) }, { replace: true });
     }
   };
 

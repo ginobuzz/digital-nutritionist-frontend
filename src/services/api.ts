@@ -1,7 +1,9 @@
 import { User, WeightLog } from '../types';
+import { format } from 'date-fns';
 
 // Use env-configurable base URL for local dev; fallback to local FastAPI backend
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+const toIsoDate = (d: Date) => format(d, 'yyyy-MM-dd');
 
 // API Response types based on FastAPI backend
 export interface UserResponse {
@@ -387,8 +389,8 @@ class ApiService {
   async getMealLogs(params: { userId: string | number; start?: Date; end?: Date }): Promise<MealLogResponse[]> {
     const qs = new URLSearchParams();
     qs.set('user_id', String(params.userId));
-    if (params.start) qs.set('start', params.start.toISOString().slice(0, 10));
-    if (params.end) qs.set('end', params.end.toISOString().slice(0, 10));
+    if (params.start) qs.set('start', toIsoDate(params.start));
+    if (params.end) qs.set('end', toIsoDate(params.end));
     return this.request<MealLogResponse[]>(`/meal-logs?${qs.toString()}`);
   }
 
@@ -414,8 +416,8 @@ class ApiService {
   async getPlannedMeals(params: { userId: string; start?: Date; end?: Date }): Promise<PlannedMealResponse[]> {
     const qs = new URLSearchParams();
     qs.set('user_id', String(params.userId));
-    if (params.start) qs.set('start', params.start.toISOString().slice(0, 10));
-    if (params.end) qs.set('end', params.end.toISOString().slice(0, 10));
+    if (params.start) qs.set('start', toIsoDate(params.start));
+    if (params.end) qs.set('end', toIsoDate(params.end));
     return this.request<PlannedMealResponse[]>(`/planned-meals?${qs.toString()}`);
   }
 
@@ -441,8 +443,8 @@ class ApiService {
   async getActivityLogs(params: { userId: string; start?: Date; end?: Date }): Promise<ActivityLogResponse[]> {
     const qs = new URLSearchParams();
     qs.set('user_id', String(params.userId));
-    if (params.start) qs.set('start', params.start.toISOString().slice(0, 10));
-    if (params.end) qs.set('end', params.end.toISOString().slice(0, 10));
+    if (params.start) qs.set('start', toIsoDate(params.start));
+    if (params.end) qs.set('end', toIsoDate(params.end));
     return this.request<ActivityLogResponse[]>(`/activity-logs?${qs.toString()}`);
   }
 
