@@ -158,11 +158,31 @@ Currently using mock data. For production, you would need:
 npm run build
 ```
 
-### Deploy Options
-- **Netlify**: Drag and drop `build` folder
-- **Vercel**: Connect repository for automatic deployment
-- **AWS S3**: Upload build files to S3 bucket
-- **Heroku**: Deploy with Node.js buildpack
+### Free Deploy (GitHub Pages + Render)
+This repo is already set up to deploy the frontend to GitHub Pages via `gh-pages` and run the backend as a FastAPI service.
+
+1. **Deploy the backend (Render)**
+   - Create a Render **Web Service** from this GitHub repo.
+   - Set **Root Directory** to `digital-nutritionist-backend`
+   - Set **Build Command** to `pip install -r requirements.txt`
+   - Set **Start Command** to `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+   - Add env vars (at minimum): `OPENAI_API_KEY`, `JWT_SECRET_KEY`, and `ALLOWED_ORIGINS` (include `https://glockstock.github.io`)
+   - Verify: `https://<your-service>.onrender.com/health` returns `{"status":"ok"}`
+
+2. **Point the frontend at the backend**
+   - Edit `.env.production` and set `REACT_APP_API_BASE_URL` to your Render URL, e.g. `https://<your-service>.onrender.com`
+
+3. **Deploy the frontend (GitHub Pages)**
+   ```bash
+   npm run deploy
+   ```
+
+4. **Open on mobile**
+   - Visit `https://glockstock.github.io/digital-nutritionist-frontend/` on your phone and “Add to Home Screen”.
+
+### Other Deploy Options
+- **Vercel**: Connect repository for automatic frontend deploy (set `REACT_APP_API_BASE_URL` in Vercel env vars)
+- **Netlify**: Drag and drop `build/` (or connect repo) (set `REACT_APP_API_BASE_URL` in env vars)
 
 ## 🔮 Future Enhancements
 

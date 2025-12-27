@@ -66,7 +66,7 @@ function App() {
 
   // Check if we're on the API test route - if so, show it regardless of setup status
   // This allows testing the API during development
-  if (window.location.pathname === '/api-test') {
+  if (window.location.pathname.endsWith('/api-test')) {
     return (
       <ThemeProvider theme={theme}>
         <CssBaseline />
@@ -80,7 +80,7 @@ function App() {
     return (
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <Router>
+        <Router basename={process.env.PUBLIC_URL}>
           <Routes>
             <Route
               path="/signin"
@@ -105,7 +105,7 @@ function App() {
     return (
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <Router>
+        <Router basename={process.env.PUBLIC_URL}>
           <Routes>
             <Route path="/setup" element={<Setup onComplete={handleSetupComplete} />} />
             <Route path="*" element={<Navigate to="/setup" replace />} />
@@ -118,7 +118,7 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Router>
+      <Router basename={process.env.PUBLIC_URL}>
         <Layout user={user!}>
           <Routes>
             <Route path="/" element={<Dashboard user={user!} />} />
