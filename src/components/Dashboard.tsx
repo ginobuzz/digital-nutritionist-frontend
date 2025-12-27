@@ -14,6 +14,8 @@ import {
   TextField,
   MenuItem,
   Alert,
+  ToggleButton,
+  ToggleButtonGroup,
   useTheme,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
@@ -25,6 +27,7 @@ import TodayRoundedIcon from '@mui/icons-material/TodayRounded';
 import TimelineRoundedIcon from '@mui/icons-material/TimelineRounded';
 import { useNavigate } from 'react-router-dom';
 import { addDays, format, isAfter, isBefore, isSameDay, startOfDay, startOfWeek } from 'date-fns';
+import Markdown from 'markdown-to-jsx';
 import { User } from '../types';
 import { apiService } from '../services/api';
 
@@ -56,13 +59,17 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   const [actualCaloriesByDate, setActualCaloriesByDate] = useState<Record<string, number>>({});
   const [plannedCaloriesByDate, setPlannedCaloriesByDate] = useState<Record<string, number>>({});
   const [logDialogOpen, setLogDialogOpen] = useState(false);
+  const [logMode, setLogMode] = useState<'quick' | 'describe'>('quick');
   const [logForm, setLogForm] = useState({
     description: '',
     calories: '',
     mealType: 'lunch',
   });
+  const [describeInput, setDescribeInput] = useState('');
+  const [describeReply, setDescribeReply] = useState<string | null>(null);
   const [logError, setLogError] = useState<string | null>(null);
-  const [savingLog, setSavingLog] = useState(false);
+  const [savingQuickLog, setSavingQuickLog] = useState(false);
+  const [sendingDescribeLog, setSendingDescribeLog] = useState(false);
 
   const getActiveUserId = useCallback(() => {
     try {
@@ -178,16 +185,18 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
     if (date && isBefore(startOfDay(date), today)) return;
     if (!date && isSelectedPast) return;
     setLogError(null);
+    setDescribeReply(null);
     setLogForm({
       description: '',
       calories: '',
       mealType: 'lunch',
     });
+    setDescribeInput('');
     setLogDialogOpen(true);
   };
 
   const handleCloseLogDialog = () => {
-    if (!savingLog) {
+    if (!savingQuickLog && !sendingDescribeLog) {
       setLogDialogOpen(false);
       setLogError(null);
     }
@@ -204,7 +213,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
     }
 
     try {
-      setSavingLog(true);
+      setSavingQuickLog(true);
       setLogError(null);
       const userId = getActiveUserId();
       await apiService.createMealLog({
@@ -225,9 +234,44 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       const message = error instanceof Error ? error.message : 'Unable to log meal. Please try again.';
       setLogError(message);
     } finally {
-      setSavingLog(false);
+      setSavingQuickLog(false);
     }
   };
+
+  const handleDescribeMealLog = async () => {
+    if (!describeInput.trim()) {
+      setLogError('Describe what you ate (or drank) to log it.');
+      return;
+    }
+
+    try {
+      setSendingDescribeLog(true);
+      setLogError(null);
+      setDescribeReply(null);
+      const userId = getActiveUserId();
+      const prompt = [
+        `Please log what I consumed on ${selectedKey}.`,
+        `If details are missing, make reasonable assumptions and estimate calories (integer) rather than asking follow-up questions.`,
+        ``,
+        describeInput.trim(),
+      ].join('\n');
+
+      const response = await apiService.chat({
+        message: prompt,
+        user_id: userId ?? undefined,
+      });
+
+      setDescribeReply(response.reply || 'OK.');
+      await fetchData();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to log meal. Please try again.';
+      setLogError(message);
+    } finally {
+      setSendingDescribeLog(false);
+    }
+  };
+
+  const dialogBusy = savingQuickLog || sendingDescribeLog;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -415,55 +459,134 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       </Box>
 
       <Dialog open={logDialogOpen} onClose={handleCloseLogDialog} maxWidth="xs" fullWidth>
-        <DialogTitle>Log Meal ({isSelectedToday ? 'Today' : format(selectedDay, 'EEE M/d')})</DialogTitle>
+        <DialogTitle>Log Food ({isSelectedToday ? 'Today' : format(selectedDay, 'EEE M/d')})</DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
           {logError && (
             <Alert severity="error" sx={{ mb: 2 }}>
               {logError}
             </Alert>
           )}
-          <TextField
+          <ToggleButtonGroup
+            value={logMode}
+            exclusive
             fullWidth
-            margin="dense"
-            label="What did you eat?"
-            value={logForm.description}
-            onChange={(event) => handleLogInputChange('description', event.target.value)}
-          />
-          <TextField
-            fullWidth
-            margin="dense"
-            label="Calories"
-            type="number"
-            inputProps={{ min: 0 }}
-            value={logForm.calories}
-            onChange={(event) => handleLogInputChange('calories', event.target.value)}
-          />
-          <TextField
-            select
-            fullWidth
-            margin="dense"
-            label="Meal Type"
-            value={logForm.mealType}
-            onChange={(event) => handleLogInputChange('mealType', event.target.value)}
+            size="small"
+            disabled={dialogBusy}
+            sx={{ mb: 1.5 }}
+            onChange={(_, value) => {
+              if (!value) return;
+              setLogMode(value);
+              setLogError(null);
+              setDescribeReply(null);
+            }}
           >
-            {['breakfast', 'lunch', 'dinner', 'snack', 'other'].map((option) => (
-              <MenuItem key={option} value={option}>
-                {option.charAt(0).toUpperCase() + option.slice(1)}
-              </MenuItem>
-            ))}
-          </TextField>
+            <ToggleButton value="quick">Quick add</ToggleButton>
+            <ToggleButton value="describe">Describe it</ToggleButton>
+          </ToggleButtonGroup>
+
+          {logMode === 'quick' ? (
+            <>
+              <TextField
+                fullWidth
+                margin="dense"
+                label="What did you eat?"
+                value={logForm.description}
+                onChange={(event) => handleLogInputChange('description', event.target.value)}
+                disabled={dialogBusy}
+              />
+              <TextField
+                fullWidth
+                margin="dense"
+                label="Calories"
+                type="number"
+                inputProps={{ min: 0 }}
+                value={logForm.calories}
+                onChange={(event) => handleLogInputChange('calories', event.target.value)}
+                disabled={dialogBusy}
+              />
+              <TextField
+                select
+                fullWidth
+                margin="dense"
+                label="Meal Type"
+                value={logForm.mealType}
+                onChange={(event) => handleLogInputChange('mealType', event.target.value)}
+                disabled={dialogBusy}
+              >
+                {['breakfast', 'lunch', 'dinner', 'snack', 'other'].map((option) => (
+                  <MenuItem key={option} value={option}>
+                    {option.charAt(0).toUpperCase() + option.slice(1)}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </>
+          ) : (
+            <>
+              <TextField
+                fullWidth
+                margin="dense"
+                label="Describe what you ate (or drank)"
+                placeholder="Example: chicken burrito bowl with rice, beans, guac and a Coke"
+                value={describeInput}
+                onChange={(event) => setDescribeInput(event.target.value)}
+                multiline
+                minRows={3}
+                disabled={dialogBusy || Boolean(describeReply)}
+              />
+
+              {describeReply && (
+                <Box
+                  sx={{
+                    mt: 2,
+                    p: 1.5,
+                    borderRadius: 2,
+                    bgcolor: alpha(theme.palette.info.main, 0.06),
+                    border: `1px solid ${alpha(theme.palette.info.main, 0.2)}`,
+                    '& p': { m: 0 },
+                    '& ul, & ol': { m: 0, pl: 3 },
+                    '& li': { mb: 0.5 },
+                    '& li:last-child': { mb: 0 },
+                    '& a': { color: 'inherit' },
+                    '& code': {
+                      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                      fontSize: '0.9em',
+                    },
+                    '& pre': {
+                      overflowX: 'auto',
+                      p: 1,
+                      borderRadius: 1,
+                      backgroundColor: 'rgba(0,0,0,0.06)',
+                    },
+                    '& pre code': { fontSize: '0.85em' },
+                  }}
+                >
+                  <Markdown>{describeReply}</Markdown>
+                </Box>
+              )}
+            </>
+          )}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={handleCloseLogDialog} disabled={savingLog}>
-            Cancel
+          <Button onClick={handleCloseLogDialog} disabled={dialogBusy}>
+            {logMode === 'describe' && describeReply ? 'Close' : 'Cancel'}
           </Button>
-          <Button 
-            variant="contained" 
-            onClick={handleSaveMealLog}
-            disabled={savingLog}
-          >
-            {savingLog ? 'Saving...' : 'Log Meal'}
-          </Button>
+          {logMode === 'quick' ? (
+            <Button
+              variant="contained"
+              onClick={handleSaveMealLog}
+              disabled={dialogBusy}
+            >
+              {savingQuickLog ? 'Saving...' : 'Log Meal'}
+            </Button>
+          ) : (
+            <Button
+              variant="contained"
+              onClick={handleDescribeMealLog}
+              disabled={dialogBusy || Boolean(describeReply)}
+            >
+              {sendingDescribeLog ? 'Sending...' : 'Send to AI'}
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
     </Box>
