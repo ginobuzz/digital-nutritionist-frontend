@@ -24,7 +24,7 @@ import LockRoundedIcon from '@mui/icons-material/LockRounded';
 import TodayRoundedIcon from '@mui/icons-material/TodayRounded';
 import TimelineRoundedIcon from '@mui/icons-material/TimelineRounded';
 import { useNavigate } from 'react-router-dom';
-import { addDays, format, isAfter, isBefore, isSameDay, startOfDay } from 'date-fns';
+import { addDays, format, isAfter, isBefore, isSameDay, startOfDay, startOfWeek } from 'date-fns';
 import { User } from '../types';
 import { apiService } from '../services/api';
 
@@ -44,8 +44,7 @@ interface DayEntry {
   plannedCalories: number;
 }
 
-const PAST_DAYS = 3;
-const FUTURE_DAYS = 3;
+const WEEK_LENGTH_DAYS = 7;
 const toIsoDate = (d: Date) => format(d, 'yyyy-MM-dd');
 
 const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
@@ -82,14 +81,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       }
       const userId = getActiveUserId();
 
-      // Fetch recent days, today, and a few future days for planning
       const today = startOfDay(new Date());
-      const start = addDays(today, -PAST_DAYS);
-      const end = addDays(today, FUTURE_DAYS);
+      const weekStart = startOfWeek(today, { weekStartsOn: 0 }); // Sunday
+      const weekEnd = addDays(weekStart, WEEK_LENGTH_DAYS - 1); // Saturday
 
       const [logs, plannedMeals] = await Promise.all([
-        apiService.getMealLogs({ userId, start, end }),
-        apiService.getPlannedMeals({ userId: String(userId), start, end }),
+        apiService.getMealLogs({ userId, start: weekStart, end: weekEnd }),
+        apiService.getPlannedMeals({ userId: String(userId), start: weekStart, end: weekEnd }),
       ]);
 
       const nextActualByDate: Record<string, number> = {};
@@ -106,12 +104,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
         nextPlannedByDate[key] = (nextPlannedByDate[key] || 0) + cals;
       }
 
-      const entries: DayEntry[] = Array.from({ length: PAST_DAYS + FUTURE_DAYS + 1 }, (_, idx) => {
-        const offset = idx - PAST_DAYS;
-        const date = addDays(today, offset);
+      const entries: DayEntry[] = Array.from({ length: WEEK_LENGTH_DAYS }, (_, idx) => {
+        const date = addDays(weekStart, idx);
         const key = toIsoDate(date);
-        const kind: DayKind = offset < 0 ? 'past' : offset > 0 ? 'future' : 'today';
-        const label = offset === 0 ? 'Today' : format(date, 'EEE M/d');
+        const kind: DayKind = isSameDay(date, today) ? 'today' : isBefore(date, today) ? 'past' : 'future';
+        const label = format(date, 'EEEE');
         return {
           key,
           date,
@@ -364,11 +361,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                 outlineOffset: 0,
               }}
               onClick={() => {
-                if (entry.kind === 'past') {
-                  setSelectedDate(entry.date);
-                  return;
-                }
-                openLogDialog(entry.date);
+                navigate(`/log?date=${entry.key}`);
               }}
             >
               <CardContent sx={{ p: 1.75, '&:last-child': { pb: 1.75 } }}>
