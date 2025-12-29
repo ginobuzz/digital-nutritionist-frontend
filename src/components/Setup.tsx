@@ -721,6 +721,10 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
               Already have an account?{' '}
               <Link component={RouterLink} to="/signin">Sign in</Link>
             </Typography>
+            <Typography variant="body2" align="center" sx={{ mt: 0.5 }}>
+              Want to learn more?{' '}
+              <Link component={RouterLink} to="/about">About Sunday Mornings</Link>
+            </Typography>
           </Box>
 
           {isMobile ? (

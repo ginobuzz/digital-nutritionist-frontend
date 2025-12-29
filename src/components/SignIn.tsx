@@ -80,6 +80,10 @@ const SignIn: React.FC<SignInProps> = ({ onSignedIn }) => {
             Don't have an account?{' '}
             <Link component={RouterLink} to="/setup">Create one</Link>
           </Typography>
+          <Typography variant="body2" sx={{ mt: 1 }}>
+            Want to learn more?{' '}
+            <Link component={RouterLink} to="/about">About Sunday Mornings</Link>
+          </Typography>
         </CardContent>
         </Card>
       </Box>

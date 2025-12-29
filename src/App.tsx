@@ -11,6 +11,7 @@ import Profile from './components/Profile';
 import Setup from './components/Setup';
 import ApiTest from './components/ApiTest';
 import SignIn from './components/SignIn';
+import About from './components/About';
 import { User } from './types';
 import { calculateDailyExpenditure } from './utils/calculations';
 import { apiService } from './services/api';
@@ -91,6 +92,7 @@ function App() {
                 }} />
               }
             />
+            <Route path="/about" element={<About />} />
             <Route path="/setup" element={<Setup onComplete={handleSetupComplete} />} />
             <Route path="/" element={<Navigate to="/signin" replace />} />
             <Route path="*" element={<Navigate to="/signin" replace />} />
@@ -108,6 +110,7 @@ function App() {
         <Router basename={process.env.PUBLIC_URL}>
           <Routes>
             <Route path="/setup" element={<Setup onComplete={handleSetupComplete} />} />
+            <Route path="/about" element={<About />} />
             <Route path="*" element={<Navigate to="/setup" replace />} />
           </Routes>
         </Router>
@@ -127,6 +130,7 @@ function App() {
             <Route path="/log" element={<Log user={user!} />} />
             <Route path="/chat" element={<Chat user={user!} />} />
             <Route path="/profile" element={<Profile user={user!} onUserUpdate={setUser} />} />
+            <Route path="/about" element={<About />} />
             <Route path="/api-test" element={<ApiTest />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

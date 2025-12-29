@@ -25,6 +25,7 @@ import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import LockRoundedIcon from '@mui/icons-material/LockRounded';
 import TodayRoundedIcon from '@mui/icons-material/TodayRounded';
 import TimelineRoundedIcon from '@mui/icons-material/TimelineRounded';
+import InfoRoundedIcon from '@mui/icons-material/InfoRounded';
 import { useNavigate } from 'react-router-dom';
 import { addDays, format, isAfter, isBefore, isSameDay, startOfDay } from 'date-fns';
 import Markdown from 'markdown-to-jsx';
@@ -375,6 +376,15 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
               Log Food
             </Button>
           </Box>
+          <Button
+            variant="text"
+            color="inherit"
+            onClick={() => navigate('/about')}
+            startIcon={<InfoRoundedIcon />}
+            sx={{ mt: 1, px: 0 }}
+          >
+            About Sunday Mornings
+          </Button>
         </CardContent>
       </Card>
 
