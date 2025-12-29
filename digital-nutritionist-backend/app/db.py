@@ -27,7 +27,9 @@ elif "pooler" in (database_url.host or ""):
     # Neon "pooler" hosts (PgBouncer) can break server-side prepared statements and
     # don't benefit from SQLAlchemy's own connection pool.
     engine_kwargs["poolclass"] = NullPool
-    engine_kwargs["connect_args"] = {"prepared_statement_cache_size": 0}
+    # psycopg v3 uses server-side prepared statements; disable them for PgBouncer.
+    # psycopg passes unknown kwargs as libpq conn params, so only use supported ones.
+    engine_kwargs["connect_args"] = {"prepare_threshold": 0}
 
 engine = create_engine(database_url, **engine_kwargs)
 
