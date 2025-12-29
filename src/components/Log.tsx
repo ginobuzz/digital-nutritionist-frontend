@@ -22,8 +22,6 @@ import {
   MenuItem,
   IconButton,
   LinearProgress,
-  Tabs,
-  Tab,
   Alert,
   ToggleButton,
   ToggleButtonGroup,
@@ -36,17 +34,15 @@ import {
   Edit,
   Delete,
   Restaurant,
-  FitnessCenter,
   Schedule,
   LocalDining,
-  DirectionsRun,
   CalendarToday
 } from '@mui/icons-material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { format, isValid, parseISO } from 'date-fns';
 import Markdown from 'markdown-to-jsx';
-import { ActualMeal, Activity, PlannedMeal, User } from '../types';
-import { apiService, MealLogResponse, PlannedMealResponse, ActivityLogResponse } from '../services/api';
+import { ActualMeal, PlannedMeal, User } from '../types';
+import { apiService, MealLogResponse, PlannedMealResponse } from '../services/api';
 import { useSearchParams } from 'react-router-dom';
 
 const toIsoDate = (d: Date) => format(d, 'yyyy-MM-dd');
@@ -55,12 +51,6 @@ const normalizeMealType = (value: string | null | undefined): ActualMeal['type']
   const v = (value || '').toLowerCase();
   if (v === 'breakfast' || v === 'lunch' || v === 'dinner' || v === 'snack') return v;
   return 'snack';
-};
-
-const normalizeActivityType = (value: string | null | undefined): Activity['type'] => {
-  const v = (value || '').toLowerCase();
-  if (v === 'cardio' || v === 'strength' || v === 'flexibility' || v === 'other') return v;
-  return 'other';
 };
 
 const mapMealLogToActualMeal = (log: MealLogResponse): ActualMeal => {
@@ -88,37 +78,6 @@ const mapPlannedMealResponse = (meal: PlannedMealResponse): PlannedMeal => ({
   isPlanned: true,
 });
 
-const mapActivityLogResponse = (activity: ActivityLogResponse): Activity => ({
-  id: String(activity.id),
-  name: activity.name,
-  caloriesBurned: activity.calories_burned,
-  duration: activity.duration,
-  type: normalizeActivityType(activity.type),
-  time: new Date(activity.time),
-});
-
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
-
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`log-tabpanel-${index}`}
-      aria-labelledby={`log-tab-${index}`}
-      {...other}
-    >
-      {value === index && <Box sx={{ pt: 2 }}>{children}</Box>}
-    </div>
-  );
-}
-
 interface LogProps {
   user: User;
 }
@@ -126,14 +85,11 @@ interface LogProps {
 const Log: React.FC<LogProps> = ({ user }) => {
   const theme = useTheme();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [tabValue, setTabValue] = useState(0);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [plannedMeals, setPlannedMeals] = useState<PlannedMeal[]>([]);
   const [actualMeals, setActualMeals] = useState<ActualMeal[]>([]);
-  const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
   const [mealDialogOpen, setMealDialogOpen] = useState(false);
-  const [activityDialogOpen, setActivityDialogOpen] = useState(false);
   const [logDialogOpen, setLogDialogOpen] = useState(false);
   const [logMode, setLogMode] = useState<'quick' | 'describe'>('quick');
   const [logForm, setLogForm] = useState({
@@ -147,7 +103,6 @@ const Log: React.FC<LogProps> = ({ user }) => {
   const [savingQuickLog, setSavingQuickLog] = useState(false);
   const [sendingDescribeLog, setSendingDescribeLog] = useState(false);
   const [editingMeal, setEditingMeal] = useState<PlannedMeal | ActualMeal | null>(null);
-  const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
   const [isEditingPlanned, setIsEditingPlanned] = useState(false);
   const [mealFormData, setMealFormData] = useState({
     name: '',
@@ -158,25 +113,16 @@ const Log: React.FC<LogProps> = ({ user }) => {
     notes: '',
     isPlanned: true
   });
-  const [activityFormData, setActivityFormData] = useState({
-    name: '',
-    caloriesBurned: '',
-    duration: '',
-    type: 'cardio' as Activity['type'],
-    time: ''
-  });
 
   const fetchLogData = useCallback(async () => {
     try {
       setLoading(true);
-      const [planned, actual, acts] = await Promise.all([
+      const [planned, actual] = await Promise.all([
         apiService.getPlannedMeals({ userId: user.id, start: selectedDate, end: selectedDate }),
         apiService.getMealLogs({ userId: user.id, start: selectedDate, end: selectedDate }),
-        apiService.getActivityLogs({ userId: user.id, start: selectedDate, end: selectedDate }),
       ]);
       setPlannedMeals(planned.map(mapPlannedMealResponse));
       setActualMeals(actual.map(mapMealLogToActualMeal));
-      setActivities(acts.map(mapActivityLogResponse));
     } catch (error) {
       console.error('Error fetching log data:', error);
     } finally {
@@ -196,10 +142,6 @@ const Log: React.FC<LogProps> = ({ user }) => {
     if (toIsoDate(parsed) === toIsoDate(selectedDate)) return;
     setSelectedDate(parsed);
   }, [searchParams, selectedDate]);
-
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue);
-  };
 
   const handleDateChange = (date: Date | null) => {
     if (date) {
@@ -401,78 +343,6 @@ const Log: React.FC<LogProps> = ({ user }) => {
     })();
   };
 
-  // Activity handlers
-  const handleAddActivity = () => {
-    setEditingActivity(null);
-    setActivityFormData({
-      name: '',
-      caloriesBurned: '',
-      duration: '',
-      type: 'cardio',
-      time: ''
-    });
-    setActivityDialogOpen(true);
-  };
-
-  const handleEditActivity = (activity: Activity) => {
-    setEditingActivity(activity);
-    setActivityFormData({
-      name: activity.name,
-      caloriesBurned: activity.caloriesBurned.toString(),
-      duration: activity.duration.toString(),
-      type: activity.type,
-      time: new Date(activity.time).toLocaleTimeString('en-US', { 
-        hour12: false, 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      })
-    });
-    setActivityDialogOpen(true);
-  };
-
-  const handleDeleteActivity = (activityId: string) => {
-    (async () => {
-      try {
-        await apiService.deleteActivityLog(activityId);
-        await fetchLogData();
-      } catch (error) {
-        console.error('Error deleting activity:', error);
-      }
-    })();
-  };
-
-  const handleSaveActivity = () => {
-    if (!activityFormData.name || !activityFormData.caloriesBurned || !activityFormData.duration) return;
-    if (!activityFormData.time) return;
-
-    (async () => {
-      try {
-        const isoDate = toIsoDate(selectedDate);
-        const time = new Date(`${isoDate}T${activityFormData.time}:00`);
-        const payload = {
-          user_id: user.id,
-          date: isoDate,
-          name: activityFormData.name,
-          calories_burned: parseInt(activityFormData.caloriesBurned, 10),
-          duration: parseInt(activityFormData.duration, 10),
-          type: activityFormData.type,
-          time: time.toISOString(),
-        };
-
-        if (editingActivity) {
-          await apiService.updateActivityLog(editingActivity.id, payload);
-        } else {
-          await apiService.createActivityLog(payload);
-        }
-
-        setActivityDialogOpen(false);
-        await fetchLogData();
-      } catch (error) {
-        console.error('Error saving activity:', error);
-      }
-    })();
-  };
-
   const getMealTypeIcon = (type: PlannedMeal['type'] | ActualMeal['type']) => {
     switch (type) {
       case 'breakfast':
@@ -488,35 +358,8 @@ const Log: React.FC<LogProps> = ({ user }) => {
     }
   };
 
-  const getActivityTypeIcon = (type: Activity['type']) => {
-    switch (type) {
-      case 'cardio':
-        return '🏃';
-      case 'strength':
-        return '💪';
-      case 'flexibility':
-        return '🧘';
-      default:
-        return '⚡';
-    }
-  };
-
-  const getActivityTypeColor = (type: Activity['type']) => {
-    switch (type) {
-      case 'cardio':
-        return 'error';
-      case 'strength':
-        return 'warning';
-      case 'flexibility':
-        return 'success';
-      default:
-        return 'default';
-    }
-  };
-
   const totalPlannedCalories = plannedMeals.reduce((sum, meal) => sum + meal.calories, 0);
   const totalActualCalories = actualMeals.reduce((sum, meal) => sum + (meal.actualCalories || meal.calories), 0);
-  const totalCaloriesBurned = activities.reduce((sum, activity) => sum + activity.caloriesBurned, 0);
 
   const isToday = selectedDate.toDateString() === new Date().toDateString();
   const isPast = selectedDate < new Date(new Date().setHours(0, 0, 0, 0));
@@ -570,22 +413,6 @@ const Log: React.FC<LogProps> = ({ user }) => {
             </CardContent>
           </Card>
           
-          {!isFuture && (
-            <Card sx={{ flex: 1 }}>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Calories Burned
-                </Typography>
-                <Typography variant="h4" color="success.main">
-                  {Math.round(totalCaloriesBurned)}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {activities.length} activities logged
-                </Typography>
-              </CardContent>
-            </Card>
-          )}
-          
           {isFuture && (
             <Card sx={{ flex: 1 }}>
               <CardContent>
@@ -603,33 +430,24 @@ const Log: React.FC<LogProps> = ({ user }) => {
           )}
         </Box>
 
-        {/* Tabs */}
+        {/* Meals */}
         <Card>
           <CardContent sx={{ p: 0 }}>
-            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-              <Tabs value={tabValue} onChange={handleTabChange} aria-label="log tabs">
-                <Tab label="Meals" icon={<Restaurant />} iconPosition="start" />
-                <Tab label="Activities" icon={<FitnessCenter />} iconPosition="start" />
-              </Tabs>
-            </Box>
-
-            <TabPanel value={tabValue} index={0}>
-              <Box sx={{ p: 2 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="h6">
-                    {isFuture ? 'Planned Meals' : 'Meals'}
-                  </Typography>
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    {isFuture && (
-                      <Button
-                        variant="contained"
-                        startIcon={<Add />}
-                        onClick={() => handleAddMeal(true)}
-                      >
-                        Plan Meal
-                      </Button>
-                    )}
-                  {!isFuture && (
+            <Box sx={{ p: 2 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h6">
+                  {isFuture ? 'Planned Meals' : 'Meals'}
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  {isFuture ? (
+                    <Button
+                      variant="contained"
+                      startIcon={<Add />}
+                      onClick={() => handleAddMeal(true)}
+                    >
+                      Plan Meal
+                    </Button>
+                  ) : (
                     <Button
                       variant="contained"
                       startIcon={<Add />}
@@ -639,209 +457,108 @@ const Log: React.FC<LogProps> = ({ user }) => {
                     </Button>
                   )}
                 </Box>
-                </Box>
-
-                {plannedMeals.length === 0 && actualMeals.length === 0 ? (
-                  <Box sx={{ textAlign: 'center', py: 4 }}>
-                    <LocalDining sx={{ fontSize: 64, color: 'grey.400', mb: 2 }} />
-                    <Typography variant="h6" color="text.secondary" gutterBottom>
-                      {isFuture ? 'No meals planned yet' : 'No meals logged yet'}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {isFuture ? 'Start by planning your meals for this day' : 'Start by logging what you ate'}
-                    </Typography>
-                  </Box>
-                ) : (
-                  <List>
-                    {/* Show planned meals first for future dates, actual meals first for past/current dates */}
-                    {(isFuture ? [...plannedMeals] : [...actualMeals, ...plannedMeals])
-                      .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
-                      .map((meal) => (
-                      <ListItem
-                        key={meal.id}
-                        sx={{
-                          border: '1px solid',
-                          borderColor: meal.isPlanned ? 'primary.main' : 'secondary.main',
-                          borderRadius: 1,
-                          mb: 1,
-                          '&:last-child': { mb: 0 }
-                        }}
-                      >
-                        <ListItemAvatar>
-                          <Avatar sx={{ 
-                            bgcolor: meal.isPlanned ? 'primary.light' : 'secondary.light' 
-                          }}>
-                            {getMealTypeIcon(meal.type)}
-                          </Avatar>
-                        </ListItemAvatar>
-                        
-	                        <ListItemText
-	                          primaryTypographyProps={{ component: 'div' }}
-	                          secondaryTypographyProps={{ component: 'div' }}
-	                          primary={
-	                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-	                              <Typography variant="subtitle1" fontWeight="bold">
-	                                {meal.name}
-	                              </Typography>
-                              <Chip
-                                label={meal.type}
-                                size="small"
-                                color={meal.isPlanned ? 'primary' : 'secondary'}
-                                variant="outlined"
-                              />
-                              <Chip
-                                label={meal.isPlanned ? 'Planned' : 'Logged'}
-                                size="small"
-                                color={meal.isPlanned ? 'info' : 'success'}
-                                variant="outlined"
-                              />
-                            </Box>
-                          }
-                          secondary={
-                            <Box>
-                              <Typography variant="body2" color="text.secondary">
-                                {Math.round((meal as ActualMeal).actualCalories || meal.calories)} calories
-                              </Typography>
-                              {meal.description && (
-                                <Typography variant="body2" color="text.secondary">
-                                  {meal.description}
-                                </Typography>
-                              )}
-                              {(meal as ActualMeal).notes && (
-                                <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                                  Note: {(meal as ActualMeal).notes}
-                                </Typography>
-                              )}
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-                                <Schedule sx={{ fontSize: 16 }} />
-                                <Typography variant="caption" color="text.secondary">
-                                  {new Date(meal.time).toLocaleTimeString()}
-                                </Typography>
-                              </Box>
-                            </Box>
-                          }
-                        />
-                        
-                        <Box sx={{ display: 'flex', gap: 1 }}>
-                          <IconButton
-                            size="small"
-                            onClick={() => handleEditMeal(meal)}
-                          >
-                            <Edit />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => handleDeleteMeal(meal.id, meal.isPlanned)}
-                          >
-                            <Delete />
-                          </IconButton>
-                        </Box>
-                      </ListItem>
-                    ))}
-                  </List>
-                )}
               </Box>
-            </TabPanel>
 
-            <TabPanel value={tabValue} index={1}>
-              <Box sx={{ p: 2 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="h6">
-                    Activities
+              {plannedMeals.length === 0 && actualMeals.length === 0 ? (
+                <Box sx={{ textAlign: 'center', py: 4 }}>
+                  <LocalDining sx={{ fontSize: 64, color: 'grey.400', mb: 2 }} />
+                  <Typography variant="h6" color="text.secondary" gutterBottom>
+                    {isFuture ? 'No meals planned yet' : 'No meals logged yet'}
                   </Typography>
-                  {!isFuture && (
-                    <Button
-                      variant="contained"
-                      startIcon={<Add />}
-                      onClick={handleAddActivity}
-                    >
-                      Log Activity
-                    </Button>
-                  )}
+                  <Typography variant="body2" color="text.secondary">
+                    {isFuture ? 'Start by planning your meals for this day' : 'Start by logging what you ate'}
+                  </Typography>
                 </Box>
-
-                {activities.length === 0 ? (
-                  <Box sx={{ textAlign: 'center', py: 4 }}>
-                    <DirectionsRun sx={{ fontSize: 64, color: 'grey.400', mb: 2 }} />
-                    <Typography variant="h6" color="text.secondary" gutterBottom>
-                      {isFuture ? 'No activities planned' : 'No activities logged yet'}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {isFuture ? 'Activities can only be logged after they happen' : 'Start by logging your exercise and activities'}
-                    </Typography>
-                  </Box>
-                ) : (
-                  <List>
-                    {activities
-                      .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
-                      .map((activity) => (
-                      <ListItem
-                        key={activity.id}
-                        sx={{
-                          border: '1px solid',
-                          borderColor: 'divider',
-                          borderRadius: 1,
-                          mb: 1,
-                          '&:last-child': { mb: 0 }
-                        }}
-                      >
-                        <ListItemAvatar>
-                          <Avatar sx={{ bgcolor: `${getActivityTypeColor(activity.type)}.light` }}>
-                            {getActivityTypeIcon(activity.type)}
-                          </Avatar>
-                        </ListItemAvatar>
-                        
-                        <ListItemText
-                          primary={
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <Typography variant="subtitle1" fontWeight="bold">
-                                {activity.name}
-                              </Typography>
-                              <Chip
-                                label={activity.type}
-                                size="small"
-                                color={getActivityTypeColor(activity.type) as any}
-                                variant="outlined"
-                              />
-                            </Box>
-                          }
-                          secondary={
-                            <Box>
+              ) : (
+                <List>
+                  {(isFuture ? [...plannedMeals] : [...actualMeals, ...plannedMeals])
+                    .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
+                    .map((meal) => (
+                    <ListItem
+                      key={meal.id}
+                      sx={{
+                        border: '1px solid',
+                        borderColor: meal.isPlanned ? 'primary.main' : 'secondary.main',
+                        borderRadius: 1,
+                        mb: 1,
+                        '&:last-child': { mb: 0 }
+                      }}
+                    >
+                      <ListItemAvatar>
+                        <Avatar sx={{ 
+                          bgcolor: meal.isPlanned ? 'primary.light' : 'secondary.light' 
+                        }}>
+                          {getMealTypeIcon(meal.type)}
+                        </Avatar>
+                      </ListItemAvatar>
+                      
+                      <ListItemText
+                        primaryTypographyProps={{ component: 'div' }}
+                        secondaryTypographyProps={{ component: 'div' }}
+                        primary={
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography variant="subtitle1" fontWeight="bold">
+                              {meal.name}
+                            </Typography>
+                            <Chip
+                              label={meal.type}
+                              size="small"
+                              color={meal.isPlanned ? 'primary' : 'secondary'}
+                              variant="outlined"
+                            />
+                            <Chip
+                              label={meal.isPlanned ? 'Planned' : 'Logged'}
+                              size="small"
+                              color={meal.isPlanned ? 'info' : 'success'}
+                              variant="outlined"
+                            />
+                          </Box>
+                        }
+                        secondary={
+                          <Box>
+                            <Typography variant="body2" color="text.secondary">
+                              {Math.round((meal as ActualMeal).actualCalories || meal.calories)} calories
+                            </Typography>
+                            {meal.description && (
                               <Typography variant="body2" color="text.secondary">
-                                {Math.round(activity.caloriesBurned)} calories burned • {activity.duration} minutes
+                                {meal.description}
                               </Typography>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-                                <Schedule sx={{ fontSize: 16 }} />
-                                <Typography variant="caption" color="text.secondary">
-                                  {new Date(activity.time).toLocaleTimeString()}
-                                </Typography>
-                              </Box>
+                            )}
+                            {(meal as ActualMeal).notes && (
+                              <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                                Note: {(meal as ActualMeal).notes}
+                              </Typography>
+                            )}
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                              <Schedule sx={{ fontSize: 16 }} />
+                              <Typography variant="caption" color="text.secondary">
+                                {new Date(meal.time).toLocaleTimeString()}
+                              </Typography>
                             </Box>
-                          }
-                        />
-                        
-                        <Box sx={{ display: 'flex', gap: 1 }}>
-                          <IconButton
-                            size="small"
-                            onClick={() => handleEditActivity(activity)}
-                          >
-                            <Edit />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => handleDeleteActivity(activity.id)}
-                          >
-                            <Delete />
-                          </IconButton>
-                        </Box>
-                      </ListItem>
-                    ))}
-                  </List>
-                )}
-              </Box>
-            </TabPanel>
+                          </Box>
+                        }
+                      />
+                      
+                      <Box sx={{ display: 'flex', gap: 1 }}>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleEditMeal(meal)}
+                        >
+                          <Edit />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => handleDeleteMeal(meal.id, meal.isPlanned)}
+                        >
+                          <Delete />
+                        </IconButton>
+                      </Box>
+                    </ListItem>
+                  ))}
+                </List>
+              )}
+            </Box>
           </CardContent>
         </Card>
 
@@ -1059,77 +776,6 @@ const Log: React.FC<LogProps> = ({ user }) => {
                 {sendingDescribeLog ? 'Sending...' : 'Send to AI'}
               </Button>
             )}
-          </DialogActions>
-        </Dialog>
-
-        {/* Activity Dialog */}
-        <Dialog open={activityDialogOpen} onClose={() => setActivityDialogOpen(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>
-            {editingActivity ? 'Edit Activity' : 'Log Activity'}
-          </DialogTitle>
-          <DialogContent>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-              <TextField
-                label="Activity Name"
-                value={activityFormData.name}
-                onChange={(e) => setActivityFormData(prev => ({ ...prev, name: e.target.value }))}
-                fullWidth
-                required
-              />
-              
-              <TextField
-                label="Calories Burned"
-                type="number"
-                value={activityFormData.caloriesBurned}
-                onChange={(e) => setActivityFormData(prev => ({ ...prev, caloriesBurned: e.target.value }))}
-                fullWidth
-                required
-              />
-              
-              <TextField
-                label="Duration (minutes)"
-                type="number"
-                value={activityFormData.duration}
-                onChange={(e) => setActivityFormData(prev => ({ ...prev, duration: e.target.value }))}
-                fullWidth
-                required
-              />
-              
-              <FormControl fullWidth>
-                <InputLabel>Activity Type</InputLabel>
-                <Select
-                  value={activityFormData.type}
-                  label="Activity Type"
-                  onChange={(e) => setActivityFormData(prev => ({ ...prev, type: e.target.value as Activity['type'] }))}
-                >
-                  <MenuItem value="cardio">Cardio</MenuItem>
-                  <MenuItem value="strength">Strength Training</MenuItem>
-                  <MenuItem value="flexibility">Flexibility/Yoga</MenuItem>
-                  <MenuItem value="other">Other</MenuItem>
-                </Select>
-              </FormControl>
-              
-              <TextField
-                label="Time"
-                type="time"
-                value={activityFormData.time}
-                onChange={(e) => setActivityFormData(prev => ({ ...prev, time: e.target.value }))}
-                fullWidth
-                InputLabelProps={{ shrink: true }}
-              />
-            </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setActivityDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleSaveActivity}
-              variant="contained"
-              disabled={!activityFormData.name || !activityFormData.caloriesBurned || !activityFormData.duration}
-            >
-              {editingActivity ? 'Update' : 'Log'} Activity
-            </Button>
           </DialogActions>
         </Dialog>
       </Box>
