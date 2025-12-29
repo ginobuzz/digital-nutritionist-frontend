@@ -7,6 +7,7 @@ import {
   Box,
   Container,
   Avatar,
+  IconButton,
   useTheme,
   useMediaQuery,
   BottomNavigation,
@@ -31,6 +32,10 @@ const Layout: React.FC<LayoutProps> = ({ children, user }) => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
   const location = useLocation();
+
+  const handleLogoClick = () => {
+    navigate('/profile');
+  };
 
   const handleNavigationChange = (event: React.SyntheticEvent, newValue: number) => {
     switch (newValue) {
@@ -65,18 +70,24 @@ const Layout: React.FC<LayoutProps> = ({ children, user }) => {
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <AppBar position="sticky">
         <Toolbar sx={{ px: 2 }}>
-          <Avatar
-            sx={{
-              width: 34,
-              height: 34,
-              bgcolor: 'primary.main',
-              color: 'primary.contrastText',
-              fontWeight: 900,
-              boxShadow: 1,
-            }}
+          <IconButton
+            aria-label="Go to profile"
+            onClick={handleLogoClick}
+            sx={{ p: 0 }}
           >
-            {user.name.charAt(0)}
-          </Avatar>
+            <Avatar
+              sx={{
+                width: 34,
+                height: 34,
+                bgcolor: 'primary.main',
+                color: 'primary.contrastText',
+                fontWeight: 900,
+                boxShadow: 1,
+              }}
+            >
+              {user.name.charAt(0)}
+            </Avatar>
+          </IconButton>
           <Typography 
             variant="h6"
             component="div" 
