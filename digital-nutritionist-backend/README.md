@@ -33,7 +33,11 @@ A FastAPI backend that mirrors the REST interface expected by the digital nutrit
 - Root directory: `digital-nutritionist-backend`
 - Build command: `pip install -r requirements.txt`
 - Start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-- Env vars: set `OPENAI_API_KEY`, `JWT_SECRET_KEY`, and `ALLOWED_ORIGINS` (include your deployed frontend origin, e.g. `https://glockstock.github.io`)
+- Env vars:
+  - `OPENAI_API_KEY`
+  - `JWT_SECRET_KEY`
+  - `ALLOWED_ORIGINS` (include your deployed frontend origin, e.g. `https://glockstock.github.io`)
+  - `DATABASE_URL` (use Postgres for persistence; most providers require `?sslmode=require`)
 
 ## Docker Compose for local full-stack dev
 A `docker-compose.dev.yml` file in the repo root starts the frontend, backend, and a Postgres database on a shared network. Set `REACT_APP_API_BASE_URL` to `http://backend:8000` for the frontend service.

@@ -1,8 +1,10 @@
+from sqlalchemy import text
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
-from .db import init_db
+from .db import engine, init_db
 from .routers import activity_logs, auth, chat, meal_logs, planned_meals, users, weight_logs
 
 app = FastAPI(title="Digital Nutritionist Backend")
@@ -23,6 +25,13 @@ def on_startup() -> None:
 
 @app.get("/health")
 def health_check() -> dict[str, str]:
+    return {"status": "ok"}
+
+
+@app.get("/health/db")
+def health_db_check() -> dict[str, str]:
+    with engine.connect() as connection:
+        connection.execute(text("SELECT 1"))
     return {"status": "ok"}
 
 
