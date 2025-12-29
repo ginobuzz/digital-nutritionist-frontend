@@ -21,11 +21,15 @@ import {
   Select,
   MenuItem,
   IconButton,
-  Fab,
   LinearProgress,
   Tabs,
   Tab,
+  Alert,
+  ToggleButton,
+  ToggleButtonGroup,
+  useTheme,
 } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import {
   Add,
@@ -40,6 +44,7 @@ import {
 } from '@mui/icons-material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { format, isValid, parseISO } from 'date-fns';
+import Markdown from 'markdown-to-jsx';
 import { ActualMeal, Activity, PlannedMeal, User } from '../types';
 import { apiService, MealLogResponse, PlannedMealResponse, ActivityLogResponse } from '../services/api';
 import { useSearchParams } from 'react-router-dom';
@@ -119,6 +124,7 @@ interface LogProps {
 }
 
 const Log: React.FC<LogProps> = ({ user }) => {
+  const theme = useTheme();
   const [searchParams, setSearchParams] = useSearchParams();
   const [tabValue, setTabValue] = useState(0);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -128,6 +134,18 @@ const Log: React.FC<LogProps> = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [mealDialogOpen, setMealDialogOpen] = useState(false);
   const [activityDialogOpen, setActivityDialogOpen] = useState(false);
+  const [logDialogOpen, setLogDialogOpen] = useState(false);
+  const [logMode, setLogMode] = useState<'quick' | 'describe'>('quick');
+  const [logForm, setLogForm] = useState({
+    description: '',
+    calories: '',
+    mealType: 'lunch',
+  });
+  const [describeInput, setDescribeInput] = useState('');
+  const [describeReply, setDescribeReply] = useState<string | null>(null);
+  const [logError, setLogError] = useState<string | null>(null);
+  const [savingQuickLog, setSavingQuickLog] = useState(false);
+  const [sendingDescribeLog, setSendingDescribeLog] = useState(false);
   const [editingMeal, setEditingMeal] = useState<PlannedMeal | ActualMeal | null>(null);
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
   const [isEditingPlanned, setIsEditingPlanned] = useState(false);
@@ -187,6 +205,97 @@ const Log: React.FC<LogProps> = ({ user }) => {
     if (date) {
       setSelectedDate(date);
       setSearchParams({ date: toIsoDate(date) }, { replace: true });
+    }
+  };
+
+  const dialogBusy = savingQuickLog || sendingDescribeLog;
+  const selectedKey = toIsoDate(selectedDate);
+
+  const openLogDialog = () => {
+    if (toIsoDate(selectedDate) > toIsoDate(new Date())) return;
+    setLogMode('quick');
+    setLogError(null);
+    setDescribeReply(null);
+    setLogForm({
+      description: '',
+      calories: '',
+      mealType: 'lunch',
+    });
+    setDescribeInput('');
+    setLogDialogOpen(true);
+  };
+
+  const handleCloseLogDialog = () => {
+    if (!dialogBusy) {
+      setLogDialogOpen(false);
+      setLogError(null);
+    }
+  };
+
+  const handleLogInputChange = (field: 'description' | 'calories' | 'mealType', value: string) => {
+    setLogForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSaveMealLog = async () => {
+    if (!logForm.description.trim() || !logForm.calories.trim()) {
+      setLogError('Enter a short description and calories to log the meal.');
+      return;
+    }
+
+    try {
+      setSavingQuickLog(true);
+      setLogError(null);
+      await apiService.createMealLog({
+        user_id: user.id,
+        date: selectedKey,
+        user_description: logForm.description.trim(),
+        meal_type: logForm.mealType || null,
+        estimated_calories: Number(logForm.calories),
+      });
+      setLogDialogOpen(false);
+      setLogForm({
+        description: '',
+        calories: '',
+        mealType: 'lunch',
+      });
+      await fetchLogData();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to log meal. Please try again.';
+      setLogError(message);
+    } finally {
+      setSavingQuickLog(false);
+    }
+  };
+
+  const handleDescribeMealLog = async () => {
+    if (!describeInput.trim()) {
+      setLogError('Describe what you ate (or drank) to log it.');
+      return;
+    }
+
+    try {
+      setSendingDescribeLog(true);
+      setLogError(null);
+      setDescribeReply(null);
+      const prompt = [
+        `Please log what I consumed on ${selectedKey}.`,
+        `If details are missing, make reasonable assumptions and estimate calories (integer) rather than asking follow-up questions.`,
+        ``,
+        describeInput.trim(),
+      ].join('\n');
+
+      const response = await apiService.chat({
+        message: prompt,
+        user_id: user.id,
+      });
+
+      setDescribeReply(response.reply || 'OK.');
+      await fetchLogData();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to log meal. Please try again.';
+      setLogError(message);
+    } finally {
+      setSendingDescribeLog(false);
     }
   };
 
@@ -520,16 +629,16 @@ const Log: React.FC<LogProps> = ({ user }) => {
                         Plan Meal
                       </Button>
                     )}
-                    {!isFuture && (
-                      <Button
-                        variant="contained"
-                        startIcon={<Add />}
-                        onClick={() => handleAddMeal(false)}
-                      >
-                        Log Meal
-                      </Button>
-                    )}
-                  </Box>
+                  {!isFuture && (
+                    <Button
+                      variant="contained"
+                      startIcon={<Add />}
+                      onClick={openLogDialog}
+                    >
+                      Log Meal
+                    </Button>
+                  )}
+                </Box>
                 </Box>
 
                 {plannedMeals.length === 0 && actualMeals.length === 0 ? (
@@ -820,6 +929,139 @@ const Log: React.FC<LogProps> = ({ user }) => {
           </DialogActions>
         </Dialog>
 
+        {/* Dashboard-style Log Dialog */}
+        <Dialog open={logDialogOpen} onClose={handleCloseLogDialog} maxWidth="xs" fullWidth>
+          <DialogTitle>Log Food ({isToday ? 'Today' : format(selectedDate, 'EEE M/d')})</DialogTitle>
+          <DialogContent sx={{ pt: 1 }}>
+            {logError && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {logError}
+              </Alert>
+            )}
+            <ToggleButtonGroup
+              value={logMode}
+              exclusive
+              fullWidth
+              size="small"
+              disabled={dialogBusy}
+              sx={{ mb: 1.5 }}
+              onChange={(_, value) => {
+                if (!value) return;
+                setLogMode(value);
+                setLogError(null);
+                setDescribeReply(null);
+              }}
+            >
+              <ToggleButton value="quick">Quick add</ToggleButton>
+              <ToggleButton value="describe">Describe it</ToggleButton>
+            </ToggleButtonGroup>
+
+            {logMode === 'quick' ? (
+              <>
+                <TextField
+                  fullWidth
+                  margin="dense"
+                  label="What did you eat?"
+                  value={logForm.description}
+                  onChange={(event) => handleLogInputChange('description', event.target.value)}
+                  disabled={dialogBusy}
+                />
+                <TextField
+                  fullWidth
+                  margin="dense"
+                  label="Calories"
+                  type="number"
+                  inputProps={{ min: 0 }}
+                  value={logForm.calories}
+                  onChange={(event) => handleLogInputChange('calories', event.target.value)}
+                  disabled={dialogBusy}
+                />
+                <TextField
+                  select
+                  fullWidth
+                  margin="dense"
+                  label="Meal Type"
+                  value={logForm.mealType}
+                  onChange={(event) => handleLogInputChange('mealType', event.target.value)}
+                  disabled={dialogBusy}
+                >
+                  {['breakfast', 'lunch', 'dinner', 'snack', 'other'].map((option) => (
+                    <MenuItem key={option} value={option}>
+                      {option.charAt(0).toUpperCase() + option.slice(1)}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </>
+            ) : (
+              <>
+                <TextField
+                  fullWidth
+                  margin="dense"
+                  label="Describe what you ate (or drank)"
+                  placeholder="Example: chicken burrito bowl with rice, beans, guac and a Coke"
+                  value={describeInput}
+                  onChange={(event) => setDescribeInput(event.target.value)}
+                  multiline
+                  minRows={3}
+                  disabled={dialogBusy || Boolean(describeReply)}
+                />
+
+                {describeReply && (
+                  <Box
+                    sx={{
+                      mt: 2,
+                      p: 1.5,
+                      borderRadius: 2,
+                      bgcolor: alpha(theme.palette.info.main, 0.06),
+                      border: `1px solid ${alpha(theme.palette.info.main, 0.2)}`,
+                      '& p': { m: 0 },
+                      '& ul, & ol': { m: 0, pl: 3 },
+                      '& li': { mb: 0.5 },
+                      '& li:last-child': { mb: 0 },
+                      '& a': { color: 'inherit' },
+                      '& code': {
+                        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                        fontSize: '0.9em',
+                      },
+                      '& pre': {
+                        overflowX: 'auto',
+                        p: 1,
+                        borderRadius: 1,
+                        backgroundColor: 'rgba(0,0,0,0.06)',
+                      },
+                      '& pre code': { fontSize: '0.85em' },
+                    }}
+                  >
+                    <Markdown>{describeReply}</Markdown>
+                  </Box>
+                )}
+              </>
+            )}
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={handleCloseLogDialog} disabled={dialogBusy}>
+              {logMode === 'describe' && describeReply ? 'Close' : 'Cancel'}
+            </Button>
+            {logMode === 'quick' ? (
+              <Button
+                variant="contained"
+                onClick={handleSaveMealLog}
+                disabled={dialogBusy}
+              >
+                {savingQuickLog ? 'Saving...' : 'Log Meal'}
+              </Button>
+            ) : (
+              <Button
+                variant="contained"
+                onClick={handleDescribeMealLog}
+                disabled={dialogBusy || Boolean(describeReply)}
+              >
+                {sendingDescribeLog ? 'Sending...' : 'Send to AI'}
+              </Button>
+            )}
+          </DialogActions>
+        </Dialog>
+
         {/* Activity Dialog */}
         <Dialog open={activityDialogOpen} onClose={() => setActivityDialogOpen(false)} maxWidth="sm" fullWidth>
           <DialogTitle>
@@ -890,40 +1132,6 @@ const Log: React.FC<LogProps> = ({ user }) => {
             </Button>
           </DialogActions>
         </Dialog>
-
-        {/* Floating Action Buttons */}
-        {isFuture && (
-          <Fab
-            color="primary"
-            aria-label="plan meal"
-            sx={{ position: 'fixed', bottom: 16, right: 16 }}
-            onClick={() => handleAddMeal(true)}
-          >
-            <Add />
-          </Fab>
-        )}
-        
-        {!isFuture && (
-          <>
-            <Fab
-              color="secondary"
-              aria-label="log meal"
-              sx={{ position: 'fixed', bottom: 16, right: 16 }}
-              onClick={() => handleAddMeal(false)}
-            >
-              <Restaurant />
-            </Fab>
-            
-            <Fab
-              color="success"
-              aria-label="log activity"
-              sx={{ position: 'fixed', bottom: 80, right: 16 }}
-              onClick={handleAddActivity}
-            >
-              <FitnessCenter />
-            </Fab>
-          </>
-        )}
       </Box>
     </LocalizationProvider>
   );
