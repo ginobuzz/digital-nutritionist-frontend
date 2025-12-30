@@ -33,7 +33,6 @@ import {
   Add,
   Edit,
   Delete,
-  Restaurant,
   Schedule,
   LocalDining,
   CalendarToday

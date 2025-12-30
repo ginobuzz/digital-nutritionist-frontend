@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import {
   Box,
   Card,
@@ -59,7 +59,7 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
     return `${CHAT_HISTORY_STORAGE_PREFIX}:${activeUserId ?? 'anon'}`;
   }, [activeUserId]);
 
-  const buildWelcomeMessage = (): ChatMessage => {
+  const buildWelcomeMessage = useCallback((): ChatMessage => {
     const firstName = user?.name?.split(' ')?.[0]?.trim();
     const greeting = firstName
       ? `Hi ${firstName}! Tell me what you ate (or drank) and I’ll log it for you.`
@@ -71,7 +71,7 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
       timestamp: new Date(),
       type: 'reminder',
     };
-  };
+  }, [user?.name]);
 
   const getMarkdownText = (message: ChatMessage) => {
     if (message.sender !== 'ai') return message.text;
@@ -104,7 +104,7 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
       setMessages([buildWelcomeMessage()]);
     }
     // Intentionally re-load when switching users (or when the user's name becomes available).
-  }, [storageKey, user?.name]);
+  }, [storageKey, buildWelcomeMessage]);
 
   useEffect(() => {
     if (!messages.length) return;
