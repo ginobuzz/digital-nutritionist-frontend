@@ -322,7 +322,7 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="Tell me about your meals, exercise, or ask for advice..."
+                placeholder="Log what you ate/drank, plan meals, or ask nutrition questions..."
                 variant="outlined"
                 size="small"
                 disabled={loading}
@@ -338,7 +338,7 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
             </Box>
             
             <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-              Try: "I had oatmeal for breakfast" • "Just finished a 30-minute run" • "What should I eat for dinner?"
+              Try: "I had oatmeal for breakfast" • "Help me plan dinners for the week" • "What's a good high-protein snack?"
             </Typography>
           </Box>
         </CardContent>
