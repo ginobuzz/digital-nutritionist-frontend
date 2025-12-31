@@ -60,7 +60,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   const [actualCaloriesByDate, setActualCaloriesByDate] = useState<Record<string, number>>({});
   const [plannedCaloriesByDate, setPlannedCaloriesByDate] = useState<Record<string, number>>({});
   const [logDialogOpen, setLogDialogOpen] = useState(false);
-  const [logMode, setLogMode] = useState<'quick' | 'describe'>('quick');
+  const [logMode, setLogMode] = useState<'quick' | 'describe'>('describe');
   const [logForm, setLogForm] = useState({
     description: '',
     calories: '',
@@ -185,6 +185,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
     }
     if (date && isBefore(startOfDay(date), today)) return;
     if (!date && isSelectedPast) return;
+    setLogMode('describe');
     setLogError(null);
     setDescribeReply(null);
     setLogForm({
@@ -490,8 +491,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
               setDescribeReply(null);
             }}
           >
-            <ToggleButton value="quick">Quick add</ToggleButton>
             <ToggleButton value="describe">Describe it</ToggleButton>
+            <ToggleButton value="quick">Quick add</ToggleButton>
           </ToggleButtonGroup>
 
           {logMode === 'quick' ? (

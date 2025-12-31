@@ -90,7 +90,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [mealDialogOpen, setMealDialogOpen] = useState(false);
   const [logDialogOpen, setLogDialogOpen] = useState(false);
-  const [logMode, setLogMode] = useState<'quick' | 'describe'>('quick');
+  const [logMode, setLogMode] = useState<'quick' | 'describe'>('describe');
   const [logForm, setLogForm] = useState({
     description: '',
     calories: '',
@@ -154,7 +154,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
 
   const openLogDialog = () => {
     if (toIsoDate(selectedDate) > toIsoDate(new Date())) return;
-    setLogMode('quick');
+    setLogMode('describe');
     setLogError(null);
     setDescribeReply(null);
     setLogForm({
@@ -668,8 +668,8 @@ const Log: React.FC<LogProps> = ({ user }) => {
                 setDescribeReply(null);
               }}
             >
-              <ToggleButton value="quick">Quick add</ToggleButton>
               <ToggleButton value="describe">Describe it</ToggleButton>
+              <ToggleButton value="quick">Quick add</ToggleButton>
             </ToggleButtonGroup>
 
             {logMode === 'quick' ? (
