@@ -363,6 +363,16 @@ const Log: React.FC<LogProps> = ({ user }) => {
   const isToday = selectedDate.toDateString() === new Date().toDateString();
   const isPast = selectedDate < new Date(new Date().setHours(0, 0, 0, 0));
   const isFuture = selectedDate > new Date(new Date().setHours(23, 59, 59, 999));
+  const displayedCalories = isFuture ? totalPlannedCalories : totalActualCalories;
+  const calorieTarget = Number(user.dailyCalorieTarget || 0);
+  const caloriesOver = displayedCalories - calorieTarget;
+  const caloriesRemaining = calorieTarget - displayedCalories;
+  const progressValue = calorieTarget > 0 ? Math.min((displayedCalories / calorieTarget) * 100, 100) : 0;
+  const progressColor = isFuture
+    ? theme.palette.info.main
+    : caloriesOver > 0
+      ? theme.palette.error.main
+      : theme.palette.success.main;
 
   if (loading) {
     return <LinearProgress />;
@@ -399,16 +409,48 @@ const Log: React.FC<LogProps> = ({ user }) => {
         {/* Summary Cards */}
         <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
           <Card sx={{ flex: 1 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                {isFuture ? 'Planned' : 'Calories'}
-              </Typography>
-              <Typography variant="h4" color="primary">
-                {Math.round(isFuture ? totalPlannedCalories : totalActualCalories)}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {isFuture ? 'planned calories' : 'calories consumed'}
-              </Typography>
+            <CardContent sx={{ p: 2.5 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, mb: 1.5 }}>
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography variant="overline" sx={{ color: 'text.secondary', lineHeight: 1 }}>
+                    {isFuture ? 'Planned' : 'Consumed'}
+                  </Typography>
+                  <Typography variant="h5" sx={{ lineHeight: 1.1 }}>
+                    {Math.round(displayedCalories)} / {Math.round(calorieTarget)} kcal
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
+                    {isFuture
+                      ? `${Math.max(0, Math.round(caloriesRemaining))} kcal available to plan`
+                      : caloriesOver > 0
+                        ? `Over by ${Math.round(caloriesOver)} kcal`
+                        : `${Math.max(0, Math.round(caloriesRemaining))} kcal left`}
+                  </Typography>
+                </Box>
+
+                <Button
+                  variant="contained"
+                  color={isFuture ? 'info' : 'primary'}
+                  onClick={isFuture ? () => handleAddMeal(true) : openLogDialog}
+                  startIcon={<Add />}
+                  sx={{ flexShrink: 0 }}
+                >
+                  {isFuture ? 'Plan' : 'Log'}
+                </Button>
+              </Box>
+
+              <LinearProgress
+                variant="determinate"
+                value={progressValue}
+                sx={{
+                  height: 12,
+                  borderRadius: 999,
+                  bgcolor: alpha(theme.palette.text.primary, 0.06),
+                  '& .MuiLinearProgress-bar': {
+                    borderRadius: 999,
+                    backgroundColor: progressColor,
+                  },
+                }}
+              />
             </CardContent>
           </Card>
           
