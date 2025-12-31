@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Card,
@@ -30,7 +31,8 @@ import {
   FitnessCenter,
   TrendingDown,
   CalendarToday,
-  Scale
+  Scale,
+  Logout,
 } from '@mui/icons-material';
 import { User, WeightLog } from '../types';
 import { calculateDailyExpenditure, calculateWeightLossTimeline, calculateProgressPercentage } from '../utils/calculations';
@@ -39,12 +41,15 @@ import { apiService, convertUserToBackend, convertUserFromBackend, convertWeight
 interface ProfileProps {
   user: User;
   onUserUpdate: (user: User) => void;
+  onSignOut: () => void;
 }
 
-const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate }) => {
+const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate, onSignOut }) => {
+  const navigate = useNavigate();
   const [weightLogs, setWeightLogs] = useState<WeightLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [signOutDialogOpen, setSignOutDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     age: '',
@@ -87,6 +92,12 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate }) => {
       dailyDeficitTarget: user.dailyDeficitTarget.toString()
     });
     setEditDialogOpen(true);
+  };
+
+  const handleConfirmSignOut = () => {
+    setSignOutDialogOpen(false);
+    onSignOut();
+    navigate('/signin', { replace: true });
   };
 
   const [saveLoading, setSaveLoading] = useState(false);
@@ -198,13 +209,23 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate }) => {
                     </Typography>
                   </Box>
                 </Box>
-                <Button
-                  variant="outlined"
-                  startIcon={<Edit />}
-                  onClick={handleEditProfile}
-                >
-                  Edit Profile
-                </Button>
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  <Button
+                    variant="outlined"
+                    startIcon={<Edit />}
+                    onClick={handleEditProfile}
+                  >
+                    Edit Profile
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    startIcon={<Logout />}
+                    onClick={() => setSignOutDialogOpen(true)}
+                  >
+                    Sign Out
+                  </Button>
+                </Box>
               </Box>
 
               <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
@@ -532,6 +553,23 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate }) => {
             startIcon={saveLoading ? <CircularProgress size={20} /> : undefined}
           >
             Save Changes
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={signOutDialogOpen} onClose={() => setSignOutDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Sign out?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            You’ll need to sign in again to access your dashboard and logs.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSignOutDialogOpen(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleConfirmSignOut} variant="contained" color="error" startIcon={<Logout />}>
+            Sign Out
           </Button>
         </DialogActions>
       </Dialog>

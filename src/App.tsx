@@ -15,6 +15,7 @@ import About from './components/About';
 import { User } from './types';
 import { calculateDailyExpenditure } from './utils/calculations';
 import { apiService } from './services/api';
+import { authService } from './services/auth';
 import theme from './theme';
 
 function App() {
@@ -63,6 +64,15 @@ function App() {
     // In a real app, you would save this to localStorage or send to API
     localStorage.setItem('user', JSON.stringify(completeUser));
     localStorage.setItem('setupComplete', 'true');
+  };
+
+  const handleSignOut = () => {
+    authService.logout();
+    apiService.setAuthToken(null);
+    localStorage.removeItem('user');
+    localStorage.removeItem('setupComplete');
+    setUser(null);
+    setSetupComplete(false);
   };
 
   // Check if we're on the API test route - if so, show it regardless of setup status
@@ -129,7 +139,7 @@ function App() {
             <Route path="/signin" element={<Navigate to="/" replace />} />
             <Route path="/log" element={<Log user={user!} />} />
             <Route path="/chat" element={<Chat user={user!} />} />
-            <Route path="/profile" element={<Profile user={user!} onUserUpdate={setUser} />} />
+            <Route path="/profile" element={<Profile user={user!} onUserUpdate={setUser} onSignOut={handleSignOut} />} />
             <Route path="/about" element={<About />} />
             <Route path="/api-test" element={<ApiTest />} />
             <Route path="*" element={<Navigate to="/" replace />} />
