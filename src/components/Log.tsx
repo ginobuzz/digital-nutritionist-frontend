@@ -46,10 +46,96 @@ import { useSearchParams } from 'react-router-dom';
 
 const toIsoDate = (d: Date) => format(d, 'yyyy-MM-dd');
 
+type PlanMealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+
 const normalizeMealType = (value: string | null | undefined): ActualMeal['type'] => {
   const v = (value || '').toLowerCase();
   if (v === 'breakfast' || v === 'lunch' || v === 'dinner' || v === 'snack') return v;
   return 'snack';
+};
+
+const normalizePlanMealType = (value: unknown): PlanMealType => {
+  const v = String(value || '').trim().toLowerCase();
+  if (v === 'breakfast' || v === 'lunch' || v === 'dinner' || v === 'snack') return v;
+  return 'snack';
+};
+
+const defaultTimeForMealType = (mealType: PlanMealType): string => {
+  switch (mealType) {
+    case 'breakfast':
+      return '08:00';
+    case 'lunch':
+      return '12:00';
+    case 'dinner':
+      return '18:00';
+    case 'snack':
+    default:
+      return '15:00';
+  }
+};
+
+const coerceTime = (value: unknown, mealType: PlanMealType): string => {
+  if (typeof value !== 'string') return defaultTimeForMealType(mealType);
+  const trimmed = value.trim();
+  const match = /^(\d{2}):(\d{2})$/.exec(trimmed);
+  if (!match) return defaultTimeForMealType(mealType);
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return defaultTimeForMealType(mealType);
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return defaultTimeForMealType(mealType);
+  return `${match[1]}:${match[2]}`;
+};
+
+const extractJsonArray = (raw: string): string | null => {
+  const start = raw.indexOf('[');
+  const end = raw.lastIndexOf(']');
+  if (start === -1 || end === -1 || end <= start) return null;
+  return raw.slice(start, end + 1);
+};
+
+type PlannedMealDraft = {
+  name: string;
+  calories: number;
+  meal_type: PlanMealType;
+  time: string; // HH:MM (24h)
+  description: string | null;
+};
+
+const parsePlannedMealDraftsFromReply = (reply: string): PlannedMealDraft[] => {
+  const candidate = extractJsonArray(reply) ?? reply;
+  const parsed = JSON.parse(candidate);
+  if (!Array.isArray(parsed)) {
+    throw new Error('Expected a JSON array.');
+  }
+
+  return parsed
+    .map((item): PlannedMealDraft | null => {
+      if (!item || typeof item !== 'object') return null;
+      const record = item as Record<string, unknown>;
+      const name = typeof record.name === 'string' ? record.name.trim() : '';
+      const calories = Number(record.calories);
+      const mealType = normalizePlanMealType(record.meal_type);
+      const time = coerceTime(record.time, mealType);
+      const description =
+        record.description == null
+          ? null
+          : typeof record.description === 'string'
+            ? record.description.trim().slice(0, 500) || null
+            : null;
+
+      if (!name) return null;
+      if (!Number.isFinite(calories)) return null;
+      const caloriesInt = Math.max(0, Math.min(5000, Math.round(calories)));
+
+      return {
+        name,
+        calories: caloriesInt,
+        meal_type: mealType,
+        time,
+        description,
+      };
+    })
+    .filter((item): item is PlannedMealDraft => Boolean(item));
 };
 
 const mapMealLogToActualMeal = (log: MealLogResponse): ActualMeal => {
@@ -90,6 +176,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [mealDialogOpen, setMealDialogOpen] = useState(false);
   const [logDialogOpen, setLogDialogOpen] = useState(false);
+  const [planDialogOpen, setPlanDialogOpen] = useState(false);
   const [logMode, setLogMode] = useState<'quick' | 'describe'>('describe');
   const [logForm, setLogForm] = useState({
     description: '',
@@ -101,6 +188,17 @@ const Log: React.FC<LogProps> = ({ user }) => {
   const [logError, setLogError] = useState<string | null>(null);
   const [savingQuickLog, setSavingQuickLog] = useState(false);
   const [sendingDescribeLog, setSendingDescribeLog] = useState(false);
+  const [planMode, setPlanMode] = useState<'quick' | 'describe'>('describe');
+  const [planForm, setPlanForm] = useState({
+    description: '',
+    calories: '',
+    mealType: 'lunch',
+  });
+  const [planDescribeInput, setPlanDescribeInput] = useState('');
+  const [planDescribeReply, setPlanDescribeReply] = useState<string | null>(null);
+  const [planError, setPlanError] = useState<string | null>(null);
+  const [savingQuickPlan, setSavingQuickPlan] = useState(false);
+  const [sendingDescribePlan, setSendingDescribePlan] = useState(false);
   const [editingMeal, setEditingMeal] = useState<PlannedMeal | ActualMeal | null>(null);
   const [isEditingPlanned, setIsEditingPlanned] = useState(false);
   const [mealFormData, setMealFormData] = useState({
@@ -150,6 +248,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
   };
 
   const dialogBusy = savingQuickLog || sendingDescribeLog;
+  const planDialogBusy = savingQuickPlan || sendingDescribePlan;
   const selectedKey = toIsoDate(selectedDate);
 
   const openLogDialog = () => {
@@ -166,6 +265,20 @@ const Log: React.FC<LogProps> = ({ user }) => {
     setLogDialogOpen(true);
   };
 
+  const openPlanDialog = () => {
+    if (toIsoDate(selectedDate) <= toIsoDate(new Date())) return;
+    setPlanMode('describe');
+    setPlanError(null);
+    setPlanDescribeReply(null);
+    setPlanForm({
+      description: '',
+      calories: '',
+      mealType: 'lunch',
+    });
+    setPlanDescribeInput('');
+    setPlanDialogOpen(true);
+  };
+
   const handleCloseLogDialog = () => {
     if (!dialogBusy) {
       setLogDialogOpen(false);
@@ -173,8 +286,19 @@ const Log: React.FC<LogProps> = ({ user }) => {
     }
   };
 
+  const handleClosePlanDialog = () => {
+    if (!planDialogBusy) {
+      setPlanDialogOpen(false);
+      setPlanError(null);
+    }
+  };
+
   const handleLogInputChange = (field: 'description' | 'calories' | 'mealType', value: string) => {
     setLogForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handlePlanInputChange = (field: 'description' | 'calories' | 'mealType', value: string) => {
+    setPlanForm(prev => ({ ...prev, [field]: value }));
   };
 
   const handleSaveMealLog = async () => {
@@ -208,6 +332,50 @@ const Log: React.FC<LogProps> = ({ user }) => {
     }
   };
 
+  const handleSaveMealPlan = async () => {
+    if (!planForm.description.trim() || !planForm.calories.trim()) {
+      setPlanError('Enter a short description and calories to plan the meal.');
+      return;
+    }
+
+    try {
+      setSavingQuickPlan(true);
+      setPlanError(null);
+
+      const mealType = normalizePlanMealType(planForm.mealType);
+      const time = defaultTimeForMealType(mealType);
+      const caloriesValue = Number(planForm.calories);
+      if (!Number.isFinite(caloriesValue)) {
+        setPlanError('Calories must be a number.');
+        return;
+      }
+      const calories = Math.max(0, Math.min(5000, Math.round(caloriesValue)));
+
+      await apiService.createPlannedMeal({
+        user_id: user.id,
+        date: selectedKey,
+        name: planForm.description.trim(),
+        calories,
+        meal_type: mealType,
+        time: new Date(`${selectedKey}T${time}:00`).toISOString(),
+        description: null,
+      });
+
+      setPlanDialogOpen(false);
+      setPlanForm({
+        description: '',
+        calories: '',
+        mealType: 'lunch',
+      });
+      await fetchLogData();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to plan meal. Please try again.';
+      setPlanError(message);
+    } finally {
+      setSavingQuickPlan(false);
+    }
+  };
+
   const handleDescribeMealLog = async () => {
     if (!describeInput.trim()) {
       setLogError('Describe what you ate (or drank) to log it.');
@@ -237,6 +405,71 @@ const Log: React.FC<LogProps> = ({ user }) => {
       setLogError(message);
     } finally {
       setSendingDescribeLog(false);
+    }
+  };
+
+  const handleDescribeMealPlan = async () => {
+    if (!planDescribeInput.trim()) {
+      setPlanError('Describe what you want to eat to generate a plan.');
+      return;
+    }
+
+    let lastReply = '';
+    try {
+      setSendingDescribePlan(true);
+      setPlanError(null);
+      setPlanDescribeReply(null);
+
+      const calorieTarget = Number(user.dailyCalorieTarget || 0);
+      const prompt = [
+        `Create a meal plan for ${selectedKey}.`,
+        `Return ONLY a JSON array (no markdown, no commentary).`,
+        `Each item must have: name (string), calories (integer), meal_type ("breakfast"|"lunch"|"dinner"|"snack"), time ("HH:MM" 24h), description (string|null).`,
+        calorieTarget > 0
+          ? `Aim for a reasonable total around ${Math.round(calorieTarget)} calories (does not need to be exact).`
+          : `Use reasonable calorie estimates.`,
+        ``,
+        planDescribeInput.trim(),
+      ].join('\n');
+
+      const response = await apiService.chat({
+        message: prompt,
+        user_id: user.id,
+      });
+
+      lastReply = response.reply || '';
+      const drafts = parsePlannedMealDraftsFromReply(lastReply);
+      if (drafts.length === 0) {
+        setPlanDescribeReply(lastReply || 'No response.');
+        throw new Error('AI did not return any planned meals.');
+      }
+
+      await Promise.all(
+        drafts.map((draft) =>
+          apiService.createPlannedMeal({
+            user_id: user.id,
+            date: selectedKey,
+            name: draft.name,
+            calories: draft.calories,
+            meal_type: draft.meal_type,
+            description: draft.description,
+            time: new Date(`${selectedKey}T${draft.time}:00`).toISOString(),
+          })
+        )
+      );
+
+      setPlanDialogOpen(false);
+      setPlanDescribeInput('');
+      await fetchLogData();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unable to generate meal plan. Please try again.';
+      setPlanError(message);
+      if (lastReply) {
+        setPlanDescribeReply(lastReply);
+      }
+    } finally {
+      setSendingDescribePlan(false);
     }
   };
 
@@ -430,7 +663,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
                 <Button
                   variant="contained"
                   color={isFuture ? 'info' : 'primary'}
-                  onClick={isFuture ? () => handleAddMeal(true) : openLogDialog}
+                  onClick={isFuture ? openPlanDialog : openLogDialog}
                   startIcon={<Add />}
                   sx={{ flexShrink: 0 }}
                 >
@@ -484,7 +717,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
                     <Button
                       variant="contained"
                       startIcon={<Add />}
-                      onClick={() => handleAddMeal(true)}
+                      onClick={openPlanDialog}
                     >
                       Plan Meal
                     </Button>
@@ -684,6 +917,136 @@ const Log: React.FC<LogProps> = ({ user }) => {
             >
               {editingMeal ? 'Update' : 'Add'} Meal
             </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Plan Dialog (Future Days) */}
+        <Dialog open={planDialogOpen} onClose={handleClosePlanDialog} maxWidth="xs" fullWidth>
+          <DialogTitle>Plan Food ({format(selectedDate, 'EEE M/d')})</DialogTitle>
+          <DialogContent sx={{ pt: 1 }}>
+            {planError && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {planError}
+              </Alert>
+            )}
+            <ToggleButtonGroup
+              value={planMode}
+              exclusive
+              fullWidth
+              size="small"
+              disabled={planDialogBusy}
+              sx={{ mb: 1.5 }}
+              onChange={(_, value) => {
+                if (!value) return;
+                setPlanMode(value);
+                setPlanError(null);
+                setPlanDescribeReply(null);
+              }}
+            >
+              <ToggleButton value="describe">Describe it</ToggleButton>
+              <ToggleButton value="quick">Quick add</ToggleButton>
+            </ToggleButtonGroup>
+
+            {planMode === 'quick' ? (
+              <>
+                <TextField
+                  fullWidth
+                  margin="dense"
+                  label="What do you plan to eat?"
+                  value={planForm.description}
+                  onChange={(event) => handlePlanInputChange('description', event.target.value)}
+                  disabled={planDialogBusy}
+                />
+                <TextField
+                  fullWidth
+                  margin="dense"
+                  label="Calories"
+                  type="number"
+                  inputProps={{ min: 0 }}
+                  value={planForm.calories}
+                  onChange={(event) => handlePlanInputChange('calories', event.target.value)}
+                  disabled={planDialogBusy}
+                />
+                <TextField
+                  select
+                  fullWidth
+                  margin="dense"
+                  label="Meal Type"
+                  value={planForm.mealType}
+                  onChange={(event) => handlePlanInputChange('mealType', event.target.value)}
+                  disabled={planDialogBusy}
+                >
+                  {['breakfast', 'lunch', 'dinner', 'snack', 'other'].map((option) => (
+                    <MenuItem key={option} value={option}>
+                      {option.charAt(0).toUpperCase() + option.slice(1)}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </>
+            ) : (
+              <>
+                <TextField
+                  fullWidth
+                  margin="dense"
+                  label="Describe what you want to eat"
+                  placeholder="Example: High protein day with a salad lunch and pasta dinner"
+                  value={planDescribeInput}
+                  onChange={(event) => setPlanDescribeInput(event.target.value)}
+                  multiline
+                  minRows={3}
+                  disabled={planDialogBusy || Boolean(planDescribeReply)}
+                />
+
+                {planDescribeReply && (
+                  <Box
+                    sx={{
+                      mt: 2,
+                      p: 1.5,
+                      borderRadius: 2,
+                      bgcolor: alpha(theme.palette.info.main, 0.06),
+                      border: `1px solid ${alpha(theme.palette.info.main, 0.2)}`,
+                      '& p': { m: 0 },
+                      '& ul, & ol': { m: 0, pl: 3 },
+                      '& li': { mb: 0.5 },
+                      '& li:last-child': { mb: 0 },
+                      '& a': { color: 'inherit' },
+                      '& code': {
+                        fontFamily:
+                          'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                        fontSize: '0.9em',
+                      },
+                      '& pre': {
+                        overflowX: 'auto',
+                        p: 1,
+                        borderRadius: 1,
+                        backgroundColor: 'rgba(0,0,0,0.06)',
+                      },
+                      '& pre code': { fontSize: '0.85em' },
+                    }}
+                  >
+                    <Markdown>{planDescribeReply}</Markdown>
+                  </Box>
+                )}
+              </>
+            )}
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={handleClosePlanDialog} disabled={planDialogBusy}>
+              {planMode === 'describe' && planDescribeReply ? 'Close' : 'Cancel'}
+            </Button>
+            {planMode === 'quick' ? (
+              <Button variant="contained" onClick={handleSaveMealPlan} disabled={planDialogBusy}>
+                {savingQuickPlan ? 'Saving...' : 'Plan Meal'}
+              </Button>
+            ) : (
+              <Button
+                variant="contained"
+                onClick={handleDescribeMealPlan}
+                disabled={planDialogBusy || Boolean(planDescribeReply)}
+              >
+                {sendingDescribePlan ? 'Sending...' : 'Send to AI'}
+              </Button>
+            )}
           </DialogActions>
         </Dialog>
 
