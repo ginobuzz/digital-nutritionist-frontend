@@ -474,21 +474,6 @@ const Log: React.FC<LogProps> = ({ user }) => {
   };
 
   // Meal handlers
-  const handleAddMeal = (isPlanned: boolean = true) => {
-    setEditingMeal(null);
-    setIsEditingPlanned(isPlanned);
-    setMealFormData({
-      name: '',
-      calories: '',
-      type: 'breakfast',
-      description: '',
-      time: '',
-      notes: '',
-      isPlanned
-    });
-    setMealDialogOpen(true);
-  };
-
   const handleEditMeal = (meal: PlannedMeal | ActualMeal) => {
     setEditingMeal(meal);
     setIsEditingPlanned(meal.isPlanned);

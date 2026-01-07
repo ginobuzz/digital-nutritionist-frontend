@@ -127,7 +127,7 @@ ${theme.palette.background.default}`,
     MuiCard: {
       styleOverrides: {
         root: {
-          borderRadius: theme.shape.borderRadius + 4,
+          borderRadius: (theme.shape.borderRadius as number) + 4,
           border: `1px solid ${theme.palette.divider}`,
           boxShadow: `0 10px 28px ${alpha('#0B1220', 0.08)}`,
         },
