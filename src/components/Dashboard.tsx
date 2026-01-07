@@ -27,7 +27,7 @@ import TodayRoundedIcon from '@mui/icons-material/TodayRounded';
 import TimelineRoundedIcon from '@mui/icons-material/TimelineRounded';
 import InfoRoundedIcon from '@mui/icons-material/InfoRounded';
 import { useNavigate } from 'react-router-dom';
-import { addDays, format, isAfter, isBefore, isSameDay, startOfDay } from 'date-fns';
+import { addDays, format, isAfter, isBefore, isSameDay, startOfDay, startOfWeek } from 'date-fns';
 import Markdown from 'markdown-to-jsx';
 import { User } from '../types';
 import { apiService } from '../services/api';
@@ -90,8 +90,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       const userId = getActiveUserId();
 
       const today = startOfDay(new Date());
-      const weekStart = today;
-      const weekEnd = addDays(today, WEEK_LENGTH_DAYS - 1);
+      const weekStart = startOfWeek(today, { weekStartsOn: 0 }); // Sunday
+      const weekEnd = addDays(weekStart, WEEK_LENGTH_DAYS - 1);
 
       const [logs, plannedMeals] = await Promise.all([
         apiService.getMealLogs({ userId, start: weekStart, end: weekEnd }),
@@ -113,9 +113,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       }
 
       const entries: DayEntry[] = Array.from({ length: WEEK_LENGTH_DAYS }, (_, idx) => {
-        const date = addDays(today, idx);
+        const date = addDays(weekStart, idx);
         const key = toIsoDate(date);
-        const kind: DayKind = isSameDay(date, today) ? 'today' : 'future';
+        const kind: DayKind = isSameDay(date, today) ? 'today' : isBefore(date, today) ? 'past' : 'future';
         const label = format(date, 'EEEE');
         return {
           key,
