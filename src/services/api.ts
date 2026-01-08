@@ -140,6 +140,8 @@ export interface ChatRequest {
   message: string;
   user_id?: string | number;
   history?: ChatTurn[];
+  client_local_date?: string; // YYYY-MM-DD (user's local date)
+  client_time_zone?: string; // IANA tz name (e.g., America/Los_Angeles)
 }
 
 export interface ChatResponse {
@@ -147,6 +149,7 @@ export interface ChatResponse {
   model?: string | null;
   usage?: any;
   created_meal_logs?: MealLogResponse[];
+  created_planned_meals?: PlannedMealResponse[];
 }
 
 // Helper functions to convert between frontend and backend formats

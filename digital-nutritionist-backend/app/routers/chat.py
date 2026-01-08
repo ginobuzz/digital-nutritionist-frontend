@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -5,7 +6,7 @@ from pydantic import BaseModel, Field
 from sqlmodel import Session
 
 from ..db import get_session
-from ..models import MealLogRead, User, UserRead
+from ..models import MealLogRead, PlannedMealRead, User, UserRead
 from ..services.chat import assistant_chat
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -20,6 +21,8 @@ class ChatRequest(BaseModel):
     message: str = Field(min_length=1)
     user_id: str | None = None
     history: list[ChatTurn] | None = None
+    client_local_date: date | None = None
+    client_time_zone: str | None = None
 
 
 class ChatResponse(BaseModel):
@@ -27,6 +30,7 @@ class ChatResponse(BaseModel):
     model: str | None = None
     usage: dict | None = None
     created_meal_logs: list[MealLogRead] = Field(default_factory=list)
+    created_planned_meals: list[PlannedMealRead] = Field(default_factory=list)
 
 
 @router.post("", response_model=ChatResponse)
@@ -45,6 +49,8 @@ def chat_endpoint(*, session: Session = Depends(get_session), payload: ChatReque
         session=session,
         user_id=payload.user_id,
         history=[turn.model_dump() for turn in payload.history] if payload.history else None,
+        client_local_date=payload.client_local_date,
+        client_time_zone=payload.client_time_zone,
     )
     if not result.get("reply"):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="No reply received from model")

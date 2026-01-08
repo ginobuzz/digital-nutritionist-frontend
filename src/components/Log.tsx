@@ -396,6 +396,8 @@ const Log: React.FC<LogProps> = ({ user }) => {
       const response = await apiService.chat({
         message: prompt,
         user_id: user.id,
+        client_local_date: toIsoDate(new Date()),
+        client_time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       });
 
       setDescribeReply(response.reply || 'OK.');
@@ -435,6 +437,8 @@ const Log: React.FC<LogProps> = ({ user }) => {
       const response = await apiService.chat({
         message: prompt,
         user_id: user.id,
+        client_local_date: toIsoDate(new Date()),
+        client_time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       });
 
       lastReply = response.reply || '';

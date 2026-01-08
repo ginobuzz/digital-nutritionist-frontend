@@ -20,6 +20,7 @@ import {
   Person
 } from '@mui/icons-material';
 import Markdown from 'markdown-to-jsx';
+import { format } from 'date-fns';
 import { ChatMessage, User } from '../types';
 import { apiService, ChatTurn } from '../services/api';
 
@@ -62,8 +63,8 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
   const buildWelcomeMessage = useCallback((): ChatMessage => {
     const firstName = user?.name?.split(' ')?.[0]?.trim();
     const greeting = firstName
-      ? `Hi ${firstName}! Tell me what you ate (or drank) and I’ll log it for you.`
-      : `Hi! Tell me what you ate (or drank) and I’ll log it for you.`;
+      ? `Hi ${firstName}! Tell me what you ate (or drank) to log it, or what you want to plan for an upcoming meal.`
+      : `Hi! Tell me what you ate (or drank) to log it, or what you want to plan for an upcoming meal.`;
     return {
       id: 'welcome',
       text: greeting,
@@ -140,19 +141,24 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
     setLoading(true);
 
     try {
+      const client_time_zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const client_local_date = format(new Date(), 'yyyy-MM-dd');
       const response = await apiService.chat({
         message: userMessage.text,
         user_id: activeUserId ?? undefined,
         history,
+        client_local_date,
+        client_time_zone,
       });
 
-      const createdCount = response.created_meal_logs?.length ?? 0;
+      const createdLogsCount = response.created_meal_logs?.length ?? 0;
+      const createdPlannedCount = response.created_planned_meals?.length ?? 0;
       const aiResponse: ChatMessage = {
         id: (Date.now() + 1).toString(),
         text: response.reply || 'OK.',
         sender: 'ai',
         timestamp: new Date(),
-        type: createdCount > 0 ? 'encouragement' : 'general',
+        type: createdLogsCount > 0 ? 'encouragement' : createdPlannedCount > 0 ? 'planning' : 'general',
       };
       setMessages(prev => [...prev, aiResponse]);
     } catch (error) {

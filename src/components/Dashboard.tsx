@@ -261,6 +261,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       const response = await apiService.chat({
         message: prompt,
         user_id: userId ?? undefined,
+        client_local_date: toIsoDate(startOfDay(new Date())),
+        client_time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       });
 
       setDescribeReply(response.reply || 'OK.');
