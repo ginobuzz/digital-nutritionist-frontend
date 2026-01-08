@@ -369,7 +369,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
             >
               {(
                 [
-                  { value: '', label: 'Any' },
                   { value: 'breakfast', label: 'Breakfast' },
                   { value: 'lunch', label: 'Lunch' },
                   { value: 'dinner', label: 'Dinner' },
@@ -379,7 +378,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                 const selected = mealType === option.value;
                 return (
                   <FormControlLabel
-                    key={option.value || 'any'}
+                    key={option.value}
                     value={option.value}
                     disabled={logBusy}
                     control={<Radio size="small" />}
