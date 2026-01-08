@@ -603,17 +603,36 @@ const Log: React.FC<LogProps> = ({ user }) => {
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
       <Box>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h4">
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: { xs: 'flex-start', sm: 'center' },
+            flexWrap: 'wrap',
+            gap: 2,
+            mb: 3,
+          }}
+        >
+          <Typography variant="h4" sx={{ typography: { xs: 'h5', sm: 'h4' } }}>
             My Log 📝
           </Typography>
-          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          <Box
+            sx={{
+              display: 'flex',
+              gap: 2,
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              justifyContent: { xs: 'flex-start', sm: 'flex-end' },
+              width: { xs: '100%', sm: 'auto' },
+            }}
+          >
             <DatePicker
               value={selectedDate}
               onChange={handleDateChange}
               slotProps={{
                 textField: {
                   size: 'small',
+                  sx: { minWidth: { xs: '100%', sm: 240 } },
                   InputProps: {
                     startAdornment: <CalendarToday sx={{ mr: 1, color: 'action.active' }} />
                   }
@@ -629,7 +648,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
         </Box>
 
         {/* Summary Cards */}
-        <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, mb: 3 }}>
           <Card sx={{ flex: 1 }}>
             <CardContent sx={{ p: 2.5 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, mb: 1.5 }}>
@@ -697,7 +716,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
         <Card>
           <CardContent sx={{ p: 0 }}>
             <Box sx={{ p: 2 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5, mb: 2 }}>
                 <Typography variant="h6">
                   {isFuture ? 'Planned Meals' : 'Meals'}
                 </Typography>
@@ -707,6 +726,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
                       variant="contained"
                       startIcon={<Add />}
                       onClick={openPlanDialog}
+                      sx={{ width: { xs: '100%', sm: 'auto' } }}
                     >
                       Plan Meal
                     </Button>
@@ -715,6 +735,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
                       variant="contained"
                       startIcon={<Add />}
                       onClick={openLogDialog}
+                      sx={{ width: { xs: '100%', sm: 'auto' } }}
                     >
                       Log Meal
                     </Button>
@@ -744,10 +765,14 @@ const Log: React.FC<LogProps> = ({ user }) => {
                         borderColor: meal.isPlanned ? 'primary.main' : 'secondary.main',
                         borderRadius: 1,
                         mb: 1,
+                        overflow: 'hidden',
+                        alignItems: { xs: 'flex-start', sm: 'center' },
+                        gap: 1,
+                        flexWrap: { xs: 'wrap', sm: 'nowrap' },
                         '&:last-child': { mb: 0 }
                       }}
                     >
-                      <ListItemAvatar>
+                      <ListItemAvatar sx={{ alignSelf: { xs: 'flex-start', sm: 'center' } }}>
                         <Avatar sx={{ 
                           bgcolor: meal.isPlanned ? 'primary.light' : 'secondary.light' 
                         }}>
@@ -756,25 +781,57 @@ const Log: React.FC<LogProps> = ({ user }) => {
                       </ListItemAvatar>
                       
                       <ListItemText
+                        sx={{ flex: '1 1 0', minWidth: 0 }}
                         primaryTypographyProps={{ component: 'div' }}
                         secondaryTypographyProps={{ component: 'div' }}
                         primary={
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Typography variant="subtitle1" fontWeight="bold">
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              flexDirection: { xs: 'column', sm: 'row' },
+                              alignItems: { xs: 'flex-start', sm: 'center' },
+                              gap: 1,
+                              minWidth: 0,
+                            }}
+                          >
+                            <Typography
+                              variant="subtitle1"
+                              fontWeight="bold"
+                              sx={{
+                                flex: '1 1 auto',
+                                minWidth: 0,
+                                overflowWrap: 'anywhere',
+                                wordBreak: 'break-word',
+                                lineHeight: 1.2,
+                              }}
+                            >
                               {meal.name}
                             </Typography>
-                            <Chip
-                              label={meal.type}
-                              size="small"
-                              color={meal.isPlanned ? 'primary' : 'secondary'}
-                              variant="outlined"
-                            />
-                            <Chip
-                              label={meal.isPlanned ? 'Planned' : 'Logged'}
-                              size="small"
-                              color={meal.isPlanned ? 'info' : 'success'}
-                              variant="outlined"
-                            />
+                            <Box
+                              sx={{
+                                display: 'flex',
+                                flexWrap: 'wrap',
+                                alignItems: 'center',
+                                gap: 1,
+                                minWidth: 0,
+                                maxWidth: '100%',
+                                flex: { xs: '1 1 auto', sm: '0 1 auto' },
+                              }}
+                            >
+                              <Chip
+                                label={meal.type}
+                                size="small"
+                                color={meal.isPlanned ? 'primary' : 'secondary'}
+                                variant="outlined"
+                                sx={{ textTransform: 'capitalize' }}
+                              />
+                              <Chip
+                                label={meal.isPlanned ? 'Planned' : 'Logged'}
+                                size="small"
+                                color={meal.isPlanned ? 'info' : 'success'}
+                                variant="outlined"
+                              />
+                            </Box>
                           </Box>
                         }
                         secondary={
@@ -783,26 +840,43 @@ const Log: React.FC<LogProps> = ({ user }) => {
                               {Math.round((meal as ActualMeal).actualCalories || meal.calories)} calories
                             </Typography>
                             {meal.description && (
-                              <Typography variant="body2" color="text.secondary">
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                                sx={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+                              >
                                 {meal.description}
                               </Typography>
                             )}
                             {(meal as ActualMeal).notes && (
-                              <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                                sx={{ fontStyle: 'italic', overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+                              >
                                 Note: {(meal as ActualMeal).notes}
                               </Typography>
                             )}
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
                               <Schedule sx={{ fontSize: 16 }} />
                               <Typography variant="caption" color="text.secondary">
-                                {new Date(meal.time).toLocaleTimeString()}
+                                {new Date(meal.time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                               </Typography>
                             </Box>
                           </Box>
                         }
                       />
                       
-                      <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          gap: 1,
+                          flexShrink: 0,
+                          ml: { xs: 0, sm: 'auto' },
+                          width: { xs: '100%', sm: 'auto' },
+                          justifyContent: { xs: 'flex-end', sm: 'flex-end' },
+                        }}
+                      >
                         <IconButton
                           size="small"
                           onClick={() => handleEditMeal(meal)}
