@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -7,10 +7,6 @@ import {
   CardContent,
   Chip,
   Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   TextField,
   MenuItem,
   Alert,
@@ -24,10 +20,8 @@ import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import LockRoundedIcon from '@mui/icons-material/LockRounded';
 import TodayRoundedIcon from '@mui/icons-material/TodayRounded';
-import TimelineRoundedIcon from '@mui/icons-material/TimelineRounded';
-import InfoRoundedIcon from '@mui/icons-material/InfoRounded';
 import { useNavigate } from 'react-router-dom';
-import { addDays, format, isAfter, isBefore, isSameDay, startOfDay, startOfWeek } from 'date-fns';
+import { addDays, format, isBefore, isSameDay, startOfDay, startOfWeek } from 'date-fns';
 import Markdown from 'markdown-to-jsx';
 import { User } from '../types';
 import { apiService } from '../services/api';
@@ -54,12 +48,13 @@ const toIsoDate = (d: Date) => format(d, 'yyyy-MM-dd');
 const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   const theme = useTheme();
   const navigate = useNavigate();
+  const quickLogSectionRef = useRef<HTMLDivElement | null>(null);
+  const describeFieldRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+  const quickDescriptionFieldRef = useRef<HTMLInputElement | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState<Date>(() => startOfDay(new Date()));
   const [dayEntries, setDayEntries] = useState<DayEntry[]>([]);
   const [actualCaloriesByDate, setActualCaloriesByDate] = useState<Record<string, number>>({});
   const [plannedCaloriesByDate, setPlannedCaloriesByDate] = useState<Record<string, number>>({});
-  const [logDialogOpen, setLogDialogOpen] = useState(false);
   const [logMode, setLogMode] = useState<'quick' | 'describe'>('describe');
   const [logForm, setLogForm] = useState({
     description: '',
@@ -143,16 +138,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
     fetchData(true);
   }, [fetchData]);
 
-  if (loading) {
-    return <LinearProgress />;
-  }
-
-  const selectedDay = startOfDay(selectedDate);
   const today = startOfDay(new Date());
+  const selectedDay = today;
   const selectedKey = toIsoDate(selectedDay);
   const isSelectedPast = isBefore(selectedDay, today);
   const isSelectedToday = isSameDay(selectedDay, today);
-  const isSelectedFuture = isAfter(selectedDay, today);
+  const isSelectedFuture = false;
 
   const selectedActualCalories = Math.round(actualCaloriesByDate[selectedKey] || 0);
   const selectedPlannedCalories = Math.round(plannedCaloriesByDate[selectedKey] || 0);
@@ -179,12 +170,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       : <CheckRoundedIcon fontSize="small" />;
   };
 
-  const openLogDialog = (date?: Date) => {
-    if (date) {
-      setSelectedDate(date);
-    }
-    if (date && isBefore(startOfDay(date), today)) return;
-    if (!date && isSelectedPast) return;
+  const resetInlineLog = useCallback(() => {
     setLogMode('describe');
     setLogError(null);
     setDescribeReply(null);
@@ -194,19 +180,23 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       mealType: 'lunch',
     });
     setDescribeInput('');
-    setLogDialogOpen(true);
-  };
-
-  const handleCloseLogDialog = () => {
-    if (!savingQuickLog && !sendingDescribeLog) {
-      setLogDialogOpen(false);
-      setLogError(null);
-    }
-  };
+  }, []);
 
   const handleLogInputChange = (field: 'description' | 'calories' | 'mealType', value: string) => {
     setLogForm(prev => ({ ...prev, [field]: value }));
   };
+
+  const focusLogInput = useCallback((mode: 'quick' | 'describe') => {
+    if (mode === 'quick') {
+      quickDescriptionFieldRef.current?.focus();
+      return;
+    }
+    describeFieldRef.current?.focus();
+  }, []);
+
+  if (loading) {
+    return <LinearProgress />;
+  }
 
   const handleSaveMealLog = async () => {
     if (!logForm.description.trim() || !logForm.calories.trim()) {
@@ -225,7 +215,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
         meal_type: logForm.mealType || null,
         estimated_calories: Number(logForm.calories),
       });
-      setLogDialogOpen(false);
       setLogForm({
         description: '',
         calories: '',
@@ -275,7 +264,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
     }
   };
 
-  const dialogBusy = savingQuickLog || sendingDescribeLog;
+  const logBusy = savingQuickLog || sendingDescribeLog;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -313,19 +302,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                       : `${Math.max(0, Math.round(user.dailyCalorieTarget - selectedDisplayedCalories))} kcal left`}
               </Typography>
             </Box>
-
-            <Button
-              variant="contained"
-              color={isSelectedToday ? 'primary' : 'info'}
-              onClick={() => {
-                openLogDialog();
-              }}
-              startIcon={<AddRoundedIcon />}
-              sx={{ flexShrink: 0 }}
-              disabled={isSelectedPast}
-            >
-              Log
-            </Button>
           </Box>
 
           <LinearProgress
@@ -350,44 +326,147 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
         </CardContent>
       </Card>
 
-      {/* Quick Actions */}
-      <Card>
+      {/* Quick Log */}
+      <Card ref={quickLogSectionRef}>
         <CardContent sx={{ p: 2.5 }}>
           <Typography variant="h6" sx={{ mb: 1.5 }}>
-            Quick Actions
+            Quick Log
           </Typography>
-          <Box sx={{ display: 'flex', gap: 1.5 }}>
-            <Button
-              fullWidth
-              variant="outlined"
-              color="primary"
-              onClick={() => navigate(`/log?date=${selectedKey}`)}
-              startIcon={<TimelineRoundedIcon />}
-            >
-              View Log
-            </Button>
-            <Button
-              fullWidth
-              variant="contained"
-              color="secondary"
-              onClick={() => {
-                openLogDialog();
-              }}
-              startIcon={<AddRoundedIcon />}
-              disabled={isSelectedPast}
-            >
-              Log Food
-            </Button>
-          </Box>
-          <Button
-            variant="text"
-            color="inherit"
-            onClick={() => navigate('/about')}
-            startIcon={<InfoRoundedIcon />}
-            sx={{ mt: 1, px: 0 }}
+          {logError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {logError}
+            </Alert>
+          )}
+
+          <ToggleButtonGroup
+            value={logMode}
+            exclusive
+            fullWidth
+            size="small"
+            disabled={logBusy}
+            sx={{ mb: 1.5 }}
+            onChange={(_, value) => {
+              if (!value) return;
+              setLogMode(value);
+              setLogError(null);
+              setDescribeReply(null);
+              window.setTimeout(() => focusLogInput(value), 0);
+            }}
           >
-            About Sunday Mornings
-          </Button>
+            <ToggleButton value="describe">Describe it</ToggleButton>
+            <ToggleButton value="quick">Quick add</ToggleButton>
+          </ToggleButtonGroup>
+
+          {logMode === 'quick' ? (
+            <>
+              <TextField
+                fullWidth
+                margin="dense"
+                label="What did you eat?"
+                value={logForm.description}
+                onChange={(event) => handleLogInputChange('description', event.target.value)}
+                disabled={logBusy}
+                inputRef={quickDescriptionFieldRef}
+              />
+              <TextField
+                fullWidth
+                margin="dense"
+                label="Calories"
+                type="number"
+                inputProps={{ min: 0 }}
+                value={logForm.calories}
+                onChange={(event) => handleLogInputChange('calories', event.target.value)}
+                disabled={logBusy}
+              />
+              <TextField
+                select
+                fullWidth
+                margin="dense"
+                label="Meal Type"
+                value={logForm.mealType}
+                onChange={(event) => handleLogInputChange('mealType', event.target.value)}
+                disabled={logBusy}
+              >
+                {['breakfast', 'lunch', 'dinner', 'snack', 'other'].map((option) => (
+                  <MenuItem key={option} value={option}>
+                    {option.charAt(0).toUpperCase() + option.slice(1)}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </>
+          ) : (
+            <>
+              <TextField
+                fullWidth
+                margin="dense"
+                label="Describe what you ate (or drank)"
+                placeholder="Example: chicken burrito bowl with rice, beans, guac and a Coke"
+                value={describeInput}
+                onChange={(event) => setDescribeInput(event.target.value)}
+                multiline
+                minRows={3}
+                disabled={logBusy || Boolean(describeReply)}
+                inputRef={describeFieldRef}
+              />
+
+              {describeReply && (
+                <Box
+                  sx={{
+                    mt: 2,
+                    p: 1.5,
+                    borderRadius: 2,
+                    bgcolor: alpha(theme.palette.info.main, 0.06),
+                    border: `1px solid ${alpha(theme.palette.info.main, 0.2)}`,
+                    '& p': { m: 0 },
+                    '& ul, & ol': { m: 0, pl: 3 },
+                    '& li': { mb: 0.5 },
+                    '& li:last-child': { mb: 0 },
+                    '& a': { color: 'inherit' },
+                    '& code': {
+                      fontFamily:
+                        'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                      fontSize: '0.9em',
+                    },
+                    '& pre': {
+                      overflowX: 'auto',
+                      p: 1,
+                      borderRadius: 1,
+                      backgroundColor: 'rgba(0,0,0,0.06)',
+                    },
+                    '& pre code': { fontSize: '0.85em' },
+                  }}
+                >
+                  <Markdown>{describeReply}</Markdown>
+                </Box>
+              )}
+            </>
+          )}
+
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 2 }}>
+            <Button
+              onClick={() => {
+                if (logBusy) return;
+                resetInlineLog();
+                window.setTimeout(() => focusLogInput('describe'), 0);
+              }}
+              disabled={logBusy}
+            >
+              Clear
+            </Button>
+            {logMode === 'quick' ? (
+              <Button variant="contained" onClick={handleSaveMealLog} disabled={logBusy}>
+                {savingQuickLog ? 'Saving...' : 'Log Meal'}
+              </Button>
+            ) : (
+              <Button
+                variant="contained"
+                onClick={handleDescribeMealLog}
+                disabled={logBusy || Boolean(describeReply)}
+              >
+                {sendingDescribeLog ? 'Sending...' : 'Send to AI'}
+              </Button>
+            )}
+          </Box>
         </CardContent>
       </Card>
 
@@ -470,138 +549,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
           );
         })}
       </Box>
-
-      <Dialog open={logDialogOpen} onClose={handleCloseLogDialog} maxWidth="xs" fullWidth>
-        <DialogTitle>Log Food ({isSelectedToday ? 'Today' : format(selectedDay, 'EEE M/d')})</DialogTitle>
-        <DialogContent sx={{ pt: 1 }}>
-          {logError && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {logError}
-            </Alert>
-          )}
-          <ToggleButtonGroup
-            value={logMode}
-            exclusive
-            fullWidth
-            size="small"
-            disabled={dialogBusy}
-            sx={{ mb: 1.5 }}
-            onChange={(_, value) => {
-              if (!value) return;
-              setLogMode(value);
-              setLogError(null);
-              setDescribeReply(null);
-            }}
-          >
-            <ToggleButton value="describe">Describe it</ToggleButton>
-            <ToggleButton value="quick">Quick add</ToggleButton>
-          </ToggleButtonGroup>
-
-          {logMode === 'quick' ? (
-            <>
-              <TextField
-                fullWidth
-                margin="dense"
-                label="What did you eat?"
-                value={logForm.description}
-                onChange={(event) => handleLogInputChange('description', event.target.value)}
-                disabled={dialogBusy}
-              />
-              <TextField
-                fullWidth
-                margin="dense"
-                label="Calories"
-                type="number"
-                inputProps={{ min: 0 }}
-                value={logForm.calories}
-                onChange={(event) => handleLogInputChange('calories', event.target.value)}
-                disabled={dialogBusy}
-              />
-              <TextField
-                select
-                fullWidth
-                margin="dense"
-                label="Meal Type"
-                value={logForm.mealType}
-                onChange={(event) => handleLogInputChange('mealType', event.target.value)}
-                disabled={dialogBusy}
-              >
-                {['breakfast', 'lunch', 'dinner', 'snack', 'other'].map((option) => (
-                  <MenuItem key={option} value={option}>
-                    {option.charAt(0).toUpperCase() + option.slice(1)}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </>
-          ) : (
-            <>
-              <TextField
-                fullWidth
-                margin="dense"
-                label="Describe what you ate (or drank)"
-                placeholder="Example: chicken burrito bowl with rice, beans, guac and a Coke"
-                value={describeInput}
-                onChange={(event) => setDescribeInput(event.target.value)}
-                multiline
-                minRows={3}
-                disabled={dialogBusy || Boolean(describeReply)}
-              />
-
-              {describeReply && (
-                <Box
-                  sx={{
-                    mt: 2,
-                    p: 1.5,
-                    borderRadius: 2,
-                    bgcolor: alpha(theme.palette.info.main, 0.06),
-                    border: `1px solid ${alpha(theme.palette.info.main, 0.2)}`,
-                    '& p': { m: 0 },
-                    '& ul, & ol': { m: 0, pl: 3 },
-                    '& li': { mb: 0.5 },
-                    '& li:last-child': { mb: 0 },
-                    '& a': { color: 'inherit' },
-                    '& code': {
-                      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-                      fontSize: '0.9em',
-                    },
-                    '& pre': {
-                      overflowX: 'auto',
-                      p: 1,
-                      borderRadius: 1,
-                      backgroundColor: 'rgba(0,0,0,0.06)',
-                    },
-                    '& pre code': { fontSize: '0.85em' },
-                  }}
-                >
-                  <Markdown>{describeReply}</Markdown>
-                </Box>
-              )}
-            </>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={handleCloseLogDialog} disabled={dialogBusy}>
-            {logMode === 'describe' && describeReply ? 'Close' : 'Cancel'}
-          </Button>
-          {logMode === 'quick' ? (
-            <Button
-              variant="contained"
-              onClick={handleSaveMealLog}
-              disabled={dialogBusy}
-            >
-              {savingQuickLog ? 'Saving...' : 'Log Meal'}
-            </Button>
-          ) : (
-            <Button
-              variant="contained"
-              onClick={handleDescribeMealLog}
-              disabled={dialogBusy || Boolean(describeReply)}
-            >
-              {sendingDescribeLog ? 'Sending...' : 'Send to AI'}
-            </Button>
-          )}
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 };
