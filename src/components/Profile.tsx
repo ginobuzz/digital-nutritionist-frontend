@@ -20,6 +20,7 @@ import {
   DialogActions,
   List,
   ListItem,
+  ListItemButton,
   ListItemText,
   ListItemAvatar,
   Alert,
@@ -33,6 +34,7 @@ import {
   CalendarToday,
   Scale,
   Logout,
+  Info,
 } from '@mui/icons-material';
 import { User, WeightLog } from '../types';
 import { calculateDailyExpenditure, calculateWeightLossTimeline, calculateProgressPercentage } from '../utils/calculations';
@@ -426,6 +428,29 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate, onSignOut }) => {
                 ))}
               </List>
             )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              App
+            </Typography>
+            <List>
+              <ListItem disablePadding>
+                <ListItemButton onClick={() => navigate('/about')}>
+                  <ListItemAvatar>
+                    <Avatar sx={{ bgcolor: 'info.light' }}>
+                      <Info />
+                    </Avatar>
+                  </ListItemAvatar>
+                  <ListItemText
+                    primary="About Sunday Mornings"
+                    secondary="Learn how the app works"
+                  />
+                </ListItemButton>
+              </ListItem>
+            </List>
           </CardContent>
         </Card>
       </Box>
