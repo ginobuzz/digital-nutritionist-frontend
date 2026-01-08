@@ -8,10 +8,12 @@ import {
   Chip,
   Button,
   TextField,
-  MenuItem,
   Alert,
   ToggleButton,
   ToggleButtonGroup,
+  FormControlLabel,
+  Radio,
+  RadioGroup,
   useTheme,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
@@ -42,6 +44,8 @@ interface DayEntry {
   plannedCalories: number;
 }
 
+type MealType = '' | 'breakfast' | 'lunch' | 'dinner' | 'snack';
+
 const WEEK_LENGTH_DAYS = 7;
 const toIsoDate = (d: Date) => format(d, 'yyyy-MM-dd');
 
@@ -59,8 +63,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   const [logForm, setLogForm] = useState({
     description: '',
     calories: '',
-    mealType: 'lunch',
   });
+  const [mealType, setMealType] = useState<MealType>('');
   const [describeInput, setDescribeInput] = useState('');
   const [describeReply, setDescribeReply] = useState<string | null>(null);
   const [logError, setLogError] = useState<string | null>(null);
@@ -177,12 +181,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
     setLogForm({
       description: '',
       calories: '',
-      mealType: 'lunch',
     });
+    setMealType('');
     setDescribeInput('');
   }, []);
 
-  const handleLogInputChange = (field: 'description' | 'calories' | 'mealType', value: string) => {
+  const handleLogInputChange = (field: 'description' | 'calories', value: string) => {
     setLogForm(prev => ({ ...prev, [field]: value }));
   };
 
@@ -212,14 +216,14 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
         user_id: userId,
         date: selectedKey,
         user_description: logForm.description.trim(),
-        meal_type: logForm.mealType || null,
+        meal_type: mealType || null,
         estimated_calories: Number(logForm.calories),
       });
       setLogForm({
         description: '',
         calories: '',
-        mealType: 'lunch',
       });
+      setMealType('');
       await fetchData();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to log meal. Please try again.';
@@ -242,6 +246,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       const userId = getActiveUserId();
       const prompt = [
         `Please log what I consumed on ${selectedKey}.`,
+        ...(mealType ? [`Meal type: ${mealType}.`] : []),
         `If details are missing, make reasonable assumptions and estimate calories (integer) rather than asking follow-up questions.`,
         ``,
         describeInput.trim(),
@@ -357,6 +362,61 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
             <ToggleButton value="quick">Quick add</ToggleButton>
           </ToggleButtonGroup>
 
+          <Box sx={{ mb: 1.5 }}>
+            <Typography
+              variant="caption"
+              sx={{ color: 'text.secondary', fontWeight: 800, display: 'block', mb: 0.75 }}
+            >
+              Meal (optional)
+            </Typography>
+            <RadioGroup
+              row
+              value={mealType}
+              onChange={(event) => setMealType(event.target.value as MealType)}
+              aria-label="Meal type"
+              name="meal-type"
+              sx={{ gap: 1, flexWrap: 'wrap' }}
+            >
+              {(
+                [
+                  { value: '', label: 'Any' },
+                  { value: 'breakfast', label: 'Breakfast' },
+                  { value: 'lunch', label: 'Lunch' },
+                  { value: 'dinner', label: 'Dinner' },
+                  { value: 'snack', label: 'Snack' },
+                ] as const
+              ).map((option) => {
+                const selected = mealType === option.value;
+                return (
+                  <FormControlLabel
+                    key={option.value || 'any'}
+                    value={option.value}
+                    disabled={logBusy}
+                    control={<Radio size="small" />}
+                    label={option.label}
+                    sx={{
+                      m: 0,
+                      pl: 1,
+                      pr: 1.25,
+                      py: 0.25,
+                      borderRadius: 999,
+                      border: `1px solid ${alpha(
+                        selected ? theme.palette.primary.main : theme.palette.text.primary,
+                        selected ? 0.45 : 0.14
+                      )}`,
+                      bgcolor: alpha(
+                        selected ? theme.palette.primary.main : theme.palette.text.primary,
+                        selected ? 0.08 : 0.03
+                      ),
+                      '& .MuiRadio-root': { p: 0.5 },
+                      '& .MuiTypography-root': { fontWeight: 800, fontSize: 13 },
+                    }}
+                  />
+                );
+              })}
+            </RadioGroup>
+          </Box>
+
           {logMode === 'quick' ? (
             <>
               <TextField
@@ -378,21 +438,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                 onChange={(event) => handleLogInputChange('calories', event.target.value)}
                 disabled={logBusy}
               />
-              <TextField
-                select
-                fullWidth
-                margin="dense"
-                label="Meal Type"
-                value={logForm.mealType}
-                onChange={(event) => handleLogInputChange('mealType', event.target.value)}
-                disabled={logBusy}
-              >
-                {['breakfast', 'lunch', 'dinner', 'snack', 'other'].map((option) => (
-                  <MenuItem key={option} value={option}>
-                    {option.charAt(0).toUpperCase() + option.slice(1)}
-                  </MenuItem>
-                ))}
-              </TextField>
             </>
           ) : (
             <>
