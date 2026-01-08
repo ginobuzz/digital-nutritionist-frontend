@@ -174,18 +174,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       : <CheckRoundedIcon fontSize="small" />;
   };
 
-  const resetInlineLog = useCallback(() => {
-    setLogMode('describe');
-    setLogError(null);
-    setDescribeReply(null);
-    setLogForm({
-      description: '',
-      calories: '',
-    });
-    setMealType('');
-    setDescribeInput('');
-  }, []);
-
   const handleLogInputChange = (field: 'description' | 'calories', value: string) => {
     setLogForm(prev => ({ ...prev, [field]: value }));
   };
@@ -260,7 +248,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       });
 
       setDescribeReply(response.reply || 'OK.');
+      setDescribeInput('');
       await fetchData();
+      window.setTimeout(() => focusLogInput('describe'), 0);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to log meal. Please try again.';
       setLogError(message);
@@ -447,10 +437,14 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                 label="Describe what you ate (or drank)"
                 placeholder="Example: chicken burrito bowl with rice, beans, guac and a Coke"
                 value={describeInput}
-                onChange={(event) => setDescribeInput(event.target.value)}
+                onChange={(event) => {
+                  setDescribeInput(event.target.value);
+                  if (describeReply) setDescribeReply(null);
+                  if (logError) setLogError(null);
+                }}
                 multiline
                 minRows={3}
-                disabled={logBusy || Boolean(describeReply)}
+                disabled={logBusy}
                 inputRef={describeFieldRef}
               />
 
@@ -488,16 +482,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
           )}
 
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 2 }}>
-            <Button
-              onClick={() => {
-                if (logBusy) return;
-                resetInlineLog();
-                window.setTimeout(() => focusLogInput('describe'), 0);
-              }}
-              disabled={logBusy}
-            >
-              Clear
-            </Button>
             {logMode === 'quick' ? (
               <Button variant="contained" onClick={handleSaveMealLog} disabled={logBusy}>
                 {savingQuickLog ? 'Saving...' : 'Log Meal'}
@@ -506,7 +490,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
               <Button
                 variant="contained"
                 onClick={handleDescribeMealLog}
-                disabled={logBusy || Boolean(describeReply)}
+                disabled={logBusy || !describeInput.trim()}
               >
                 {sendingDescribeLog ? 'Sending...' : 'Send to AI'}
               </Button>

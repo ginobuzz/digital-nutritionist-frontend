@@ -1184,10 +1184,14 @@ const Log: React.FC<LogProps> = ({ user }) => {
                   label="Describe what you ate (or drank)"
                   placeholder="Example: chicken burrito bowl with rice, beans, guac and a Coke"
                   value={describeInput}
-                  onChange={(event) => setDescribeInput(event.target.value)}
+                  onChange={(event) => {
+                    setDescribeInput(event.target.value);
+                    if (describeReply) setDescribeReply(null);
+                    if (logError) setLogError(null);
+                  }}
                   multiline
                   minRows={3}
-                  disabled={dialogBusy || Boolean(describeReply)}
+                  disabled={dialogBusy}
                 />
 
                 {describeReply && (
@@ -1238,7 +1242,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
               <Button
                 variant="contained"
                 onClick={handleDescribeMealLog}
-                disabled={dialogBusy || Boolean(describeReply)}
+                disabled={dialogBusy || !describeInput.trim()}
               >
                 {sendingDescribeLog ? 'Sending...' : 'Send to AI'}
               </Button>
