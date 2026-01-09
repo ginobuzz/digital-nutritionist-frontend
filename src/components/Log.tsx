@@ -35,7 +35,8 @@ import {
   Delete,
   Schedule,
   LocalDining,
-  CalendarToday
+  CalendarToday,
+  PhotoCamera,
 } from '@mui/icons-material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { format, isValid, parseISO } from 'date-fns';
@@ -43,6 +44,7 @@ import Markdown from 'markdown-to-jsx';
 import { ActualMeal, PlannedMeal, User } from '../types';
 import { apiService, MealLogResponse, PlannedMealResponse } from '../services/api';
 import { useSearchParams } from 'react-router-dom';
+import { imageFileToDataUrl } from '../utils/images';
 
 const toIsoDate = (d: Date) => format(d, 'yyyy-MM-dd');
 
@@ -185,6 +187,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
   });
   const [describeInput, setDescribeInput] = useState('');
   const [describeReply, setDescribeReply] = useState<string | null>(null);
+  const [describeImageDataUrl, setDescribeImageDataUrl] = useState<string | null>(null);
   const [logError, setLogError] = useState<string | null>(null);
   const [savingQuickLog, setSavingQuickLog] = useState(false);
   const [sendingDescribeLog, setSendingDescribeLog] = useState(false);
@@ -256,6 +259,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
     setLogMode('describe');
     setLogError(null);
     setDescribeReply(null);
+    setDescribeImageDataUrl(null);
     setLogForm({
       description: '',
       calories: '',
@@ -377,8 +381,8 @@ const Log: React.FC<LogProps> = ({ user }) => {
   };
 
   const handleDescribeMealLog = async () => {
-    if (!describeInput.trim()) {
-      setLogError('Describe what you ate (or drank) to log it.');
+    if (!describeInput.trim() && !describeImageDataUrl) {
+      setLogError('Add a description or meal photo to log it.');
       return;
     }
 
@@ -388,9 +392,10 @@ const Log: React.FC<LogProps> = ({ user }) => {
       setDescribeReply(null);
       const prompt = [
         `Please log what I consumed on ${selectedKey}.`,
+        describeImageDataUrl ? `A meal photo is attached. Use it to identify foods and portions.` : null,
         `If details are missing, make reasonable assumptions and estimate calories (integer) rather than asking follow-up questions.`,
         ``,
-        describeInput.trim(),
+        describeInput.trim() || '(No additional text — use the meal photo.)',
       ].join('\n');
 
       const response = await apiService.chat({
@@ -398,15 +403,33 @@ const Log: React.FC<LogProps> = ({ user }) => {
         user_id: user.id,
         client_local_date: toIsoDate(new Date()),
         client_time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        image_data_url: describeImageDataUrl ?? undefined,
       });
 
       setDescribeReply(response.reply || 'OK.');
+      setDescribeImageDataUrl(null);
       await fetchLogData();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to log meal. Please try again.';
       setLogError(message);
     } finally {
       setSendingDescribeLog(false);
+    }
+  };
+
+  const handleAttachDescribeImage = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    try {
+      const dataUrl = await imageFileToDataUrl(file);
+      setDescribeImageDataUrl(dataUrl);
+      setLogError(null);
+      if (describeReply) setDescribeReply(null);
+    } catch (error) {
+      console.error('Unable to attach image:', error);
+      setLogError('Unable to read that image. Try a different file.');
     }
   };
 
@@ -1134,6 +1157,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
                 setLogMode(value);
                 setLogError(null);
                 setDescribeReply(null);
+                if (value === 'quick') setDescribeImageDataUrl(null);
               }}
             >
               <ToggleButton value="describe">Describe it</ToggleButton>
@@ -1194,6 +1218,52 @@ const Log: React.FC<LogProps> = ({ user }) => {
                   disabled={dialogBusy}
                 />
 
+                <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Button
+                    component="label"
+                    size="small"
+                    variant={describeImageDataUrl ? 'contained' : 'outlined'}
+                    startIcon={<PhotoCamera />}
+                    disabled={dialogBusy}
+                  >
+                    {describeImageDataUrl ? 'Replace photo' : 'Add photo'}
+                    <input
+                      hidden
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handleAttachDescribeImage}
+                    />
+                  </Button>
+                  {describeImageDataUrl && (
+                    <Button
+                      size="small"
+                      variant="text"
+                      onClick={() => setDescribeImageDataUrl(null)}
+                      disabled={dialogBusy}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </Box>
+
+                {describeImageDataUrl && (
+                  <Box
+                    component="img"
+                    src={describeImageDataUrl}
+                    alt="Selected meal"
+                    sx={{
+                      mt: 1.25,
+                      width: '100%',
+                      maxWidth: 360,
+                      maxHeight: 280,
+                      objectFit: 'cover',
+                      borderRadius: 2,
+                      border: `1px solid ${alpha(theme.palette.text.primary, 0.12)}`,
+                    }}
+                  />
+                )}
+
                 {describeReply && (
                   <Box
                     sx={{
@@ -1242,7 +1312,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
               <Button
                 variant="contained"
                 onClick={handleDescribeMealLog}
-                disabled={dialogBusy || !describeInput.trim()}
+                disabled={dialogBusy || !(describeInput.trim() || describeImageDataUrl)}
               >
                 {sendingDescribeLog ? 'Sending...' : 'Send to AI'}
               </Button>

@@ -142,6 +142,7 @@ export interface ChatRequest {
   history?: ChatTurn[];
   client_local_date?: string; // YYYY-MM-DD (user's local date)
   client_time_zone?: string; // IANA tz name (e.g., America/Los_Angeles)
+  image_data_url?: string; // data:image/*;base64,...
 }
 
 export interface ChatResponse {
