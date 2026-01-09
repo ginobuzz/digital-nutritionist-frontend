@@ -18,6 +18,8 @@ SYSTEM_PROMPT = (
     "\n"
     "This app supports BOTH logging meals already eaten and planning meals for the future.\n"
     "\n"
+    "The user may attach a meal photo. Use it to infer foods, portions, and preparation.\n"
+    "\n"
     "If the user describes food or drink they *consumed* (e.g., “I had…”, “I ate…”, “for lunch…”), "
     "log it by calling the `create_meal_log` tool.\n"
     "- Use the user's local 'today' date unless the user specifies a different date.\n"
@@ -291,9 +293,22 @@ def _create_planned_meal_from_args(
     return meal
 
 
-def chat_completion(message: str, user_context: dict[str, Any] | None = None) -> dict[str, Any]:
+def chat_completion(
+    message: str,
+    user_context: dict[str, Any] | None = None,
+    *,
+    image_data_url: str | None = None,
+) -> dict[str, Any]:
     client = get_openai_client()
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": message}]
+    user_text = message.strip() or ("Please describe the attached meal photo." if image_data_url else "")
+    user_content: Any = user_text
+    if image_data_url:
+        user_content = [
+            {"type": "text", "text": user_text},
+            {"type": "image_url", "image_url": {"url": image_data_url}},
+        ]
+
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": user_content}]
     if user_context:
         messages.insert(
             1,
@@ -327,6 +342,7 @@ def assistant_chat(
     history: list[dict[str, Any]] | None = None,
     client_local_date: date | None = None,
     client_time_zone: str | None = None,
+    image_data_url: str | None = None,
 ) -> dict[str, Any]:
     client = get_openai_client()
 
@@ -353,11 +369,19 @@ def assistant_chat(
             if role in {"user", "assistant"} and isinstance(content, str) and content.strip():
                 messages.append({"role": role, "content": content.strip()})
 
-    messages.append({"role": "user", "content": message})
+    user_text = message.strip() or ("Please describe the attached meal photo." if image_data_url else "")
+    user_content: Any = user_text
+    if image_data_url:
+        user_content = [
+            {"type": "text", "text": user_text},
+            {"type": "image_url", "image_url": {"url": image_data_url}},
+        ]
+
+    messages.append({"role": "user", "content": user_content})
 
     enable_meal_logging = session is not None and bool(user_id)
-    lower_message = message.lower()
-    has_explicit_iso_date = bool(re.search(r"\b\d{4}-\d{2}-\d{2}\b", message))
+    lower_message = user_text.lower()
+    has_explicit_iso_date = bool(re.search(r"\b\d{4}-\d{2}-\d{2}\b", user_text))
     force_no_tools = ("return only" in lower_message) and ("json" in lower_message)
     tools = [MEAL_LOG_TOOL, PLANNED_MEAL_TOOL] if (enable_meal_logging and not force_no_tools) else None
 

@@ -17,12 +17,15 @@ import {
 import {
   Send,
   SmartToy,
-  Person
+  Person,
+  PhotoCamera,
+  Close
 } from '@mui/icons-material';
 import Markdown from 'markdown-to-jsx';
 import { format } from 'date-fns';
 import { ChatMessage, User } from '../types';
 import { apiService, ChatTurn } from '../services/api';
+import { imageFileToDataUrl } from '../utils/images';
 
 interface ChatProps {
   user?: User;
@@ -35,6 +38,7 @@ const CHAT_HISTORY_STORAGE_PREFIX = 'dn.chat.history.v1';
 const Chat: React.FC<ChatProps> = ({ user }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
+  const [attachedImageDataUrl, setAttachedImageDataUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -122,33 +126,43 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
   }, [messages, storageKey]);
 
   const handleSendMessage = async () => {
-    if (!inputMessage.trim()) return;
+    const trimmed = inputMessage.trim();
+    const hasImage = Boolean(attachedImageDataUrl);
+    if (!trimmed && !hasImage) return;
 
     const history: ChatTurn[] = messages
       .slice(-10)
-      .map((m) => ({ role: m.sender === 'user' ? 'user' : 'assistant', content: m.text }));
+      .map((m) => ({
+        role: m.sender === 'user' ? 'user' : 'assistant',
+        content: m.imageDataUrl ? `${m.text}\n[User attached a meal photo]` : m.text,
+      }));
+
+    const outgoingText = trimmed || 'Here is a photo of my meal.';
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
-      text: inputMessage,
+      text: outgoingText,
       sender: 'user',
       timestamp: new Date(),
-      type: 'meal_log'
+      type: 'meal_log',
+      imageDataUrl: attachedImageDataUrl ?? undefined,
     };
 
     setMessages(prev => [...prev, userMessage]);
     setInputMessage('');
+    setAttachedImageDataUrl(null);
     setLoading(true);
 
     try {
       const client_time_zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const client_local_date = format(new Date(), 'yyyy-MM-dd');
       const response = await apiService.chat({
-        message: userMessage.text,
+        message: outgoingText,
         user_id: activeUserId ?? undefined,
         history,
         client_local_date,
         client_time_zone,
+        image_data_url: userMessage.imageDataUrl,
       });
 
       const createdLogsCount = response.created_meal_logs?.length ?? 0;
@@ -180,6 +194,20 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       handleSendMessage();
+    }
+  };
+
+  const handleAttachImage = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    // Allow selecting the same file again.
+    event.target.value = '';
+    if (!file) return;
+
+    try {
+      const dataUrl = await imageFileToDataUrl(file);
+      setAttachedImageDataUrl(dataUrl);
+    } catch (error) {
+      console.error('Unable to attach image:', error);
     }
   };
 
@@ -264,6 +292,21 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
                           '& pre code': { fontSize: '0.85em' },
                         }}
                       >
+                        {message.imageDataUrl && (
+                          <Box
+                            component="img"
+                            src={message.imageDataUrl}
+                            alt="Meal"
+                            sx={{
+                              display: 'block',
+                              width: '100%',
+                              maxWidth: 360,
+                              borderRadius: 1.5,
+                              mb: 1.25,
+                              border: '1px solid rgba(0,0,0,0.08)',
+                            }}
+                          />
+                        )}
                         <Markdown
                           options={{
                             disableParsingRawHTML: true,
@@ -320,7 +363,48 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
           
           {/* Input Area */}
           <Box sx={{ p: 2 }}>
-            <Box sx={{ display: 'flex', gap: 1 }}>
+            {attachedImageDataUrl && (
+              <Box sx={{ mb: 1.25, display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                <Box
+                  component="img"
+                  src={attachedImageDataUrl}
+                  alt="Selected meal"
+                  sx={{
+                    width: 88,
+                    height: 88,
+                    objectFit: 'cover',
+                    borderRadius: 1.5,
+                    border: '1px solid rgba(0,0,0,0.10)',
+                  }}
+                />
+                <IconButton
+                  size="small"
+                  onClick={() => setAttachedImageDataUrl(null)}
+                  disabled={loading}
+                  aria-label="Remove image"
+                >
+                  <Close fontSize="small" />
+                </IconButton>
+              </Box>
+            )}
+
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
+              <IconButton
+                component="label"
+                disabled={loading}
+                color={attachedImageDataUrl ? 'primary' : 'default'}
+                aria-label="Attach meal photo"
+                sx={{ alignSelf: 'flex-end' }}
+              >
+                <PhotoCamera />
+                <input
+                  type="file"
+                  hidden
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleAttachImage}
+                />
+              </IconButton>
               <TextField
                 fullWidth
                 multiline
@@ -335,7 +419,7 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
               />
               <IconButton
                 onClick={handleSendMessage}
-                disabled={!inputMessage.trim() || loading}
+                disabled={(!(inputMessage.trim() || attachedImageDataUrl) || loading)}
                 color="primary"
                 sx={{ alignSelf: 'flex-end' }}
               >

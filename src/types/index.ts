@@ -65,6 +65,7 @@ export interface ChatMessage {
   sender: 'user' | 'ai';
   timestamp: Date;
   type: 'meal_log' | 'planning' | 'encouragement' | 'reminder' | 'general';
+  imageDataUrl?: string;
 }
 
 export interface LogEntry {

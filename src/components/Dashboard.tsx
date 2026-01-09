@@ -14,6 +14,7 @@ import {
   FormControlLabel,
   Radio,
   RadioGroup,
+  IconButton,
   useTheme,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
@@ -22,11 +23,13 @@ import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import LockRoundedIcon from '@mui/icons-material/LockRounded';
 import TodayRoundedIcon from '@mui/icons-material/TodayRounded';
+import PhotoCameraRoundedIcon from '@mui/icons-material/PhotoCameraRounded';
 import { useNavigate } from 'react-router-dom';
 import { addDays, format, isBefore, isSameDay, startOfDay, startOfWeek } from 'date-fns';
 import Markdown from 'markdown-to-jsx';
 import { User } from '../types';
 import { apiService } from '../services/api';
+import { imageFileToDataUrl } from '../utils/images';
 
 interface DashboardProps {
   user: User;
@@ -67,6 +70,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   const [mealType, setMealType] = useState<MealType>('');
   const [describeInput, setDescribeInput] = useState('');
   const [describeReply, setDescribeReply] = useState<string | null>(null);
+  const [describeImageDataUrl, setDescribeImageDataUrl] = useState<string | null>(null);
   const [logError, setLogError] = useState<string | null>(null);
   const [savingQuickLog, setSavingQuickLog] = useState(false);
   const [sendingDescribeLog, setSendingDescribeLog] = useState(false);
@@ -222,8 +226,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   };
 
   const handleDescribeMealLog = async () => {
-    if (!describeInput.trim()) {
-      setLogError('Describe what you ate (or drank) to log it.');
+    if (!describeInput.trim() && !describeImageDataUrl) {
+      setLogError('Add a description or meal photo to log it.');
       return;
     }
 
@@ -235,9 +239,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       const prompt = [
         `Please log what I consumed on ${selectedKey}.`,
         ...(mealType ? [`Meal type: ${mealType}.`] : []),
+        describeImageDataUrl ? `A meal photo is attached. Use it to identify foods and portions.` : null,
         `If details are missing, make reasonable assumptions and estimate calories (integer) rather than asking follow-up questions.`,
         ``,
-        describeInput.trim(),
+        describeInput.trim() || '(No additional text — use the meal photo.)',
       ].join('\n');
 
       const response = await apiService.chat({
@@ -245,10 +250,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
         user_id: userId ?? undefined,
         client_local_date: toIsoDate(startOfDay(new Date())),
         client_time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        image_data_url: describeImageDataUrl ?? undefined,
       });
 
       setDescribeReply(response.reply || 'OK.');
       setDescribeInput('');
+      setDescribeImageDataUrl(null);
       await fetchData();
       window.setTimeout(() => focusLogInput('describe'), 0);
     } catch (error) {
@@ -260,6 +267,21 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   };
 
   const logBusy = savingQuickLog || sendingDescribeLog;
+
+  const handleAttachDescribeImage = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      const dataUrl = await imageFileToDataUrl(file);
+      setDescribeImageDataUrl(dataUrl);
+      setLogError(null);
+      if (describeReply) setDescribeReply(null);
+    } catch (error) {
+      console.error('Unable to attach image:', error);
+      setLogError('Unable to read that image. Try a different file.');
+    }
+  };
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -345,10 +367,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
               setLogMode(value);
               setLogError(null);
               setDescribeReply(null);
+              if (value === 'quick') setDescribeImageDataUrl(null);
               window.setTimeout(() => focusLogInput(value), 0);
             }}
           >
-            <ToggleButton value="describe">Describe it</ToggleButton>
+            <ToggleButton value="describe">Describe / photo</ToggleButton>
             <ToggleButton value="quick">Quick add</ToggleButton>
           </ToggleButtonGroup>
 
@@ -430,22 +453,73 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
             </>
           ) : (
             <>
-              <TextField
-                fullWidth
-                margin="dense"
-                label="Describe what you ate (or drank)"
-                placeholder="Example: chicken burrito bowl with rice, beans, guac and a Coke"
-                value={describeInput}
-                onChange={(event) => {
-                  setDescribeInput(event.target.value);
-                  if (describeReply) setDescribeReply(null);
-                  if (logError) setLogError(null);
-                }}
-                multiline
-                minRows={3}
-                disabled={logBusy}
-                inputRef={describeFieldRef}
-              />
+              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 0.5 }}>
+                Add a description, take/upload a photo, or use both.
+              </Typography>
+
+              {describeImageDataUrl && (
+                <Box sx={{ mb: 1.25, display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                  <Box
+                    component="img"
+                    src={describeImageDataUrl}
+                    alt="Selected meal"
+                    sx={{
+                      width: 88,
+                      height: 88,
+                      objectFit: 'cover',
+                      borderRadius: 1.5,
+                      border: `1px solid ${alpha(theme.palette.text.primary, 0.12)}`,
+                    }}
+                  />
+                  <IconButton
+                    size="small"
+                    onClick={() => setDescribeImageDataUrl(null)}
+                    disabled={logBusy}
+                    aria-label="Remove meal photo"
+                  >
+                    <CloseRoundedIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+              )}
+
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
+                <IconButton
+                  component="label"
+                  disabled={logBusy}
+                  color={describeImageDataUrl ? 'primary' : 'default'}
+                  aria-label="Attach meal photo"
+                  sx={{ alignSelf: 'flex-end' }}
+                >
+                  <PhotoCameraRoundedIcon />
+                  <input
+                    hidden
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handleAttachDescribeImage}
+                  />
+                </IconButton>
+                <TextField
+                  fullWidth
+                  margin="dense"
+                  label={describeImageDataUrl ? 'Add a note (optional)' : 'Describe what you ate (or drank)'}
+                  placeholder={
+                    describeImageDataUrl
+                      ? 'Optional: any details the photo won’t show (portion, sauces, drinks, etc.)'
+                      : 'Example: chicken burrito bowl with rice, beans, guac and a Coke'
+                  }
+                  value={describeInput}
+                  onChange={(event) => {
+                    setDescribeInput(event.target.value);
+                    if (describeReply) setDescribeReply(null);
+                    if (logError) setLogError(null);
+                  }}
+                  multiline
+                  minRows={3}
+                  disabled={logBusy}
+                  inputRef={describeFieldRef}
+                />
+              </Box>
 
               {describeReply && (
                 <Box
@@ -489,7 +563,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
               <Button
                 variant="contained"
                 onClick={handleDescribeMealLog}
-                disabled={logBusy || !describeInput.trim()}
+                disabled={logBusy || !(describeInput.trim() || describeImageDataUrl)}
               >
                 {sendingDescribeLog ? 'Sending...' : 'Send to AI'}
               </Button>
