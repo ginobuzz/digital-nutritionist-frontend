@@ -14,6 +14,7 @@ import {
   FormControlLabel,
   Radio,
   RadioGroup,
+  IconButton,
   useTheme,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
@@ -370,7 +371,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
               window.setTimeout(() => focusLogInput(value), 0);
             }}
           >
-            <ToggleButton value="describe">Describe it</ToggleButton>
+            <ToggleButton value="describe">Describe / photo</ToggleButton>
             <ToggleButton value="quick">Quick add</ToggleButton>
           </ToggleButtonGroup>
 
@@ -452,32 +453,44 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
             </>
           ) : (
             <>
-              <TextField
-                fullWidth
-                margin="dense"
-                label="Describe what you ate (or drank)"
-                placeholder="Example: chicken burrito bowl with rice, beans, guac and a Coke"
-                value={describeInput}
-                onChange={(event) => {
-                  setDescribeInput(event.target.value);
-                  if (describeReply) setDescribeReply(null);
-                  if (logError) setLogError(null);
-                }}
-                multiline
-                minRows={3}
-                disabled={logBusy}
-                inputRef={describeFieldRef}
-              />
+              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 0.5 }}>
+                Add a description, take/upload a photo, or use both.
+              </Typography>
 
-              <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                <Button
+              {describeImageDataUrl && (
+                <Box sx={{ mb: 1.25, display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                  <Box
+                    component="img"
+                    src={describeImageDataUrl}
+                    alt="Selected meal"
+                    sx={{
+                      width: 88,
+                      height: 88,
+                      objectFit: 'cover',
+                      borderRadius: 1.5,
+                      border: `1px solid ${alpha(theme.palette.text.primary, 0.12)}`,
+                    }}
+                  />
+                  <IconButton
+                    size="small"
+                    onClick={() => setDescribeImageDataUrl(null)}
+                    disabled={logBusy}
+                    aria-label="Remove meal photo"
+                  >
+                    <CloseRoundedIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+              )}
+
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
+                <IconButton
                   component="label"
-                  size="small"
-                  variant={describeImageDataUrl ? 'contained' : 'outlined'}
-                  startIcon={<PhotoCameraRoundedIcon />}
                   disabled={logBusy}
+                  color={describeImageDataUrl ? 'primary' : 'default'}
+                  aria-label="Attach meal photo"
+                  sx={{ alignSelf: 'flex-end' }}
                 >
-                  {describeImageDataUrl ? 'Replace photo' : 'Add photo'}
+                  <PhotoCameraRoundedIcon />
                   <input
                     hidden
                     type="file"
@@ -485,35 +498,28 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                     capture="environment"
                     onChange={handleAttachDescribeImage}
                   />
-                </Button>
-                {describeImageDataUrl && (
-                  <Button
-                    size="small"
-                    variant="text"
-                    onClick={() => setDescribeImageDataUrl(null)}
-                    disabled={logBusy}
-                  >
-                    Remove
-                  </Button>
-                )}
-              </Box>
-
-              {describeImageDataUrl && (
-                <Box
-                  component="img"
-                  src={describeImageDataUrl}
-                  alt="Selected meal"
-                  sx={{
-                    mt: 1.25,
-                    width: '100%',
-                    maxWidth: 360,
-                    maxHeight: 280,
-                    objectFit: 'cover',
-                    borderRadius: 2,
-                    border: `1px solid ${alpha(theme.palette.text.primary, 0.12)}`,
+                </IconButton>
+                <TextField
+                  fullWidth
+                  margin="dense"
+                  label={describeImageDataUrl ? 'Add a note (optional)' : 'Describe what you ate (or drank)'}
+                  placeholder={
+                    describeImageDataUrl
+                      ? 'Optional: any details the photo won’t show (portion, sauces, drinks, etc.)'
+                      : 'Example: chicken burrito bowl with rice, beans, guac and a Coke'
+                  }
+                  value={describeInput}
+                  onChange={(event) => {
+                    setDescribeInput(event.target.value);
+                    if (describeReply) setDescribeReply(null);
+                    if (logError) setLogError(null);
                   }}
+                  multiline
+                  minRows={3}
+                  disabled={logBusy}
+                  inputRef={describeFieldRef}
                 />
-              )}
+              </Box>
 
               {describeReply && (
                 <Box

@@ -1160,7 +1160,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
                 if (value === 'quick') setDescribeImageDataUrl(null);
               }}
             >
-              <ToggleButton value="describe">Describe it</ToggleButton>
+              <ToggleButton value="describe">Describe / photo</ToggleButton>
               <ToggleButton value="quick">Quick add</ToggleButton>
             </ToggleButtonGroup>
 
@@ -1202,11 +1202,19 @@ const Log: React.FC<LogProps> = ({ user }) => {
               </>
             ) : (
               <>
+                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 0.5 }}>
+                  Add a description, take/upload a photo, or use both.
+                </Typography>
+
                 <TextField
                   fullWidth
                   margin="dense"
-                  label="Describe what you ate (or drank)"
-                  placeholder="Example: chicken burrito bowl with rice, beans, guac and a Coke"
+                  label={describeImageDataUrl ? 'Add a note (optional)' : 'Describe what you ate (or drank)'}
+                  placeholder={
+                    describeImageDataUrl
+                      ? 'Optional: any details the photo won’t show (portion, sauces, drinks, etc.)'
+                      : 'Example: chicken burrito bowl with rice, beans, guac and a Coke'
+                  }
                   value={describeInput}
                   onChange={(event) => {
                     setDescribeInput(event.target.value);
