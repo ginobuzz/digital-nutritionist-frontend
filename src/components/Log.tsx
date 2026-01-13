@@ -533,6 +533,12 @@ const Log: React.FC<LogProps> = ({ user }) => {
       } else {
         await apiService.deleteMealLog(meal.id);
       }
+      await fetchLogData();
+      setDeleteToast({
+        message: `${meal.name} deleted.`,
+        severity: 'success',
+      });
+      setDeleteToastOpen(true);
     } catch (error) {
       console.error('Error deleting meal:', error);
       setDeleteToast({
@@ -540,19 +546,6 @@ const Log: React.FC<LogProps> = ({ user }) => {
         severity: 'error',
       });
       setDeleteToastOpen(true);
-      return;
-    }
-
-    setDeleteToast({
-      message: `${meal.name} deleted.`,
-      severity: 'success',
-    });
-    setDeleteToastOpen(true);
-
-    try {
-      await fetchLogData();
-    } catch (error) {
-      console.error('Error refreshing log data after delete:', error);
     }
   };
 
