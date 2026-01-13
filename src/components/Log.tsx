@@ -23,6 +23,7 @@ import {
   IconButton,
   LinearProgress,
   Alert,
+  Snackbar,
   ToggleButton,
   ToggleButtonGroup,
   useTheme,
@@ -204,6 +205,11 @@ const Log: React.FC<LogProps> = ({ user }) => {
   const [sendingDescribePlan, setSendingDescribePlan] = useState(false);
   const [editingMeal, setEditingMeal] = useState<PlannedMeal | ActualMeal | null>(null);
   const [isEditingPlanned, setIsEditingPlanned] = useState(false);
+  const [deleteToast, setDeleteToast] = useState<{
+    message: string;
+    severity: 'success' | 'error';
+  }>({ message: '', severity: 'success' });
+  const [deleteToastOpen, setDeleteToastOpen] = useState(false);
   const [mealFormData, setMealFormData] = useState({
     name: '',
     calories: '',
@@ -520,19 +526,27 @@ const Log: React.FC<LogProps> = ({ user }) => {
     setMealDialogOpen(true);
   };
 
-  const handleDeleteMeal = (mealId: string, isPlanned: boolean) => {
-    (async () => {
-      try {
-        if (isPlanned) {
-          await apiService.deletePlannedMeal(mealId);
-        } else {
-          await apiService.deleteMealLog(mealId);
-        }
-        await fetchLogData();
-      } catch (error) {
-        console.error('Error deleting meal:', error);
+  const handleDeleteMeal = async (meal: PlannedMeal | ActualMeal) => {
+    try {
+      if (meal.isPlanned) {
+        await apiService.deletePlannedMeal(meal.id);
+      } else {
+        await apiService.deleteMealLog(meal.id);
       }
-    })();
+      await fetchLogData();
+      setDeleteToast({
+        message: `${meal.name} deleted.`,
+        severity: 'success',
+      });
+      setDeleteToastOpen(true);
+    } catch (error) {
+      console.error('Error deleting meal:', error);
+      setDeleteToast({
+        message: 'Unable to delete meal. Please try again.',
+        severity: 'error',
+      });
+      setDeleteToastOpen(true);
+    }
   };
 
   const handleSaveMeal = () => {
@@ -909,7 +923,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
                         <IconButton
                           size="small"
                           color="error"
-                          onClick={() => handleDeleteMeal(meal.id, meal.isPlanned)}
+                          onClick={() => handleDeleteMeal(meal)}
                         >
                           <Delete />
                         </IconButton>
@@ -1005,6 +1019,21 @@ const Log: React.FC<LogProps> = ({ user }) => {
             </Button>
           </DialogActions>
         </Dialog>
+
+        <Snackbar
+          open={deleteToastOpen}
+          autoHideDuration={4000}
+          onClose={() => setDeleteToastOpen(false)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert
+            severity={deleteToast.severity}
+            sx={{ width: '100%' }}
+            onClose={() => setDeleteToastOpen(false)}
+          >
+            {deleteToast.message}
+          </Alert>
+        </Snackbar>
 
         {/* Plan Dialog (Future Days) */}
         <Dialog open={planDialogOpen} onClose={handleClosePlanDialog} maxWidth="xs" fullWidth>
