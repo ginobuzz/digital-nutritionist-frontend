@@ -92,12 +92,22 @@ const Layout: React.FC<LayoutProps> = ({ children, user }) => {
             variant="h6"
             component="div" 
             sx={{ 
-              flexGrow: 1, 
+              flexGrow: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 1,
               textAlign: 'center',
               fontWeight: 900,
               letterSpacing: '-0.02em',
             }}
           >
+            <Box
+              component="img"
+              src={`${process.env.PUBLIC_URL}/favicon-32.png`}
+              alt=""
+              sx={{ width: 26, height: 26, flexShrink: 0 }}
+            />
             Sunday Mornings
           </Typography>
           <Box sx={{ width: 34, height: 34, flexShrink: 0 }} />
