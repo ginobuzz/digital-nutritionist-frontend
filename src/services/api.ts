@@ -333,7 +333,23 @@ class ApiService {
       throw new Error(errorMessage);
     }
 
-    return response.json();
+    // Many DELETE endpoints return `204 No Content`; attempting to parse JSON would throw.
+    if (response.status === 204 || response.status === 205) {
+      return (undefined as unknown) as T;
+    }
+
+    // Parse response body safely (handles empty bodies and avoids `Unexpected end of JSON input`).
+    const responseText = await response.text().catch(() => '');
+    if (!responseText) {
+      return (undefined as unknown) as T;
+    }
+    try {
+      return JSON.parse(responseText) as T;
+    } catch {
+      throw new Error(
+        `API request returned non-JSON response: ${response.status} ${response.statusText}`
+      );
+    }
   }
 
   // User endpoints
