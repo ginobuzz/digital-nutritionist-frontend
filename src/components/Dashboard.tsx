@@ -388,7 +388,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
               onChange={(event) => setMealType(event.target.value as MealType)}
               aria-label="Meal type"
               name="meal-type"
-              sx={{ gap: 1, flexWrap: 'wrap' }}
+              sx={{
+                gap: { xs: 0.5, sm: 1 },
+                flexWrap: 'nowrap',
+                overflowX: 'auto',
+                pb: 0.25,
+              }}
             >
               {(
                 [
@@ -408,9 +413,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                     label={option.label}
                     sx={{
                       m: 0,
-                      pl: 1,
-                      pr: 1.25,
-                      py: 0.25,
+                      pl: { xs: 0.75, sm: 1 },
+                      pr: { xs: 0.9, sm: 1.25 },
+                      py: { xs: 0.2, sm: 0.25 },
                       borderRadius: 999,
                       border: `1px solid ${alpha(
                         selected ? theme.palette.primary.main : theme.palette.text.primary,
@@ -420,8 +425,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                         selected ? theme.palette.primary.main : theme.palette.text.primary,
                         selected ? 0.08 : 0.03
                       ),
-                      '& .MuiRadio-root': { p: 0.5 },
-                      '& .MuiTypography-root': { fontWeight: 800, fontSize: 13 },
+                      '& .MuiRadio-root': { p: { xs: 0.35, sm: 0.5 } },
+                      '& .MuiSvgIcon-root': { fontSize: { xs: 18, sm: 20 } },
+                      '& .MuiTypography-root': { fontWeight: 800, fontSize: { xs: 12, sm: 13 } },
                     }}
                   />
                 );
