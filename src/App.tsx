@@ -35,10 +35,13 @@ function App() {
           raw.targetDate = new Date(raw.targetDate);
         }
         setUser(raw);
+        setSetupComplete(true);
       } catch {
         setUser(null);
+        setSetupComplete(false);
+        localStorage.removeItem('user');
+        localStorage.removeItem('setupComplete');
       }
-      setSetupComplete(true);
     } else {
       setSetupComplete(false);
     }

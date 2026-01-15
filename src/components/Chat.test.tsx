@@ -1,7 +1,9 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import Chat from './Chat';
 import { User } from '../types';
+import { apiService } from '../services/api';
 
 const CHAT_HISTORY_STORAGE_PREFIX = 'dn.chat.history.v1';
 
@@ -16,6 +18,7 @@ describe('Chat', () => {
 
   beforeEach(() => {
     localStorage.clear();
+    jest.restoreAllMocks();
   });
 
   test('loads persisted conversation when returning to chat view', () => {
@@ -93,5 +96,69 @@ describe('Chat', () => {
     const strong = screen.getByText('Meal:');
     expect(strong.tagName).toBe('STRONG');
     expect(container.querySelector('ul')).toBeTruthy();
+  });
+
+  test('sends a message and renders assistant reply', async () => {
+    const user = {
+      id: 'u1',
+      name: 'Alice Smith',
+      age: 30,
+      height: { feet: 5, inches: 7 },
+      weight: 150,
+      gender: 'female',
+      activityLevel: 'lightly_active',
+      targetWeight: 140,
+      targetDate: new Date('2030-01-01'),
+      dailyCalorieTarget: 2000,
+      dailyDeficitTarget: 500,
+    } satisfies User;
+
+    localStorage.setItem('user', JSON.stringify({ id: user.id }));
+    const chatSpy = jest
+      .spyOn(apiService, 'chat')
+      .mockResolvedValueOnce({ reply: 'All set!', created_meal_logs: [], created_planned_meals: [] } as any);
+
+    render(<Chat user={user} />);
+
+    const input = screen.getByPlaceholderText(/log what you ate/i);
+    await userEvent.type(input, 'I had oatmeal');
+    await userEvent.click(screen.getByRole('button', { name: /send message/i }));
+
+    expect(chatSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'I had oatmeal',
+        user_id: user.id,
+        history: expect.any(Array),
+      })
+    );
+
+    expect(await screen.findByText('All set!')).toBeInTheDocument();
+  });
+
+  test('renders an error reply when API call fails', async () => {
+    const user = {
+      id: 'u1',
+      name: 'Alice Smith',
+      age: 30,
+      height: { feet: 5, inches: 7 },
+      weight: 150,
+      gender: 'female',
+      activityLevel: 'lightly_active',
+      targetWeight: 140,
+      targetDate: new Date('2030-01-01'),
+      dailyCalorieTarget: 2000,
+      dailyDeficitTarget: 500,
+    } satisfies User;
+
+    localStorage.setItem('user', JSON.stringify({ id: user.id }));
+    jest.spyOn(apiService, 'chat').mockRejectedValueOnce(new Error('Boom'));
+
+    render(<Chat user={user} />);
+
+    const input = screen.getByPlaceholderText(/log what you ate/i);
+    await userEvent.type(input, 'I had oatmeal');
+    await userEvent.click(screen.getByRole('button', { name: /send message/i }));
+
+    expect(await screen.findByText('Boom')).toBeInTheDocument();
   });
 });

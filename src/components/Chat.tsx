@@ -421,6 +421,7 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
                 onClick={handleSendMessage}
                 disabled={(!(inputMessage.trim() || attachedImageDataUrl) || loading)}
                 color="primary"
+                aria-label="Send message"
                 sx={{ alignSelf: 'flex-end' }}
               >
                 <Send />

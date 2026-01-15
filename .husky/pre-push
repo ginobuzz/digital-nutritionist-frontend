@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+
+npm run test:ci
+sh scripts/test-backend.sh
+
