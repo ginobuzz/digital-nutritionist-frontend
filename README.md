@@ -1,6 +1,6 @@
-# Digital Nutritionist AI - Frontend Application
+# Digital Nutritionist AI
 
-A React-based frontend application for the Digital Nutritionist AI, an AI-powered weight-loss coach that guides users to their goal weight through personalized meal planning, real-time logging, and motivational feedback.
+A full-stack Digital Nutritionist app: a React/TypeScript frontend plus a FastAPI backend in `digital-nutritionist-backend/`.
 
 ## 🎯 Overview
 
@@ -34,10 +34,19 @@ The Digital Nutritionist is designed to help users achieve their weight loss goa
 - **Material-UI (MUI)** for UI components
 - **React Router** for navigation
 - **Recharts** for data visualization
-- **Mock APIs** for backend simulation
+- **FastAPI (Python)** backend (see `digital-nutritionist-backend/`)
+- **SQLModel** + SQLite/Postgres for persistence
 
 ## 📦 Installation
 
+### Full stack (Docker Compose)
+```bash
+docker compose -f docker-compose.dev.yml up --build
+```
+- Frontend: `http://localhost:3000`
+- Backend docs: `http://localhost:8000/docs`
+
+### Frontend only
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
@@ -57,9 +66,17 @@ The Digital Nutritionist is designed to help users achieve their weight loss goa
 4. **Open your browser**
    Navigate to `http://localhost:3000`
 
+### API smoke test (requires backend running)
+```bash
+npm run test:api
+```
+
 ## 🏗️ Project Structure
 
 ```
+digital-nutritionist-backend/  # FastAPI backend
+docs/                          # Architecture / planning docs
+scripts/                       # Helper scripts
 src/
 ├── components/          # React components
 │   ├── Layout.tsx      # Main layout with navigation

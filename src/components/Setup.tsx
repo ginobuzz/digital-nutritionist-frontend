@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Card,
@@ -46,16 +46,6 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
   const [heightFeetInput, setHeightFeetInput] = useState<string>(() => (5).toString());
   const [heightInchesInput, setHeightInchesInput] = useState<string>(() => (8).toString());
   const [weightInput, setWeightInput] = useState<string>(() => (150).toString());
-
-  // Debug logging for mobile scrolling issues
-  useEffect(() => {
-    if (isMobile) {
-      console.log('Setup component mounted on mobile device');
-      console.log('Active step:', activeStep);
-      console.log('Window height:', window.innerHeight);
-      console.log('Document height:', document.documentElement.scrollHeight);
-    }
-  }, [isMobile, activeStep]);
   const [userData, setUserData] = useState<Partial<User>>({
     name: '',
     age: 25,

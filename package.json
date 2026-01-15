@@ -32,6 +32,7 @@
     "start": "craco start",
     "build": "craco build",
     "test": "craco test",
+    "test:api": "node scripts/test-api-connection.js",
     "eject": "react-scripts eject",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d build"

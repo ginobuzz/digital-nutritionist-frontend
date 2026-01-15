@@ -9,7 +9,6 @@ import Log from './components/Log';
 import Chat from './components/Chat';
 import Profile from './components/Profile';
 import Setup from './components/Setup';
-import ApiTest from './components/ApiTest';
 import SignIn from './components/SignIn';
 import About from './components/About';
 import { User } from './types';
@@ -75,17 +74,6 @@ function App() {
     setSetupComplete(false);
   };
 
-  // Check if we're on the API test route - if so, show it regardless of setup status
-  // This allows testing the API during development
-  if (window.location.pathname.endsWith('/api-test')) {
-    return (
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <ApiTest />
-      </ThemeProvider>
-    );
-  }
-
   // If not authenticated, show unauthenticated router with SignIn and Setup
   if (!localStorage.getItem('dn_access_token')) {
     return (
@@ -141,7 +129,6 @@ function App() {
             <Route path="/chat" element={<Chat user={user!} />} />
             <Route path="/profile" element={<Profile user={user!} onUserUpdate={setUser} onSignOut={handleSignOut} />} />
             <Route path="/about" element={<About />} />
-            <Route path="/api-test" element={<ApiTest />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Layout>
