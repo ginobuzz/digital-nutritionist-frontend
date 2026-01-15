@@ -32,15 +32,31 @@
     "start": "craco start",
     "build": "craco build",
     "test": "craco test",
+    "test:ci": "cross-env CI=true craco test --watchAll=false",
+    "test:staged": "cross-env CI=true craco test --findRelatedTests --passWithNoTests",
+    "test:coverage": "cross-env CI=true craco test --watchAll=false --coverage",
     "test:api": "node scripts/test-api-connection.js",
     "eject": "react-scripts eject",
+    "prepare": "husky install",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d build"
+  },
+  "jest": {
+    "moduleNameMapper": {
+      "^react-router-dom$": "<rootDir>/node_modules/react-router-dom/dist/index.js",
+      "^react-router$": "<rootDir>/node_modules/react-router/dist/development/index.js",
+      "^react-router/dom$": "<rootDir>/node_modules/react-router/dist/development/dom-export.js"
+    }
   },
   "eslintConfig": {
     "extends": [
       "react-app",
       "react-app/jest"
+    ]
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": [
+      "npm run test:staged --"
     ]
   },
   "browserslist": {
@@ -57,6 +73,9 @@
   },
   "devDependencies": {
     "@craco/craco": "^7.1.0",
-    "gh-pages": "^6.3.0"
+    "cross-env": "^7.0.3",
+    "gh-pages": "^6.3.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.2.10"
   }
 }

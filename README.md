@@ -46,6 +46,24 @@ docker compose -f docker-compose.dev.yml up --build
 - Frontend: `http://localhost:3000`
 - Backend docs: `http://localhost:8000/docs`
 
+## ✅ Testing
+
+### Frontend unit tests
+```bash
+npm run test:ci
+```
+
+### Backend unit tests
+```bash
+cd digital-nutritionist-backend
+python -m pip install -e ".[dev]"
+python -m pytest
+```
+
+### Automated checks
+- Local: Git hooks run tests on `pre-commit`/`pre-push` (via Husky + lint-staged).
+- CI: GitHub Actions runs frontend + backend tests on pushes/PRs and gates deploys.
+
 ### Frontend only
 1. **Clone the repository**
    ```bash
