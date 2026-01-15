@@ -169,11 +169,6 @@ export const convertUserToBackend = (user: User): CreateUserRequest => {
     'very_active': 'very_active',
   };
   
-  // Log the conversion for debugging purposes
-  if (user.dailyCalorieTarget !== Math.round(user.dailyCalorieTarget)) {
-    console.log(`Rounding dailyCalorieTarget from ${user.dailyCalorieTarget} to ${Math.round(user.dailyCalorieTarget)}`);
-  }
-  
   return {
     email: `${user.name.toLowerCase().replace(/\s+/g, '.')}@example.com`, // Generate email from name
     password: 'password123', // Default password for testing
@@ -354,7 +349,6 @@ class ApiService {
 
   // User endpoints
   async createUser(userData: CreateUserRequest): Promise<UserResponse> {
-    console.log('Sending user data to backend:', userData);
     return this.request<UserResponse>('/users', {
       method: 'POST',
       body: JSON.stringify(userData),
