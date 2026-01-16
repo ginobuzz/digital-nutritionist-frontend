@@ -19,13 +19,16 @@ import {
   SmartToy,
   Person,
   PhotoCamera,
-  Close
+  Close,
+  Mic,
+  StopCircle
 } from '@mui/icons-material';
 import Markdown from 'markdown-to-jsx';
 import { format } from 'date-fns';
 import { ChatMessage, User } from '../types';
 import { apiService, ChatTurn } from '../services/api';
 import { imageFileToDataUrl } from '../utils/images';
+import { useSpeechToText } from '../hooks/useSpeechToText';
 
 interface ChatProps {
   user?: User;
@@ -40,7 +43,20 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
   const [inputMessage, setInputMessage] = useState('');
   const [attachedImageDataUrl, setAttachedImageDataUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [dictationBaseText, setDictationBaseText] = useState('');
+  const [voiceError, setVoiceError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const {
+    supported: voiceSupported,
+    isListening: voiceListening,
+    interimTranscript,
+    finalTranscript,
+    error: voiceRawError,
+    start: startVoice,
+    stop: stopVoice,
+    reset: resetVoice,
+  } = useSpeechToText({ lang: 'en-US', continuous: false, interimResults: true });
 
   useEffect(() => {
     scrollToBottom();
@@ -209,6 +225,62 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
     } catch (error) {
       console.error('Unable to attach image:', error);
     }
+  };
+
+  useEffect(() => {
+    const transcript = [finalTranscript, interimTranscript].filter(Boolean).join(' ').trim();
+    if (!dictationBaseText && !transcript) return;
+
+    const needsSpace = dictationBaseText.length > 0 && !/\s$/.test(dictationBaseText);
+    setInputMessage(`${dictationBaseText}${needsSpace && transcript ? ' ' : ''}${transcript}`);
+  }, [dictationBaseText, finalTranscript, interimTranscript]);
+
+  useEffect(() => {
+    if (!voiceRawError) return;
+
+    if (voiceRawError === 'unsupported') {
+      setVoiceError('Voice input isn’t supported in this browser.');
+      return;
+    }
+
+    switch (voiceRawError) {
+      case 'not-allowed':
+      case 'service-not-allowed':
+        setVoiceError('Microphone permission blocked. Enable it in your browser settings.');
+        return;
+      case 'no-speech':
+        setVoiceError('No speech detected. Try again.');
+        return;
+      case 'audio-capture':
+        setVoiceError('No microphone detected.');
+        return;
+      case 'network':
+        setVoiceError('Network error while using voice input.');
+        return;
+      case 'language-not-supported':
+        setVoiceError('Language not supported for voice input.');
+        return;
+      default:
+        setVoiceError(`Voice input error: ${voiceRawError}`);
+    }
+  }, [voiceRawError]);
+
+  const handleToggleVoice = () => {
+    setVoiceError(null);
+
+    if (!voiceSupported) {
+      setVoiceError('Voice input isn’t supported in this browser.');
+      return;
+    }
+
+    if (voiceListening) {
+      stopVoice();
+      return;
+    }
+
+    resetVoice();
+    setDictationBaseText(inputMessage);
+    startVoice();
   };
 
   const getMessageTypeColor = (type: ChatMessage['type']) => {
@@ -391,7 +463,7 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
               <IconButton
                 component="label"
-                disabled={loading}
+                disabled={loading || voiceListening}
                 color={attachedImageDataUrl ? 'primary' : 'default'}
                 aria-label="Attach meal photo"
                 sx={{ alignSelf: 'flex-end' }}
@@ -405,6 +477,15 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
                   onChange={handleAttachImage}
                 />
               </IconButton>
+              <IconButton
+                onClick={handleToggleVoice}
+                disabled={loading}
+                color={voiceListening ? 'error' : 'default'}
+                aria-label={voiceListening ? 'Stop voice input' : 'Start voice input'}
+                sx={{ alignSelf: 'flex-end' }}
+              >
+                {voiceListening ? <StopCircle /> : <Mic />}
+              </IconButton>
               <TextField
                 fullWidth
                 multiline
@@ -415,11 +496,11 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
                 placeholder="Log what you ate/drank, plan meals, or ask nutrition questions..."
                 variant="outlined"
                 size="small"
-                disabled={loading}
+                disabled={loading || voiceListening}
               />
               <IconButton
                 onClick={handleSendMessage}
-                disabled={(!(inputMessage.trim() || attachedImageDataUrl) || loading)}
+                disabled={(!(inputMessage.trim() || attachedImageDataUrl) || loading || voiceListening)}
                 color="primary"
                 aria-label="Send message"
                 sx={{ alignSelf: 'flex-end' }}
@@ -427,6 +508,18 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
                 <Send />
               </IconButton>
             </Box>
+
+            {voiceListening && (
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                Listening… tap the mic to stop.
+              </Typography>
+            )}
+
+            {voiceError && (
+              <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
+                {voiceError}
+              </Typography>
+            )}
             
             <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
               Try: "I had oatmeal for breakfast" • "Help me plan dinners for the week" • "What's a good high-protein snack?"
