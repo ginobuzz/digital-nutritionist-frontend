@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -30,6 +30,7 @@ import Markdown from 'markdown-to-jsx';
 import { User } from '../types';
 import { apiService } from '../services/api';
 import { imageFileToDataUrl } from '../utils/images';
+import { calculateDynamicWeeklyCalorieTargets, getMinimumHealthyDailyCalories } from '../utils/weeklyTargets';
 
 interface DashboardProps {
   user: User;
@@ -147,6 +148,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   }, [fetchData]);
 
   const today = startOfDay(new Date());
+  const weekStart = startOfWeek(today, { weekStartsOn: 0 }); // Sunday
   const selectedDay = today;
   const selectedKey = toIsoDate(selectedDay);
   const isSelectedPast = isBefore(selectedDay, today);
@@ -157,23 +159,47 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   const selectedPlannedCalories = Math.round(plannedCaloriesByDate[selectedKey] || 0);
   const selectedDisplayedCalories = isSelectedFuture ? selectedPlannedCalories : selectedActualCalories;
 
-  const getDayColor = (entry: DayEntry) => {
+  const baseDailyTarget = Math.round(user.dailyCalorieTarget || 0);
+  const minHealthyDailyTarget = getMinimumHealthyDailyCalories(user.gender);
+  const dynamicWeek = useMemo(() => {
+    return calculateDynamicWeeklyCalorieTargets({
+      weekStart,
+      dailyTarget: baseDailyTarget,
+      minDailyTarget: minHealthyDailyTarget,
+      anchorDate: addDays(today, 1),
+      actualCaloriesByDate,
+      plannedCaloriesByDate,
+    });
+  }, [actualCaloriesByDate, baseDailyTarget, minHealthyDailyTarget, plannedCaloriesByDate, today, weekStart]);
+
+  const dynamicTargetsByDate = dynamicWeek.targetsByDate;
+  const selectedTargetCalories = dynamicTargetsByDate[selectedKey] ?? baseDailyTarget;
+  const hasFutureAdjustments = useMemo(() => {
+    return dayEntries.some((entry) => {
+      if (entry.kind !== 'future') return false;
+      const targetCalories = dynamicTargetsByDate[entry.key] ?? baseDailyTarget;
+      return targetCalories !== baseDailyTarget;
+    });
+  }, [baseDailyTarget, dayEntries, dynamicTargetsByDate]);
+  const showRebalanceNotice = hasFutureAdjustments || dynamicWeek.overBudgetBy > 0;
+
+  const getDayColor = (entry: DayEntry, targetCalories: number) => {
     if (entry.kind === 'past') return theme.palette.grey[600];
     if (entry.kind === 'future') return theme.palette.info.main;
     // today
-    return entry.actualCalories > user.dailyCalorieTarget ? theme.palette.error.main : theme.palette.success.main;
+    return entry.actualCalories > targetCalories ? theme.palette.error.main : theme.palette.success.main;
   };
 
-  const getDayChipLabel = (entry: DayEntry) => {
+  const getDayChipLabel = (entry: DayEntry, targetCalories: number) => {
     if (entry.kind === 'past') return 'Locked';
     if (entry.kind === 'future') return entry.plannedCalories > 0 ? 'Planned' : 'Plan';
-    return entry.actualCalories > user.dailyCalorieTarget ? 'Over Budget' : 'On Track';
+    return entry.actualCalories > targetCalories ? 'Over Budget' : 'On Track';
   };
 
-  const getDayIcon = (entry: DayEntry) => {
+  const getDayIcon = (entry: DayEntry, targetCalories: number) => {
     if (entry.kind === 'past') return <LockRoundedIcon fontSize="small" />;
     if (entry.kind === 'future') return <AddRoundedIcon fontSize="small" />;
-    return entry.actualCalories > user.dailyCalorieTarget
+    return entry.actualCalories > targetCalories
       ? <CloseRoundedIcon fontSize="small" />
       : <CheckRoundedIcon fontSize="small" />;
   };
@@ -307,23 +333,23 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                 </Typography>
               </Box>
               <Typography variant="h5" sx={{ lineHeight: 1.1 }}>
-                {Math.round(selectedDisplayedCalories)} / {Math.round(user.dailyCalorieTarget)} kcal
+                {Math.round(selectedDisplayedCalories)} / {Math.round(selectedTargetCalories)} kcal
               </Typography>
               <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
                 {isSelectedPast
                   ? 'Past day (locked)'
                   : isSelectedFuture
-                    ? `${Math.max(0, Math.round(user.dailyCalorieTarget - selectedDisplayedCalories))} kcal available to plan`
-                    : selectedDisplayedCalories > user.dailyCalorieTarget
-                      ? `Over by ${Math.round(selectedDisplayedCalories - user.dailyCalorieTarget)} kcal`
-                      : `${Math.max(0, Math.round(user.dailyCalorieTarget - selectedDisplayedCalories))} kcal left`}
+                    ? `${Math.max(0, Math.round(selectedTargetCalories - selectedDisplayedCalories))} kcal available to plan`
+                    : selectedDisplayedCalories > selectedTargetCalories
+                      ? `Over by ${Math.round(selectedDisplayedCalories - selectedTargetCalories)} kcal`
+                      : `${Math.max(0, Math.round(selectedTargetCalories - selectedDisplayedCalories))} kcal left`}
               </Typography>
             </Box>
           </Box>
 
           <LinearProgress
             variant="determinate"
-            value={Math.min((selectedDisplayedCalories / user.dailyCalorieTarget) * 100, 100)}
+            value={selectedTargetCalories > 0 ? Math.min((selectedDisplayedCalories / selectedTargetCalories) * 100, 100) : 0}
             sx={{
               height: 12,
               borderRadius: 999,
@@ -334,12 +360,28 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                   ? theme.palette.grey[600]
                   : isSelectedFuture
                     ? theme.palette.info.main
-                    : selectedDisplayedCalories > user.dailyCalorieTarget
+                    : selectedDisplayedCalories > selectedTargetCalories
                       ? theme.palette.error.main
                       : theme.palette.success.main,
               },
             }}
           />
+
+          {showRebalanceNotice && (
+            <Box sx={{ mt: 1.25, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+              <Chip
+                size="small"
+                variant="outlined"
+                color={dynamicWeek.overBudgetBy > 0 ? 'warning' : 'info'}
+                label={dynamicWeek.overBudgetBy > 0 ? 'Week Over Budget' : 'Week Rebalanced'}
+              />
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                {dynamicWeek.overBudgetBy > 0
+                  ? `Remaining days hit the minimum daily floor; week is ${Math.round(dynamicWeek.overBudgetBy)} kcal over.`
+                  : 'Adjusted remaining daily budgets to keep weekly calories on track.'}
+              </Typography>
+            </Box>
+          )}
         </CardContent>
       </Card>
 
@@ -584,15 +626,27 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
           Days
         </Typography>
         {dayEntries.map((entry) => {
-          const color = getDayColor(entry);
+          const targetCalories = dynamicTargetsByDate[entry.key] ?? baseDailyTarget;
+          const color = getDayColor(entry, targetCalories);
           const isSelected = isSameDay(entry.date, selectedDay);
           const calories = entry.actualCalories > 0 ? entry.actualCalories : entry.plannedCalories;
           const caloriesLabel =
-            entry.kind === 'future'
-              ? entry.actualCalories > 0
-                ? 'logged'
-                : 'planned'
-              : '';
+            entry.actualCalories > 0
+              ? 'logged'
+              : entry.plannedCalories > 0
+                ? 'planned'
+                : entry.kind === 'future'
+                  ? 'available'
+                  : '';
+          const caloriesText = calories > 0 ? `${calories} kcal${caloriesLabel ? ` ${caloriesLabel}` : ''}` : null;
+          const adjustment =
+            entry.kind === 'future' && targetCalories !== baseDailyTarget ? targetCalories - baseDailyTarget : 0;
+          const adjustmentText = adjustment !== 0 ? ` (adj ${adjustment > 0 ? `+${adjustment}` : adjustment})` : '';
+          const subtitle = caloriesText
+            ? `${caloriesText} • Budget ${targetCalories} kcal`
+            : `Budget ${targetCalories} kcal`;
+          const subtitleWithAdjustment =
+            entry.kind === 'future' ? `${subtitle}${adjustmentText}` : subtitle;
           return (
             <Card
               key={entry.key}
@@ -622,13 +676,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                       {entry.label}
                     </Typography>
                     <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                      {calories} kcal {caloriesLabel}
+                      {subtitleWithAdjustment}
                     </Typography>
                   </Box>
 
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Chip
-                      label={getDayChipLabel(entry)}
+                      label={getDayChipLabel(entry, targetCalories)}
                       size="small"
                       sx={{
                         bgcolor: alpha(color, 0.14),
@@ -648,7 +702,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                         border: `1px solid ${alpha(color, 0.26)}`,
                       }}
                     >
-                      {getDayIcon(entry)}
+                      {getDayIcon(entry, targetCalories)}
                     </Box>
                   </Box>
                 </Box>

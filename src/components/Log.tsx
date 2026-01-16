@@ -40,12 +40,13 @@ import {
   PhotoCamera,
 } from '@mui/icons-material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { format, isValid, parseISO } from 'date-fns';
+import { addDays, format, isAfter, isBefore, isValid, parseISO, startOfDay, startOfWeek } from 'date-fns';
 import Markdown from 'markdown-to-jsx';
 import { ActualMeal, PlannedMeal, User } from '../types';
 import { apiService, MealLogResponse, PlannedMealResponse } from '../services/api';
 import { useSearchParams } from 'react-router-dom';
 import { imageFileToDataUrl } from '../utils/images';
+import { calculateDynamicWeeklyCalorieTargets, getMinimumHealthyDailyCalories } from '../utils/weeklyTargets';
 import {
   defaultTimeForMealType,
   normalizePlanMealType,
@@ -95,6 +96,8 @@ const Log: React.FC<LogProps> = ({ user }) => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [plannedMeals, setPlannedMeals] = useState<PlannedMeal[]>([]);
   const [actualMeals, setActualMeals] = useState<ActualMeal[]>([]);
+  const [weeklyTargetsByDate, setWeeklyTargetsByDate] = useState<Record<string, number>>({});
+  const [weeklyOverBudgetBy, setWeeklyOverBudgetBy] = useState(0);
   const [loading, setLoading] = useState(true);
   const [mealDialogOpen, setMealDialogOpen] = useState(false);
   const [logDialogOpen, setLogDialogOpen] = useState(false);
@@ -142,18 +145,56 @@ const Log: React.FC<LogProps> = ({ user }) => {
   const fetchLogData = useCallback(async () => {
     try {
       setLoading(true);
-      const [planned, actual] = await Promise.all([
-        apiService.getPlannedMeals({ userId: user.id, start: selectedDate, end: selectedDate }),
-        apiService.getMealLogs({ userId: user.id, start: selectedDate, end: selectedDate }),
+      const selectedDay = startOfDay(selectedDate);
+      const selectedKey = toIsoDate(selectedDay);
+      const weekStart = startOfWeek(selectedDay, { weekStartsOn: 0 }); // Sunday
+      const weekEnd = addDays(weekStart, 6);
+      const today = startOfDay(new Date());
+      const anchorDate = isBefore(today, weekStart)
+        ? weekStart
+        : isAfter(today, weekEnd)
+          ? addDays(weekEnd, 1)
+          : addDays(today, 1);
+
+      const [plannedWeek, actualWeek] = await Promise.all([
+        apiService.getPlannedMeals({ userId: user.id, start: weekStart, end: weekEnd }),
+        apiService.getMealLogs({ userId: user.id, start: weekStart, end: weekEnd }),
       ]);
-      setPlannedMeals(planned.map(mapPlannedMealResponse));
-      setActualMeals(actual.map(mapMealLogToActualMeal));
+
+      setPlannedMeals(plannedWeek.filter((meal) => meal.date === selectedKey).map(mapPlannedMealResponse));
+      setActualMeals(actualWeek.filter((log) => log.date === selectedKey).map(mapMealLogToActualMeal));
+
+      const actualCaloriesByDate: Record<string, number> = {};
+      for (const log of actualWeek) {
+        const key = log.date;
+        const cals = Number(log.estimated_calories || 0);
+        actualCaloriesByDate[key] = (actualCaloriesByDate[key] || 0) + cals;
+      }
+
+      const plannedCaloriesByDate: Record<string, number> = {};
+      for (const meal of plannedWeek) {
+        const key = meal.date;
+        const cals = Number(meal.calories || 0);
+        plannedCaloriesByDate[key] = (plannedCaloriesByDate[key] || 0) + cals;
+      }
+
+      const dynamicWeek = calculateDynamicWeeklyCalorieTargets({
+        weekStart,
+        dailyTarget: user.dailyCalorieTarget,
+        minDailyTarget: getMinimumHealthyDailyCalories(user.gender),
+        anchorDate,
+        actualCaloriesByDate,
+        plannedCaloriesByDate,
+      });
+
+      setWeeklyTargetsByDate(dynamicWeek.targetsByDate);
+      setWeeklyOverBudgetBy(Math.round(dynamicWeek.overBudgetBy));
     } catch (error) {
       console.error('Error fetching log data:', error);
     } finally {
       setLoading(false);
     }
-  }, [selectedDate, user.id]);
+  }, [selectedDate, user.dailyCalorieTarget, user.gender, user.id]);
 
   useEffect(() => {
     fetchLogData();
@@ -370,7 +411,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
       setPlanError(null);
       setPlanDescribeReply(null);
 
-      const calorieTarget = Number(user.dailyCalorieTarget || 0);
+      const calorieTarget = weeklyTargetsByDate[selectedKey] ?? Number(user.dailyCalorieTarget || 0);
       const prompt = [
         `Create a meal plan for ${selectedKey}.`,
         `Return ONLY a JSON array (no markdown, no commentary).`,
@@ -542,7 +583,14 @@ const Log: React.FC<LogProps> = ({ user }) => {
   const isPast = selectedDate < new Date(new Date().setHours(0, 0, 0, 0));
   const isFuture = selectedDate > new Date(new Date().setHours(23, 59, 59, 999));
   const displayedCalories = isFuture ? totalPlannedCalories : totalActualCalories;
-  const calorieTarget = Number(user.dailyCalorieTarget || 0);
+  const baseCalorieTarget = Number(user.dailyCalorieTarget || 0);
+  const calorieTarget = weeklyTargetsByDate[selectedKey] ?? baseCalorieTarget;
+  const roundedBaseTarget = Math.round(baseCalorieTarget);
+  const roundedTarget = Math.round(calorieTarget);
+  const selectedAdjustment = roundedTarget - roundedBaseTarget;
+  const hasWeekRebalance =
+    Object.keys(weeklyTargetsByDate).length > 0 &&
+    Object.values(weeklyTargetsByDate).some((value) => Math.round(value) !== roundedBaseTarget);
   const caloriesOver = displayedCalories - calorieTarget;
   const caloriesRemaining = calorieTarget - displayedCalories;
   const progressValue = calorieTarget > 0 ? Math.min((displayedCalories / calorieTarget) * 100, 100) : 0;
@@ -648,6 +696,24 @@ const Log: React.FC<LogProps> = ({ user }) => {
                   },
                 }}
               />
+
+              {hasWeekRebalance && (
+                <Box sx={{ mt: 1.25, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Chip
+                    size="small"
+                    variant="outlined"
+                    color={weeklyOverBudgetBy > 0 ? 'warning' : 'info'}
+                    label={weeklyOverBudgetBy > 0 ? 'Week Over Budget' : 'Week Rebalanced'}
+                  />
+                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                    {weeklyOverBudgetBy > 0
+                      ? `Week is ${weeklyOverBudgetBy} kcal over after minimum daily floor.`
+                      : isFuture && selectedAdjustment !== 0
+                        ? `This day's budget adjusted ${selectedAdjustment > 0 ? `+${selectedAdjustment}` : selectedAdjustment} kcal vs base (${roundedBaseTarget}).`
+                        : 'Adjusted remaining daily budgets for this week.'}
+                  </Typography>
+                </Box>
+              )}
             </CardContent>
           </Card>
           
