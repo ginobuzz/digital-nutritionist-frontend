@@ -26,6 +26,7 @@ The Digital Nutritionist is designed to help users achieve their weight loss goa
 - **Weight Loss Tracking**: Progress visualization and milestone tracking
 - **Responsive Design**: Mobile-friendly interface with Material-UI components
 - **Chat Continuity**: Chat history is retained locally per user (browser `localStorage`)
+- **Voice Dictation**: Mic button for voice-to-text in chat + “describe” inputs (browser support varies; Chrome/Edge recommended)
 - **Mock Data**: Simulated backend APIs for demonstration purposes
 
 ## 🛠️ Technology Stack

@@ -24,6 +24,8 @@ import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import LockRoundedIcon from '@mui/icons-material/LockRounded';
 import TodayRoundedIcon from '@mui/icons-material/TodayRounded';
 import PhotoCameraRoundedIcon from '@mui/icons-material/PhotoCameraRounded';
+import MicRoundedIcon from '@mui/icons-material/MicRounded';
+import StopCircleRoundedIcon from '@mui/icons-material/StopCircleRounded';
 import { useNavigate } from 'react-router-dom';
 import { addDays, format, isBefore, isSameDay, startOfDay, startOfWeek } from 'date-fns';
 import Markdown from 'markdown-to-jsx';
@@ -31,6 +33,7 @@ import { User } from '../types';
 import { apiService } from '../services/api';
 import { imageFileToDataUrl } from '../utils/images';
 import { calculateDynamicWeeklyCalorieTargets, getMinimumHealthyDailyCalories } from '../utils/weeklyTargets';
+import { useSpeechToText } from '../hooks/useSpeechToText';
 
 interface DashboardProps {
   user: User;
@@ -75,6 +78,77 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   const [logError, setLogError] = useState<string | null>(null);
   const [savingQuickLog, setSavingQuickLog] = useState(false);
   const [sendingDescribeLog, setSendingDescribeLog] = useState(false);
+  const [describeDictationBaseText, setDescribeDictationBaseText] = useState('');
+  const [describeVoiceError, setDescribeVoiceError] = useState<string | null>(null);
+
+  const {
+    supported: describeVoiceSupported,
+    isListening: describeVoiceListening,
+    interimTranscript: describeInterimTranscript,
+    finalTranscript: describeFinalTranscript,
+    error: describeVoiceRawError,
+    start: startDescribeVoice,
+    stop: stopDescribeVoice,
+    reset: resetDescribeVoice,
+  } = useSpeechToText({ lang: 'en-US', continuous: false, interimResults: true });
+
+  useEffect(() => {
+    const transcript = [describeFinalTranscript, describeInterimTranscript].filter(Boolean).join(' ').trim();
+    if (!describeDictationBaseText && !transcript) return;
+
+    const needsSpace = describeDictationBaseText.length > 0 && !/\s$/.test(describeDictationBaseText);
+    setDescribeInput(`${describeDictationBaseText}${needsSpace && transcript ? ' ' : ''}${transcript}`);
+  }, [describeDictationBaseText, describeFinalTranscript, describeInterimTranscript]);
+
+  useEffect(() => {
+    if (!describeVoiceRawError) return;
+
+    if (describeVoiceRawError === 'unsupported') {
+      setDescribeVoiceError('Voice input isn’t supported in this browser.');
+      return;
+    }
+
+    switch (describeVoiceRawError) {
+      case 'not-allowed':
+      case 'service-not-allowed':
+        setDescribeVoiceError('Microphone permission blocked. Enable it in your browser settings.');
+        return;
+      case 'no-speech':
+        setDescribeVoiceError('No speech detected. Try again.');
+        return;
+      case 'audio-capture':
+        setDescribeVoiceError('No microphone detected.');
+        return;
+      case 'network':
+        setDescribeVoiceError('Network error while using voice input.');
+        return;
+      case 'language-not-supported':
+        setDescribeVoiceError('Language not supported for voice input.');
+        return;
+      default:
+        setDescribeVoiceError(`Voice input error: ${describeVoiceRawError}`);
+    }
+  }, [describeVoiceRawError]);
+
+  const handleToggleDescribeVoice = () => {
+    setDescribeVoiceError(null);
+
+    if (!describeVoiceSupported) {
+      setDescribeVoiceError('Voice input isn’t supported in this browser.');
+      return;
+    }
+
+    if (describeVoiceListening) {
+      stopDescribeVoice();
+      return;
+    }
+
+    resetDescribeVoice();
+    setDescribeDictationBaseText(describeInput);
+    if (describeReply) setDescribeReply(null);
+    if (logError) setLogError(null);
+    startDescribeVoice();
+  };
 
   const getActiveUserId = useCallback(() => {
     try {
@@ -421,6 +495,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
             sx={{ mb: 1.5 }}
             onChange={(_, value) => {
               if (!value) return;
+              if (value !== 'describe' && describeVoiceListening) stopDescribeVoice();
               setLogMode(value);
               setLogError(null);
               setDescribeReply(null);
@@ -545,23 +620,32 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                 </Box>
               )}
 
-              <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
-                <IconButton
-                  component="label"
-                  disabled={logBusy}
-                  color={describeImageDataUrl ? 'primary' : 'default'}
-                  aria-label="Attach meal photo"
-                  sx={{ alignSelf: 'flex-end' }}
-                >
-                  <PhotoCameraRoundedIcon />
-                  <input
-                    hidden
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={handleAttachDescribeImage}
-                  />
-                </IconButton>
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignSelf: 'center' }}>
+                  <IconButton
+                    component="label"
+                    disabled={logBusy || describeVoiceListening}
+                    color={describeImageDataUrl ? 'primary' : 'default'}
+                    aria-label="Attach meal photo"
+                  >
+                    <PhotoCameraRoundedIcon />
+                    <input
+                      hidden
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handleAttachDescribeImage}
+                    />
+                  </IconButton>
+                  <IconButton
+                    onClick={handleToggleDescribeVoice}
+                    disabled={logBusy}
+                    color={describeVoiceListening ? 'error' : 'default'}
+                    aria-label={describeVoiceListening ? 'Stop voice input' : 'Start voice input'}
+                  >
+                    {describeVoiceListening ? <StopCircleRoundedIcon /> : <MicRoundedIcon />}
+                  </IconButton>
+                </Box>
                 <TextField
                   fullWidth
                   margin="dense"
@@ -579,10 +663,22 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                   }}
                   multiline
                   minRows={3}
-                  disabled={logBusy}
+                  disabled={logBusy || describeVoiceListening}
                   inputRef={describeFieldRef}
                 />
               </Box>
+
+              {describeVoiceListening && (
+                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.75 }}>
+                  Listening… tap the mic to stop.
+                </Typography>
+              )}
+
+              {describeVoiceError && (
+                <Typography variant="caption" color="error" sx={{ display: 'block', mt: 0.75 }}>
+                  {describeVoiceError}
+                </Typography>
+              )}
 
               {describeReply && (
                 <Box
@@ -626,7 +722,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
               <Button
                 variant="contained"
                 onClick={handleDescribeMealLog}
-                disabled={logBusy || !(describeInput.trim() || describeImageDataUrl)}
+                disabled={logBusy || describeVoiceListening || !(describeInput.trim() || describeImageDataUrl)}
               >
                 {sendingDescribeLog ? 'Sending...' : 'Send to AI'}
               </Button>

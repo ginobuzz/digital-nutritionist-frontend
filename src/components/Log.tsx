@@ -38,6 +38,8 @@ import {
   LocalDining,
   CalendarToday,
   PhotoCamera,
+  Mic,
+  StopCircle,
 } from '@mui/icons-material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { addDays, format, isAfter, isBefore, isValid, parseISO, startOfDay, startOfWeek } from 'date-fns';
@@ -47,6 +49,7 @@ import { apiService, MealLogResponse, PlannedMealResponse } from '../services/ap
 import { useSearchParams } from 'react-router-dom';
 import { imageFileToDataUrl } from '../utils/images';
 import { calculateDynamicWeeklyCalorieTargets, getMinimumHealthyDailyCalories } from '../utils/weeklyTargets';
+import { useSpeechToText } from '../hooks/useSpeechToText';
 import {
   defaultTimeForMealType,
   normalizePlanMealType,
@@ -54,6 +57,26 @@ import {
 } from '../utils/plannedMeals';
 
 const toIsoDate = (d: Date) => format(d, 'yyyy-MM-dd');
+
+const formatVoiceInputError = (code: string): string => {
+  if (code === 'unsupported') return 'Voice input isn’t supported in this browser.';
+
+  switch (code) {
+    case 'not-allowed':
+    case 'service-not-allowed':
+      return 'Microphone permission blocked. Enable it in your browser settings.';
+    case 'no-speech':
+      return 'No speech detected. Try again.';
+    case 'audio-capture':
+      return 'No microphone detected.';
+    case 'network':
+      return 'Network error while using voice input.';
+    case 'language-not-supported':
+      return 'Language not supported for voice input.';
+    default:
+      return `Voice input error: ${code}`;
+  }
+};
 
 const normalizeMealType = (value: string | null | undefined): ActualMeal['type'] => {
   const v = (value || '').toLowerCase();
@@ -114,6 +137,8 @@ const Log: React.FC<LogProps> = ({ user }) => {
   const [logError, setLogError] = useState<string | null>(null);
   const [savingQuickLog, setSavingQuickLog] = useState(false);
   const [sendingDescribeLog, setSendingDescribeLog] = useState(false);
+  const [logDictationBaseText, setLogDictationBaseText] = useState('');
+  const [logVoiceError, setLogVoiceError] = useState<string | null>(null);
   const [planMode, setPlanMode] = useState<'quick' | 'describe'>('describe');
   const [planForm, setPlanForm] = useState({
     description: '',
@@ -122,6 +147,8 @@ const Log: React.FC<LogProps> = ({ user }) => {
   });
   const [planDescribeInput, setPlanDescribeInput] = useState('');
   const [planDescribeReply, setPlanDescribeReply] = useState<string | null>(null);
+  const [planDictationBaseText, setPlanDictationBaseText] = useState('');
+  const [planVoiceError, setPlanVoiceError] = useState<string | null>(null);
   const [planError, setPlanError] = useState<string | null>(null);
   const [savingQuickPlan, setSavingQuickPlan] = useState(false);
   const [sendingDescribePlan, setSendingDescribePlan] = useState(false);
@@ -141,6 +168,94 @@ const Log: React.FC<LogProps> = ({ user }) => {
     notes: '',
     isPlanned: true
   });
+
+  const {
+    supported: logVoiceSupported,
+    isListening: logVoiceListening,
+    interimTranscript: logInterimTranscript,
+    finalTranscript: logFinalTranscript,
+    error: logVoiceRawError,
+    start: startLogVoice,
+    stop: stopLogVoice,
+    reset: resetLogVoice,
+  } = useSpeechToText({ lang: 'en-US', continuous: false, interimResults: true });
+
+  const {
+    supported: planVoiceSupported,
+    isListening: planVoiceListening,
+    interimTranscript: planInterimTranscript,
+    finalTranscript: planFinalTranscript,
+    error: planVoiceRawError,
+    start: startPlanVoice,
+    stop: stopPlanVoice,
+    reset: resetPlanVoice,
+  } = useSpeechToText({ lang: 'en-US', continuous: false, interimResults: true });
+
+  useEffect(() => {
+    const transcript = [logFinalTranscript, logInterimTranscript].filter(Boolean).join(' ').trim();
+    if (!logDictationBaseText && !transcript) return;
+
+    const needsSpace = logDictationBaseText.length > 0 && !/\s$/.test(logDictationBaseText);
+    setDescribeInput(`${logDictationBaseText}${needsSpace && transcript ? ' ' : ''}${transcript}`);
+  }, [logDictationBaseText, logFinalTranscript, logInterimTranscript]);
+
+  useEffect(() => {
+    if (!logVoiceRawError) return;
+    setLogVoiceError(formatVoiceInputError(logVoiceRawError));
+  }, [logVoiceRawError]);
+
+  useEffect(() => {
+    const transcript = [planFinalTranscript, planInterimTranscript].filter(Boolean).join(' ').trim();
+    if (!planDictationBaseText && !transcript) return;
+
+    const needsSpace = planDictationBaseText.length > 0 && !/\s$/.test(planDictationBaseText);
+    setPlanDescribeInput(`${planDictationBaseText}${needsSpace && transcript ? ' ' : ''}${transcript}`);
+  }, [planDictationBaseText, planFinalTranscript, planInterimTranscript]);
+
+  useEffect(() => {
+    if (!planVoiceRawError) return;
+    setPlanVoiceError(formatVoiceInputError(planVoiceRawError));
+  }, [planVoiceRawError]);
+
+  const handleToggleLogVoice = () => {
+    setLogVoiceError(null);
+
+    if (!logVoiceSupported) {
+      setLogVoiceError(formatVoiceInputError('unsupported'));
+      return;
+    }
+
+    if (logVoiceListening) {
+      stopLogVoice();
+      return;
+    }
+
+    resetLogVoice();
+    setLogDictationBaseText(describeInput);
+    if (describeReply) setDescribeReply(null);
+    if (logError) setLogError(null);
+    startLogVoice();
+  };
+
+  const handleTogglePlanVoice = () => {
+    setPlanVoiceError(null);
+
+    if (!planVoiceSupported) {
+      setPlanVoiceError(formatVoiceInputError('unsupported'));
+      return;
+    }
+
+    if (planVoiceListening) {
+      stopPlanVoice();
+      return;
+    }
+
+    resetPlanVoice();
+    setPlanDictationBaseText(planDescribeInput);
+    if (planDescribeReply) setPlanDescribeReply(null);
+    if (planError) setPlanError(null);
+    startPlanVoice();
+  };
 
   const fetchLogData = useCallback(async () => {
     try {
@@ -222,6 +337,10 @@ const Log: React.FC<LogProps> = ({ user }) => {
 
   const openLogDialog = () => {
     if (toIsoDate(selectedDate) > toIsoDate(new Date())) return;
+    stopLogVoice();
+    resetLogVoice();
+    setLogDictationBaseText('');
+    setLogVoiceError(null);
     setLogMode('describe');
     setLogError(null);
     setDescribeReply(null);
@@ -237,6 +356,10 @@ const Log: React.FC<LogProps> = ({ user }) => {
 
   const openPlanDialog = () => {
     if (toIsoDate(selectedDate) <= toIsoDate(new Date())) return;
+    stopPlanVoice();
+    resetPlanVoice();
+    setPlanDictationBaseText('');
+    setPlanVoiceError(null);
     setPlanMode('describe');
     setPlanError(null);
     setPlanDescribeReply(null);
@@ -251,15 +374,19 @@ const Log: React.FC<LogProps> = ({ user }) => {
 
   const handleCloseLogDialog = () => {
     if (!dialogBusy) {
+      stopLogVoice();
       setLogDialogOpen(false);
       setLogError(null);
+      setLogVoiceError(null);
     }
   };
 
   const handleClosePlanDialog = () => {
     if (!planDialogBusy) {
+      stopPlanVoice();
       setPlanDialogOpen(false);
       setPlanError(null);
+      setPlanVoiceError(null);
     }
   };
 
@@ -1038,6 +1165,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
               sx={{ mb: 1.5 }}
               onChange={(_, value) => {
                 if (!value) return;
+                if (value !== 'describe' && planVoiceListening) stopPlanVoice();
                 setPlanMode(value);
                 setPlanError(null);
                 setPlanDescribeReply(null);
@@ -1085,17 +1213,40 @@ const Log: React.FC<LogProps> = ({ user }) => {
               </>
             ) : (
               <>
-                <TextField
-                  fullWidth
-                  margin="dense"
-                  label="Describe what you want to eat"
-                  placeholder="Example: High protein day with a salad lunch and pasta dinner"
-                  value={planDescribeInput}
-                  onChange={(event) => setPlanDescribeInput(event.target.value)}
-                  multiline
-                  minRows={3}
-                  disabled={planDialogBusy || Boolean(planDescribeReply)}
-                />
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
+                  <IconButton
+                    onClick={handleTogglePlanVoice}
+                    disabled={planDialogBusy || Boolean(planDescribeReply)}
+                    color={planVoiceListening ? 'error' : 'default'}
+                    aria-label={planVoiceListening ? 'Stop voice input' : 'Start voice input'}
+                    sx={{ alignSelf: 'flex-end' }}
+                  >
+                    {planVoiceListening ? <StopCircle /> : <Mic />}
+                  </IconButton>
+                  <TextField
+                    fullWidth
+                    margin="dense"
+                    label="Describe what you want to eat"
+                    placeholder="Example: High protein day with a salad lunch and pasta dinner"
+                    value={planDescribeInput}
+                    onChange={(event) => setPlanDescribeInput(event.target.value)}
+                    multiline
+                    minRows={3}
+                    disabled={planDialogBusy || Boolean(planDescribeReply) || planVoiceListening}
+                  />
+                </Box>
+
+                {planVoiceListening && (
+                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.75 }}>
+                    Listening… tap the mic to stop.
+                  </Typography>
+                )}
+
+                {planVoiceError && (
+                  <Typography variant="caption" color="error" sx={{ display: 'block', mt: 0.75 }}>
+                    {planVoiceError}
+                  </Typography>
+                )}
 
                 {planDescribeReply && (
                   <Box
@@ -1142,7 +1293,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
               <Button
                 variant="contained"
                 onClick={handleDescribeMealPlan}
-                disabled={planDialogBusy || Boolean(planDescribeReply)}
+                disabled={planDialogBusy || planVoiceListening || Boolean(planDescribeReply)}
               >
                 {sendingDescribePlan ? 'Sending...' : 'Send to AI'}
               </Button>
@@ -1168,6 +1319,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
               sx={{ mb: 1.5 }}
               onChange={(_, value) => {
                 if (!value) return;
+                if (value !== 'describe' && logVoiceListening) stopLogVoice();
                 setLogMode(value);
                 setLogError(null);
                 setDescribeReply(null);
@@ -1237,8 +1389,20 @@ const Log: React.FC<LogProps> = ({ user }) => {
                   }}
                   multiline
                   minRows={3}
-                  disabled={dialogBusy}
+                  disabled={dialogBusy || logVoiceListening}
                 />
+
+                {logVoiceListening && (
+                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.75 }}>
+                    Listening… tap the mic to stop.
+                  </Typography>
+                )}
+
+                {logVoiceError && (
+                  <Typography variant="caption" color="error" sx={{ display: 'block', mt: 0.75 }}>
+                    {logVoiceError}
+                  </Typography>
+                )}
 
                 <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                   <Button
@@ -1246,7 +1410,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
                     size="small"
                     variant={describeImageDataUrl ? 'contained' : 'outlined'}
                     startIcon={<PhotoCamera />}
-                    disabled={dialogBusy}
+                    disabled={dialogBusy || logVoiceListening}
                   >
                     {describeImageDataUrl ? 'Replace photo' : 'Add photo'}
                     <input
@@ -1257,12 +1421,21 @@ const Log: React.FC<LogProps> = ({ user }) => {
                       onChange={handleAttachDescribeImage}
                     />
                   </Button>
+                  <Button
+                    size="small"
+                    variant={logVoiceListening ? 'contained' : 'outlined'}
+                    startIcon={logVoiceListening ? <StopCircle /> : <Mic />}
+                    onClick={handleToggleLogVoice}
+                    disabled={dialogBusy}
+                  >
+                    {logVoiceListening ? 'Stop' : 'Voice'}
+                  </Button>
                   {describeImageDataUrl && (
                     <Button
                       size="small"
                       variant="text"
                       onClick={() => setDescribeImageDataUrl(null)}
-                      disabled={dialogBusy}
+                      disabled={dialogBusy || logVoiceListening}
                     >
                       Remove
                     </Button>
@@ -1334,7 +1507,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
               <Button
                 variant="contained"
                 onClick={handleDescribeMealLog}
-                disabled={dialogBusy || !(describeInput.trim() || describeImageDataUrl)}
+                disabled={dialogBusy || logVoiceListening || !(describeInput.trim() || describeImageDataUrl)}
               >
                 {sendingDescribeLog ? 'Sending...' : 'Send to AI'}
               </Button>
