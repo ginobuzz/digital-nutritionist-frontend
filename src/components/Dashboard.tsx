@@ -184,20 +184,35 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   const showRebalanceNotice = hasFutureAdjustments || dynamicWeek.overBudgetBy > 0;
 
   const getDayColor = (entry: DayEntry, targetCalories: number) => {
-    if (entry.kind === 'past') return theme.palette.grey[600];
     if (entry.kind === 'future') return theme.palette.info.main;
+    if (entry.kind === 'past') {
+      const hasLogged = entry.actualCalories > 0;
+      if (!hasLogged) return theme.palette.grey[600];
+      const isOver = entry.actualCalories > targetCalories;
+      return alpha(isOver ? theme.palette.error.main : theme.palette.success.main, 0.75);
+    }
     // today
     return entry.actualCalories > targetCalories ? theme.palette.error.main : theme.palette.success.main;
   };
 
   const getDayChipLabel = (entry: DayEntry, targetCalories: number) => {
-    if (entry.kind === 'past') return 'Locked';
+    if (entry.kind === 'past') {
+      const hasLogged = entry.actualCalories > 0;
+      if (!hasLogged) return 'No Log';
+      return entry.actualCalories > targetCalories ? 'Over Budget' : 'Under Budget';
+    }
     if (entry.kind === 'future') return entry.plannedCalories > 0 ? 'Planned' : 'Plan';
     return entry.actualCalories > targetCalories ? 'Over Budget' : 'On Track';
   };
 
   const getDayIcon = (entry: DayEntry, targetCalories: number) => {
-    if (entry.kind === 'past') return <LockRoundedIcon fontSize="small" />;
+    if (entry.kind === 'past') {
+      const hasLogged = entry.actualCalories > 0;
+      if (!hasLogged) return <LockRoundedIcon fontSize="small" />;
+      return entry.actualCalories > targetCalories
+        ? <CloseRoundedIcon fontSize="small" />
+        : <CheckRoundedIcon fontSize="small" />;
+    }
     if (entry.kind === 'future') return <AddRoundedIcon fontSize="small" />;
     return entry.actualCalories > targetCalories
       ? <CloseRoundedIcon fontSize="small" />
@@ -375,11 +390,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                 color={dynamicWeek.overBudgetBy > 0 ? 'warning' : 'info'}
                 label={dynamicWeek.overBudgetBy > 0 ? 'Week Over Budget' : 'Week Rebalanced'}
               />
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                {dynamicWeek.overBudgetBy > 0
-                  ? `Remaining days hit the minimum daily floor; week is ${Math.round(dynamicWeek.overBudgetBy)} kcal over.`
-                  : 'Adjusted remaining daily budgets to keep weekly calories on track.'}
-              </Typography>
+	              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+	                {dynamicWeek.overBudgetBy > 0
+	                  ? `Not enough adjustable days to stay under weekly budget; week is ${Math.round(dynamicWeek.overBudgetBy)} kcal over.`
+	                  : 'Adjusted remaining daily budgets to keep weekly calories on track.'}
+	              </Typography>
             </Box>
           )}
         </CardContent>
@@ -629,6 +644,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
           const targetCalories = dynamicTargetsByDate[entry.key] ?? baseDailyTarget;
           const color = getDayColor(entry, targetCalories);
           const isSelected = isSameDay(entry.date, selectedDay);
+          const hasLogged = entry.actualCalories > 0;
           const calories = entry.actualCalories > 0 ? entry.actualCalories : entry.plannedCalories;
           const caloriesLabel =
             entry.actualCalories > 0
@@ -647,16 +663,32 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
             : `Budget ${targetCalories} kcal`;
           const subtitleWithAdjustment =
             entry.kind === 'future' ? `${subtitle}${adjustmentText}` : subtitle;
+          const pastMeta =
+            entry.kind === 'past' && !hasLogged && entry.plannedCalories > 0 ? ' (planned, not logged)' : '';
           return (
             <Card
               key={entry.key}
               variant="outlined"
               sx={{
                 cursor: 'pointer',
-                borderColor: alpha(color, 0.35),
-                backgroundColor: alpha(color, 0.06),
-                outline: isSelected ? `2px solid ${alpha(color, 0.65)}` : 'none',
-                outlineOffset: 0,
+                position: 'relative',
+                overflow: 'hidden',
+                borderColor: alpha(color, isSelected ? 0.82 : 0.35),
+                borderWidth: isSelected ? 3 : 1,
+                backgroundColor: alpha(color, isSelected ? 0.16 : 0.06),
+                boxShadow: isSelected ? `0 14px 40px ${alpha(color, 0.24)}` : 'none',
+                transform: isSelected ? 'translateY(-2px) scale(1.01)' : 'none',
+                transition: 'border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease, transform 180ms ease',
+                '&::before': isSelected
+                  ? {
+                      content: '""',
+                      position: 'absolute',
+                      inset: 0,
+                      borderRadius: 'inherit',
+                      pointerEvents: 'none',
+                      background: `linear-gradient(90deg, ${alpha(color, 0.22)} 0%, ${alpha(color, 0)} 55%)`,
+                    }
+                  : undefined,
               }}
               onClick={() => {
                 navigate(`/log?date=${entry.key}`);
@@ -665,18 +697,45 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
               <CardContent sx={{ p: 1.75, '&:last-child': { pb: 1.75 } }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
                   <Box sx={{ minWidth: 0 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                      <Typography
+                        variant="subtitle1"
+                        sx={{
+                          fontWeight: isSelected ? 950 : 900,
+                          color,
+                          lineHeight: 1.2,
+                          fontSize: isSelected ? { xs: '1.08rem', sm: '1.12rem' } : undefined,
+                          textShadow: 'none',
+                        }}
+                      >
+                        {entry.label}
+                      </Typography>
+                      {entry.kind === 'today' && (
+                        <Chip
+                          label="Today"
+                          size="small"
+                          sx={{
+                            height: 22,
+                            fontWeight: 600,
+                            bgcolor: isSelected ? alpha(color, 0.7) : alpha(color, 0.22),
+                            color: isSelected ? theme.palette.common.white : color,
+                            border: isSelected
+                              ? `1px solid ${alpha(theme.palette.common.white, 0.38)}`
+                              : `1px solid ${alpha(color, 0.36)}`,
+                            textShadow: isSelected ? `0 1px 2px ${alpha(theme.palette.common.black, 0.28)}` : 'none',
+                          }}
+                        />
+                      )}
+                    </Box>
                     <Typography
-                      variant="subtitle1"
+                      variant="body2"
                       sx={{
-                        fontWeight: 900,
-                        color,
-                        lineHeight: 1.2,
+                        color: isSelected ? alpha(theme.palette.text.primary, 0.78) : 'text.secondary',
+                        fontWeight: isSelected ? 650 : undefined,
                       }}
                     >
-                      {entry.label}
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                       {subtitleWithAdjustment}
+                      {pastMeta}
                     </Typography>
                   </Box>
 
