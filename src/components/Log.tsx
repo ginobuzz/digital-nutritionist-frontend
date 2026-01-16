@@ -705,13 +705,13 @@ const Log: React.FC<LogProps> = ({ user }) => {
                     color={weeklyOverBudgetBy > 0 ? 'warning' : 'info'}
                     label={weeklyOverBudgetBy > 0 ? 'Week Over Budget' : 'Week Rebalanced'}
                   />
-                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                    {weeklyOverBudgetBy > 0
-                      ? `Week is ${weeklyOverBudgetBy} kcal over after minimum daily floor.`
-                      : isFuture && selectedAdjustment !== 0
-                        ? `This day's budget adjusted ${selectedAdjustment > 0 ? `+${selectedAdjustment}` : selectedAdjustment} kcal vs base (${roundedBaseTarget}).`
-                        : 'Adjusted remaining daily budgets for this week.'}
-                  </Typography>
+	                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+	                    {weeklyOverBudgetBy > 0
+	                      ? `Not enough adjustable days to stay under weekly budget; week is ${weeklyOverBudgetBy} kcal over.`
+	                      : isFuture && selectedAdjustment !== 0
+	                        ? `This day's budget adjusted ${selectedAdjustment > 0 ? `+${selectedAdjustment}` : selectedAdjustment} kcal vs base (${roundedBaseTarget}).`
+	                        : 'Adjusted remaining daily budgets for this week.'}
+	                  </Typography>
                 </Box>
               )}
             </CardContent>

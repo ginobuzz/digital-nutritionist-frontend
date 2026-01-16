@@ -375,11 +375,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                 color={dynamicWeek.overBudgetBy > 0 ? 'warning' : 'info'}
                 label={dynamicWeek.overBudgetBy > 0 ? 'Week Over Budget' : 'Week Rebalanced'}
               />
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                {dynamicWeek.overBudgetBy > 0
-                  ? `Remaining days hit the minimum daily floor; week is ${Math.round(dynamicWeek.overBudgetBy)} kcal over.`
-                  : 'Adjusted remaining daily budgets to keep weekly calories on track.'}
-              </Typography>
+	              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+	                {dynamicWeek.overBudgetBy > 0
+	                  ? `Not enough adjustable days to stay under weekly budget; week is ${Math.round(dynamicWeek.overBudgetBy)} kcal over.`
+	                  : 'Adjusted remaining daily budgets to keep weekly calories on track.'}
+	              </Typography>
             </Box>
           )}
         </CardContent>

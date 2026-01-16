@@ -39,16 +39,16 @@ describe('weeklyTargets', () => {
       },
     });
 
-    // Sunday assumed at 2000; remaining budget (Mon-Sat) = 12000.
-    // Friday gets 3000, other five days get 1800 each.
+    // With no other meals planned/logged, other days stay at the base target.
+    // The week becomes over budget because there aren't enough adjustable days.
     expect(result.targetsByDate[toIsoDate(addDays(weekStart, 0))]).toBe(2000); // Sunday
-    expect(result.targetsByDate[toIsoDate(addDays(weekStart, 1))]).toBe(1800); // Monday
-    expect(result.targetsByDate[toIsoDate(addDays(weekStart, 2))]).toBe(1800); // Tuesday
-    expect(result.targetsByDate[toIsoDate(addDays(weekStart, 3))]).toBe(1800); // Wednesday
-    expect(result.targetsByDate[toIsoDate(addDays(weekStart, 4))]).toBe(1800); // Thursday
+    expect(result.targetsByDate[toIsoDate(addDays(weekStart, 1))]).toBe(2000); // Monday
+    expect(result.targetsByDate[toIsoDate(addDays(weekStart, 2))]).toBe(2000); // Tuesday
+    expect(result.targetsByDate[toIsoDate(addDays(weekStart, 3))]).toBe(2000); // Wednesday
+    expect(result.targetsByDate[toIsoDate(addDays(weekStart, 4))]).toBe(2000); // Thursday
     expect(result.targetsByDate[fridayKey]).toBe(3000); // Friday
-    expect(result.targetsByDate[toIsoDate(addDays(weekStart, 6))]).toBe(1800); // Saturday
-    expect(result.overBudgetBy).toBe(0);
+    expect(result.targetsByDate[toIsoDate(addDays(weekStart, 6))]).toBe(2000); // Saturday
+    expect(result.overBudgetBy).toBe(1000);
   });
 
   test('rewards under-budget past day with more calories later in week', () => {
@@ -68,15 +68,15 @@ describe('weeklyTargets', () => {
       },
     });
 
-    // Remaining budget increases by 500 vs the default,
-    // so the "other" days only need to drop by 100 each.
-    expect(result.targetsByDate[toIsoDate(addDays(weekStart, 1))]).toBe(1900); // Monday
-    expect(result.targetsByDate[toIsoDate(addDays(weekStart, 2))]).toBe(1900); // Tuesday
-    expect(result.targetsByDate[toIsoDate(addDays(weekStart, 3))]).toBe(1900); // Wednesday
-    expect(result.targetsByDate[toIsoDate(addDays(weekStart, 4))]).toBe(1900); // Thursday
+    // With no other meals planned/logged, other days stay at the base target.
+    // Under-eating Sunday reduces the week overage.
+    expect(result.targetsByDate[toIsoDate(addDays(weekStart, 1))]).toBe(2000); // Monday
+    expect(result.targetsByDate[toIsoDate(addDays(weekStart, 2))]).toBe(2000); // Tuesday
+    expect(result.targetsByDate[toIsoDate(addDays(weekStart, 3))]).toBe(2000); // Wednesday
+    expect(result.targetsByDate[toIsoDate(addDays(weekStart, 4))]).toBe(2000); // Thursday
     expect(result.targetsByDate[fridayKey]).toBe(3000); // Friday
-    expect(result.targetsByDate[toIsoDate(addDays(weekStart, 6))]).toBe(1900); // Saturday
-    expect(result.overBudgetBy).toBe(0);
+    expect(result.targetsByDate[toIsoDate(addDays(weekStart, 6))]).toBe(2000); // Saturday
+    expect(result.overBudgetBy).toBe(500);
   });
 
   test('reduces remaining days when a past day is over target', () => {
@@ -93,14 +93,15 @@ describe('weeklyTargets', () => {
       plannedCaloriesByDate: {},
     });
 
-    // Need to reduce remaining 6 days by 500 total.
-    expect(result.targetsByDate[toIsoDate(addDays(weekStart, 1))]).toBe(1916);
-    expect(result.targetsByDate[toIsoDate(addDays(weekStart, 2))]).toBe(1916);
-    expect(result.targetsByDate[toIsoDate(addDays(weekStart, 3))]).toBe(1917);
-    expect(result.targetsByDate[toIsoDate(addDays(weekStart, 4))]).toBe(1917);
-    expect(result.targetsByDate[toIsoDate(addDays(weekStart, 5))]).toBe(1917);
-    expect(result.targetsByDate[toIsoDate(addDays(weekStart, 6))]).toBe(1917);
-    expect(result.overBudgetBy).toBe(0);
+    // With no other meals planned/logged, remaining days stay at the base target,
+    // so the overage carries to the weekly total.
+    expect(result.targetsByDate[toIsoDate(addDays(weekStart, 1))]).toBe(2000);
+    expect(result.targetsByDate[toIsoDate(addDays(weekStart, 2))]).toBe(2000);
+    expect(result.targetsByDate[toIsoDate(addDays(weekStart, 3))]).toBe(2000);
+    expect(result.targetsByDate[toIsoDate(addDays(weekStart, 4))]).toBe(2000);
+    expect(result.targetsByDate[toIsoDate(addDays(weekStart, 5))]).toBe(2000);
+    expect(result.targetsByDate[toIsoDate(addDays(weekStart, 6))]).toBe(2000);
+    expect(result.overBudgetBy).toBe(500);
   });
 
   test('reports over-budget weeks when minimum commitments exceed weekly budget', () => {
@@ -129,6 +130,11 @@ describe('weeklyTargets', () => {
     const anchorDate = addDays(weekStart, 1); // Monday
     const sundayKey = toIsoDate(addDays(weekStart, 0));
 
+    const plannedCaloriesByDate: Record<string, number> = {};
+    for (let idx = 1; idx < 7; idx++) {
+      plannedCaloriesByDate[toIsoDate(addDays(weekStart, idx))] = 100; // mark days as "entered" but low
+    }
+
     const result = calculateDynamicWeeklyCalorieTargets({
       weekStart,
       dailyTarget: baseTarget,
@@ -137,10 +143,10 @@ describe('weeklyTargets', () => {
       actualCaloriesByDate: {
         [sundayKey]: 10000,
       },
-      plannedCaloriesByDate: {},
+      plannedCaloriesByDate,
     });
 
-    // Remaining budget after Sunday is only 4000. Even so, Mon-Sat budgets never fall below 1200.
+    // Remaining budget after Sunday forces reductions, but never below the safety floor.
     for (let idx = 1; idx < 7; idx++) {
       expect(result.targetsByDate[toIsoDate(addDays(weekStart, idx))]).toBe(1200);
     }
