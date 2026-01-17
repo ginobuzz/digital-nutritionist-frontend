@@ -28,7 +28,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import { User } from '../types';
 import { apiService, convertUserToBackend, convertUserFromBackend } from '../services/api';
 import { authService } from '../services/auth';
-import { calculateDailyExpenditure } from '../utils/calculations';
+import { calculateDailyCalorieTarget, calculateDailyExpenditure } from '../utils/calculations';
 
 interface SetupProps {
   onComplete: (user: User) => void;
@@ -89,7 +89,21 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
         
         const weightToLose = userData.weight! - userData.targetWeight!;
         const daysToTarget = Math.ceil((userData.targetDate!.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-        const dailyDeficitTarget = Math.round(weightToLose * 3500 / daysToTarget); // 3500 calories = 1 lb
+        const desiredDeficitTarget = Math.round(weightToLose * 3500 / daysToTarget); // 3500 calories = 1 lb
+        const dailyCalorieTarget = calculateDailyCalorieTarget({
+          id: '',
+          name: userData.name!,
+          age: userData.age!,
+          height: userData.height!,
+          weight: userData.weight!,
+          gender: userData.gender!,
+          activityLevel: userData.activityLevel!,
+          targetWeight: userData.targetWeight!,
+          targetDate: userData.targetDate!,
+          dailyCalorieTarget: 0,
+          dailyDeficitTarget: desiredDeficitTarget,
+        });
+        const dailyDeficitTarget = Math.max(0, dailyExpenditure - dailyCalorieTarget);
 
         const completeUser: User = {
           id: '', // Will be set by backend
@@ -101,7 +115,7 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
           activityLevel: userData.activityLevel!,
           targetWeight: userData.targetWeight!,
           targetDate: userData.targetDate!,
-          dailyCalorieTarget: dailyExpenditure - dailyDeficitTarget,
+          dailyCalorieTarget: dailyCalorieTarget,
           dailyDeficitTarget: dailyDeficitTarget,
         };
 

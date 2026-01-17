@@ -36,6 +36,15 @@ const ACTIVITY_MULTIPLIERS = {
   extremely_active: 1.9
 };
 
+const MINIMUM_CALORIE_BUDGETS = {
+  female: 1400,
+  male: 1600,
+};
+
+export const getMinimumCalorieTarget = (gender: User['gender']): number => {
+  return MINIMUM_CALORIE_BUDGETS[gender];
+};
+
 // Calculate daily calorie expenditure
 export const calculateDailyExpenditure = (user: User): number => {
   const bmr = calculateBMR(user);
@@ -45,7 +54,8 @@ export const calculateDailyExpenditure = (user: User): number => {
 // Calculate daily calorie target for weight loss
 export const calculateDailyCalorieTarget = (user: User): number => {
   const expenditure = calculateDailyExpenditure(user);
-  return expenditure - user.dailyDeficitTarget;
+  const rawTarget = expenditure - user.dailyDeficitTarget;
+  return Math.max(rawTarget, getMinimumCalorieTarget(user.gender));
 };
 
 // Calculate weight loss timeline
