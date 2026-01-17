@@ -7,6 +7,7 @@ import {
   calculateWeightLossTimeline,
   cmToFeetInches,
   feetInchesToCm,
+  getMinimumCalorieTarget,
   weightToCalories,
 } from './calculations';
 import { User } from '../types';
@@ -54,6 +55,11 @@ describe('calculations', () => {
   test('calculateDailyCalorieTarget subtracts dailyDeficitTarget', () => {
     const expenditure = calculateDailyExpenditure(baseUser);
     expect(calculateDailyCalorieTarget(baseUser)).toBeCloseTo(expenditure - baseUser.dailyDeficitTarget, 6);
+  });
+
+  test('calculateDailyCalorieTarget enforces a healthy minimum', () => {
+    const femaleUser: User = { ...baseUser, gender: 'female', dailyDeficitTarget: 5000 };
+    expect(calculateDailyCalorieTarget(femaleUser)).toBe(getMinimumCalorieTarget('female'));
   });
 
   test('calculateWeightLossTimeline returns days (ceil)', () => {

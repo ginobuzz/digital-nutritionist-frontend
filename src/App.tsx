@@ -12,7 +12,7 @@ import Setup from './components/Setup';
 import SignIn from './components/SignIn';
 import About from './components/About';
 import { User } from './types';
-import { calculateDailyExpenditure } from './utils/calculations';
+import { calculateDailyCalorieTarget, calculateDailyExpenditure } from './utils/calculations';
 import { apiService } from './services/api';
 import { authService } from './services/auth';
 import theme from './theme';
@@ -52,11 +52,17 @@ function App() {
     const dailyExpenditure = calculateDailyExpenditure(setupUser);
     const weightToLose = setupUser.weight - setupUser.targetWeight;
     const daysToTarget = Math.ceil((setupUser.targetDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-    const dailyDeficitTarget = Math.round(weightToLose * 3500 / daysToTarget); // 3500 calories = 1 lb
+    const desiredDeficitTarget = Math.round(weightToLose * 3500 / daysToTarget); // 3500 calories = 1 lb
+    const dailyCalorieTarget = calculateDailyCalorieTarget({
+      ...setupUser,
+      dailyDeficitTarget: desiredDeficitTarget,
+      dailyCalorieTarget: 0,
+    });
+    const dailyDeficitTarget = Math.max(0, dailyExpenditure - dailyCalorieTarget);
 
     const completeUser: User = {
       ...setupUser,
-      dailyCalorieTarget: dailyExpenditure - dailyDeficitTarget,
+      dailyCalorieTarget: dailyCalorieTarget,
       dailyDeficitTarget: dailyDeficitTarget,
     };
 
