@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Box, Card, CardContent, TextField, Button, Typography, Alert, CircularProgress, Link } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import { authService } from '../services/auth';
-import { apiService, convertUserFromBackend } from '../services/api';
+import { apiService, convertUserFromBackend, isUserNotFoundError } from '../services/api';
 import { User } from '../types';
 
 interface SignInProps {
@@ -37,6 +37,9 @@ const SignIn: React.FC<SignInProps> = ({ onSignedIn }) => {
       localStorage.setItem('setupComplete', 'true');
       onSignedIn(user);
     } catch (e) {
+      if (isUserNotFoundError(e)) {
+        return;
+      }
       setErr(e instanceof Error ? e.message : 'Login failed');
     } finally {
       setLoading(false);

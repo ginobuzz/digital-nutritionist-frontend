@@ -26,7 +26,7 @@ import {
 } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import { User } from '../types';
-import { apiService, convertUserToBackend, convertUserFromBackend } from '../services/api';
+import { apiService, convertUserToBackend, convertUserFromBackend, isUserNotFoundError } from '../services/api';
 import { authService } from '../services/auth';
 import { calculateDailyCalorieTarget, calculateDailyExpenditure } from '../utils/calculations';
 
@@ -141,6 +141,9 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
         const frontendUser = convertUserFromBackend(createdUser);
         onComplete(frontendUser);
       } catch (err) {
+        if (isUserNotFoundError(err)) {
+          return;
+        }
         setError(err instanceof Error ? err.message : 'Failed to create user profile');
         console.error('Error creating user:', err);
       } finally {

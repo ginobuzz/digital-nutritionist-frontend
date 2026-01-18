@@ -1,5 +1,6 @@
 import { User, WeightLog } from '../types';
 import { format } from 'date-fns';
+import { authService } from './auth';
 
 // Use env-configurable base URL for local dev; fallback to local FastAPI backend
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
@@ -153,6 +154,16 @@ export interface ChatResponse {
   created_planned_meals?: PlannedMealResponse[];
 }
 
+export class UserNotFoundError extends Error {
+  constructor() {
+    super('');
+    this.name = 'UserNotFoundError';
+  }
+}
+
+export const isUserNotFoundError = (error: unknown): error is UserNotFoundError =>
+  error instanceof Error && error.name === 'UserNotFoundError';
+
 // Helper functions to convert between frontend and backend formats
 export const convertUserToBackend = (user: User): CreateUserRequest => {
   // Split name into first and last name
@@ -257,18 +268,6 @@ class ApiService {
     });
 
     if (!response.ok) {
-      // Special-case 404 for endpoints that might not exist yet in dev (e.g., weight logs)
-      if (response.status === 404) {
-        // If the caller expects an array, return empty array; otherwise throw
-        try {
-          // Peek at method and endpoint to detect list endpoints we control
-          const isGet = (options.method ?? 'GET').toString().toUpperCase() === 'GET';
-          const looksLikeWeightLogs = endpoint.includes('/weight-logs') || endpoint.includes('/weight_logs');
-          if (isGet && looksLikeWeightLogs) {
-            return ([] as unknown) as T;
-          }
-        } catch {}
-      }
       let errorMessage = `API request failed: ${response.status} ${response.statusText}`;
       const responseText = await response.text().catch(() => '');
       let errorData: any = null;
@@ -278,6 +277,24 @@ class ApiService {
         } catch {
           errorData = null;
         }
+      }
+
+      if (response.status === 404) {
+        const detail = typeof errorData?.detail === 'string' ? errorData.detail : '';
+        const combinedDetail = `${detail} ${responseText}`.trim();
+        if (/user not found/i.test(combinedDetail)) {
+          this.handleUserNotFound();
+          throw new UserNotFoundError();
+        }
+        // Special-case 404 for endpoints that might not exist yet in dev (e.g., weight logs)
+        try {
+          // Peek at method and endpoint to detect list endpoints we control
+          const isGet = (options.method ?? 'GET').toString().toUpperCase() === 'GET';
+          const looksLikeWeightLogs = endpoint.includes('/weight-logs') || endpoint.includes('/weight_logs');
+          if (isGet && looksLikeWeightLogs) {
+            return ([] as unknown) as T;
+          }
+        } catch {}
       }
       
       // Try to get more detailed error information for 422 errors
@@ -344,6 +361,17 @@ class ApiService {
       throw new Error(
         `API request returned non-JSON response: ${response.status} ${response.statusText}`
       );
+    }
+  }
+
+  private handleUserNotFound() {
+    authService.logout();
+    this.setAuthToken(null);
+    localStorage.removeItem('user');
+    localStorage.removeItem('setupComplete');
+    if (typeof window !== 'undefined') {
+      const base = process.env.PUBLIC_URL || '';
+      window.location.assign(`${base}/signin`);
     }
   }
 
