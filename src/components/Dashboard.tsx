@@ -30,7 +30,7 @@ import { useNavigate } from 'react-router-dom';
 import { addDays, format, isBefore, isSameDay, startOfDay, startOfWeek } from 'date-fns';
 import Markdown from 'markdown-to-jsx';
 import { User } from '../types';
-import { apiService } from '../services/api';
+import { apiService, isUserNotFoundError } from '../services/api';
 import { imageFileToDataUrl } from '../utils/images';
 import { calculateDynamicWeeklyCalorieTargets, getMinimumHealthyDailyCalories } from '../utils/weeklyTargets';
 import { useSpeechToText } from '../hooks/useSpeechToText';
@@ -333,6 +333,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       setMealType('');
       await fetchData();
     } catch (error) {
+      if (isUserNotFoundError(error)) {
+        return;
+      }
       const message = error instanceof Error ? error.message : 'Unable to log meal. Please try again.';
       setLogError(message);
     } finally {
@@ -374,6 +377,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       await fetchData();
       window.setTimeout(() => focusLogInput('describe'), 0);
     } catch (error) {
+      if (isUserNotFoundError(error)) {
+        return;
+      }
       const message = error instanceof Error ? error.message : 'Unable to log meal. Please try again.';
       setLogError(message);
     } finally {

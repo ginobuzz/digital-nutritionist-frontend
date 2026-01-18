@@ -38,7 +38,7 @@ import {
 } from '@mui/icons-material';
 import { User, WeightLog } from '../types';
 import { calculateDailyExpenditure, calculateWeightLossTimeline, calculateProgressPercentage } from '../utils/calculations';
-import { apiService, convertUserToBackend, convertUserFromBackend, convertWeightLogFromBackend } from '../services/api';
+import { apiService, convertUserToBackend, convertUserFromBackend, convertWeightLogFromBackend, isUserNotFoundError } from '../services/api';
 
 interface ProfileProps {
   user: User;
@@ -148,6 +148,9 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate, onSignOut }) => {
       onUserUpdate(frontendUser);
       setEditDialogOpen(false);
     } catch (err) {
+      if (isUserNotFoundError(err)) {
+        return;
+      }
       setSaveError(err instanceof Error ? err.message : 'Failed to update user profile');
       console.error('Error updating user:', err);
     } finally {

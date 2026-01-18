@@ -45,7 +45,7 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { addDays, format, isAfter, isBefore, isValid, parseISO, startOfDay, startOfWeek } from 'date-fns';
 import Markdown from 'markdown-to-jsx';
 import { ActualMeal, PlannedMeal, User } from '../types';
-import { apiService, MealLogResponse, PlannedMealResponse } from '../services/api';
+import { apiService, MealLogResponse, PlannedMealResponse, isUserNotFoundError } from '../services/api';
 import { useSearchParams } from 'react-router-dom';
 import { imageFileToDataUrl } from '../utils/images';
 import { calculateDynamicWeeklyCalorieTargets, getMinimumHealthyDailyCalories } from '../utils/weeklyTargets';
@@ -429,6 +429,9 @@ const Log: React.FC<LogProps> = ({ user }) => {
       });
       await fetchLogData();
     } catch (error) {
+      if (isUserNotFoundError(error)) {
+        return;
+      }
       const message = error instanceof Error ? error.message : 'Unable to log meal. Please try again.';
       setLogError(message);
     } finally {
@@ -473,6 +476,9 @@ const Log: React.FC<LogProps> = ({ user }) => {
       });
       await fetchLogData();
     } catch (error) {
+      if (isUserNotFoundError(error)) {
+        return;
+      }
       const message = error instanceof Error ? error.message : 'Unable to plan meal. Please try again.';
       setPlanError(message);
     } finally {
@@ -510,6 +516,9 @@ const Log: React.FC<LogProps> = ({ user }) => {
       setDescribeImageDataUrl(null);
       await fetchLogData();
     } catch (error) {
+      if (isUserNotFoundError(error)) {
+        return;
+      }
       const message = error instanceof Error ? error.message : 'Unable to log meal. Please try again.';
       setLogError(message);
     } finally {
@@ -589,6 +598,9 @@ const Log: React.FC<LogProps> = ({ user }) => {
       setPlanDescribeInput('');
       await fetchLogData();
     } catch (error) {
+      if (isUserNotFoundError(error)) {
+        return;
+      }
       const message =
         error instanceof Error ? error.message : 'Unable to generate meal plan. Please try again.';
       setPlanError(message);
@@ -634,6 +646,9 @@ const Log: React.FC<LogProps> = ({ user }) => {
       });
       setDeleteToastOpen(true);
     } catch (error) {
+      if (isUserNotFoundError(error)) {
+        return;
+      }
       console.error('Error deleting meal:', error);
       setDeleteToast({
         message: 'Unable to delete meal. Please try again.',

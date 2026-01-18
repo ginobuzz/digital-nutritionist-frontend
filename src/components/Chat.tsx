@@ -26,7 +26,7 @@ import {
 import Markdown from 'markdown-to-jsx';
 import { format } from 'date-fns';
 import { ChatMessage, User } from '../types';
-import { apiService, ChatTurn } from '../services/api';
+import { apiService, ChatTurn, isUserNotFoundError } from '../services/api';
 import { imageFileToDataUrl } from '../utils/images';
 import { useSpeechToText } from '../hooks/useSpeechToText';
 
@@ -192,6 +192,9 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
       };
       setMessages(prev => [...prev, aiResponse]);
     } catch (error) {
+      if (isUserNotFoundError(error)) {
+        return;
+      }
       const message = error instanceof Error ? error.message : 'Sorry — something went wrong.';
       const aiResponse: ChatMessage = {
         id: (Date.now() + 1).toString(),
