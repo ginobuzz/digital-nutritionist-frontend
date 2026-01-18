@@ -1233,6 +1233,10 @@ const Log: React.FC<LogProps> = ({ user }) => {
                     multiline
                     minRows={3}
                     disabled={planDialogBusy || Boolean(planDescribeReply) || planVoiceListening}
+                    InputLabelProps={{
+                      shrink: true,
+                      sx: { whiteSpace: 'nowrap', backgroundColor: 'background.paper', px: 0.5 },
+                    }}
                   />
                 </Box>
 
@@ -1390,6 +1394,10 @@ const Log: React.FC<LogProps> = ({ user }) => {
                   multiline
                   minRows={3}
                   disabled={dialogBusy || logVoiceListening}
+                  InputLabelProps={{
+                    shrink: true,
+                    sx: { whiteSpace: 'nowrap', backgroundColor: 'background.paper', px: 0.5 },
+                  }}
                 />
 
                 {logVoiceListening && (
