@@ -664,6 +664,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                   multiline
                   minRows={3}
                   disabled={logBusy || describeVoiceListening}
+                  InputLabelProps={{
+                    shrink: true,
+                    sx: { whiteSpace: 'nowrap', backgroundColor: 'background.paper', px: 0.5 },
+                  }}
                   inputRef={describeFieldRef}
                 />
               </Box>
