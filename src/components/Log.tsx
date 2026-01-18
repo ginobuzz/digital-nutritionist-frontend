@@ -84,8 +84,15 @@ const normalizeMealType = (value: string | null | undefined): ActualMeal['type']
   return 'snack';
 };
 
+const parseBackendDateTime = (value: string): Date => {
+  const hasTimeZone = /[zZ]|[+-]\d{2}:\d{2}$/.test(value);
+  return new Date(hasTimeZone ? value : `${value}Z`);
+};
+
 const mapMealLogToActualMeal = (log: MealLogResponse): ActualMeal => {
-  const createdAt = log.created_at ? new Date(log.created_at) : new Date(`${log.date}T12:00:00`);
+  const createdAt = log.created_at
+    ? parseBackendDateTime(log.created_at)
+    : new Date(`${log.date}T12:00:00`);
   const calories = typeof log.estimated_calories === 'number' ? log.estimated_calories : 0;
   const userDescription = log.user_description || 'Meal';
   return {
@@ -105,7 +112,7 @@ const mapPlannedMealResponse = (meal: PlannedMealResponse): PlannedMeal => ({
   calories: meal.calories,
   type: normalizeMealType(meal.meal_type),
   description: meal.description || undefined,
-  time: new Date(meal.time),
+  time: parseBackendDateTime(meal.time),
   isPlanned: true,
 });
 
