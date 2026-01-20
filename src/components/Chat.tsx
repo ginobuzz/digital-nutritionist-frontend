@@ -94,6 +94,13 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
     };
   }, [user?.name]);
 
+  const toUserFacingErrorMessage = useCallback((raw: string) => {
+    if (!raw.startsWith('API request failed:')) return raw;
+    const splitIndex = raw.indexOf(' - ');
+    if (splitIndex === -1) return 'Sorry — something went wrong.';
+    return raw.slice(splitIndex + 3).trim() || 'Sorry — something went wrong.';
+  }, []);
+
   const getMarkdownText = (message: ChatMessage) => {
     if (message.sender !== 'ai') return message.text;
     if (message.text.includes('\n- ')) return message.text;
@@ -195,7 +202,8 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
       if (isUserNotFoundError(error)) {
         return;
       }
-      const message = error instanceof Error ? error.message : 'Sorry — something went wrong.';
+      const rawMessage = error instanceof Error ? error.message : 'Sorry — something went wrong.';
+      const message = toUserFacingErrorMessage(rawMessage);
       const aiResponse: ChatMessage = {
         id: (Date.now() + 1).toString(),
         text: message,
