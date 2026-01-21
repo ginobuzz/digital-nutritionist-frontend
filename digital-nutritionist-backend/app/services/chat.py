@@ -8,7 +8,16 @@ from typing import Any
 from sqlmodel import Session
 
 from fastapi import HTTPException, status
-from openai import OpenAI
+from openai import (
+    APIConnectionError,
+    APIStatusError,
+    APITimeoutError,
+    AuthenticationError,
+    BadRequestError,
+    LengthFinishReasonError,
+    OpenAI,
+    RateLimitError,
+)
 
 from ..config import settings
 from ..models import MealLog, MealLogRead, PlannedMeal, PlannedMealRead
@@ -117,6 +126,138 @@ def _token_limit_kwargs(model: str, value: int) -> dict[str, Any]:
     if model.startswith("gpt-5"):
         return {"max_completion_tokens": value}
     return {"max_tokens": value}
+
+
+def _looks_like_output_token_limit_error(exc: Exception) -> bool:
+    message = str(exc).lower()
+    return (
+        ("max_tokens" in message or "max completion tokens" in message or "max_completion_tokens" in message)
+        and (
+            "output limit" in message
+            or "model output limit" in message
+            or "was reached" in message
+            or "reached" in message
+        )
+    )
+
+
+def _looks_like_context_limit_error(exc: Exception) -> bool:
+    message = str(exc).lower()
+    return (
+        "maximum context length" in message
+        or "context length" in message
+        or "context_length" in message
+        or ("too many tokens" in message and "requested" in message)
+    )
+
+
+def _sanitize_history(history: list[dict[str, Any]] | None) -> list[dict[str, str]]:
+    if not history:
+        return []
+
+    max_turns = max(0, int(settings.openai_max_history_turns))
+    max_chars = max(0, int(settings.openai_max_history_chars))
+    max_turn_chars = max(0, int(settings.openai_max_turn_chars))
+
+    turns = history[-max_turns:] if max_turns else []
+    sanitized: list[dict[str, str]] = []
+    for turn in turns:
+        role = turn.get("role")
+        content = turn.get("content")
+        if role not in {"user", "assistant"}:
+            continue
+        if not isinstance(content, str):
+            continue
+        text = content.strip()
+        if not text:
+            continue
+        if max_turn_chars and len(text) > max_turn_chars:
+            text = text[:max_turn_chars]
+        sanitized.append({"role": role, "content": text})
+
+    if max_chars:
+        total = sum(len(turn["content"]) for turn in sanitized)
+        while sanitized and total > max_chars:
+            removed = sanitized.pop(0)
+            total -= len(removed["content"])
+
+    return sanitized
+
+
+def _openai_chat_create(
+    client: OpenAI,
+    *,
+    model: str,
+    messages: list[dict[str, Any]],
+    temperature: float,
+    tools: list[dict[str, Any]] | None = None,
+    tool_choice: str | None = None,
+) -> Any:
+    token_budget = max(1, int(settings.openai_max_output_tokens))
+    retry_budget = max(token_budget, int(settings.openai_max_output_tokens_retry))
+    budgets = [token_budget] if retry_budget == token_budget else [token_budget, retry_budget]
+
+    last_exc: Exception | None = None
+    for idx, budget in enumerate(budgets):
+        try:
+            create_kwargs: dict[str, Any] = {
+                "model": model,
+                "messages": messages,
+                "temperature": temperature,
+                **_token_limit_kwargs(model, budget),
+            }
+            if tools:
+                create_kwargs["tools"] = tools
+                create_kwargs["tool_choice"] = tool_choice or "auto"
+            return client.chat.completions.create(**create_kwargs)
+        except Exception as exc:  # noqa: BLE001 - translated into HTTPException upstream
+            last_exc = exc
+            if idx < len(budgets) - 1 and _looks_like_output_token_limit_error(exc):
+                continue
+            raise
+
+    raise last_exc or RuntimeError("OpenAI request failed")
+
+
+def _raise_llm_http_exception(exc: Exception) -> None:
+    # Normalize common OpenAI/provider failures into stable HTTP responses.
+    if isinstance(exc, RateLimitError):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="LLM rate limit exceeded. Try again.")
+
+    if isinstance(exc, AuthenticationError):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="LLM authentication failed. Check OPENAI_API_KEY.",
+        )
+
+    if isinstance(exc, (APITimeoutError, APIConnectionError)):
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="LLM service unavailable. Try again.")
+
+    if isinstance(exc, (BadRequestError, LengthFinishReasonError)) and _looks_like_output_token_limit_error(exc):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="AI response was too long. Please try again (or ask for a shorter answer).",
+        )
+
+    if isinstance(exc, BadRequestError) and _looks_like_context_limit_error(exc):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Chat context is too long for the model. Try shortening your message or starting a new chat.",
+        )
+
+    if isinstance(exc, BadRequestError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="LLM request was rejected. Please try again.",
+        )
+
+    if isinstance(exc, APIStatusError):
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"LLM service error (status {getattr(exc, 'status_code', 'unknown')}). Try again.",
+        )
+
+    raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="LLM request failed. Try again.")
 
 
 def get_openai_client() -> OpenAI:
@@ -318,12 +459,15 @@ def chat_completion(
             },
         )
 
-    response = client.chat.completions.create(
-        model=settings.openai_model,
-        messages=messages,
-        temperature=0.2,
-        **_token_limit_kwargs(settings.openai_model, 300),
-    )
+    try:
+        response = _openai_chat_create(
+            client,
+            model=settings.openai_model,
+            messages=messages,
+            temperature=0.2,
+        )
+    except Exception as exc:  # noqa: BLE001
+        _raise_llm_http_exception(exc)
 
     choice = response.choices[0].message
     return {
@@ -362,12 +506,8 @@ def assistant_chat(
             }
         )
 
-    if history:
-        for turn in history:
-            role = turn.get("role")
-            content = turn.get("content")
-            if role in {"user", "assistant"} and isinstance(content, str) and content.strip():
-                messages.append({"role": role, "content": content.strip()})
+    for turn in _sanitize_history(history):
+        messages.append(turn)
 
     user_text = message.strip() or ("Please describe the attached meal photo." if image_data_url else "")
     user_content: Any = user_text
@@ -386,18 +526,16 @@ def assistant_chat(
     tools = [MEAL_LOG_TOOL, PLANNED_MEAL_TOOL] if (enable_meal_logging and not force_no_tools) else None
 
     try:
-        create_kwargs: dict[str, Any] = {
-            "model": settings.openai_model,
-            "messages": messages,
-            "temperature": 0.2,
-            **_token_limit_kwargs(settings.openai_model, 350),
-        }
-        if tools:
-            create_kwargs["tools"] = tools
-            create_kwargs["tool_choice"] = "auto"
-        first = client.chat.completions.create(**create_kwargs)
+        first = _openai_chat_create(
+            client,
+            model=settings.openai_model,
+            messages=messages,
+            temperature=0.2,
+            tools=tools,
+            tool_choice="auto",
+        )
     except Exception as exc:  # noqa: BLE001 - surface as HTTPException for API callers
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"LLM request failed: {exc}")
+        _raise_llm_http_exception(exc)
 
     first_message = first.choices[0].message
     tool_calls = getattr(first_message, "tool_calls", None) if enable_meal_logging else None
@@ -507,14 +645,14 @@ def assistant_chat(
             session.refresh(meal)
 
     try:
-        final = client.chat.completions.create(
+        final = _openai_chat_create(
+            client,
             model=settings.openai_model,
             messages=messages,
             temperature=0.2,
-            **_token_limit_kwargs(settings.openai_model, 350),
         )
     except Exception as exc:  # noqa: BLE001 - surface as HTTPException for API callers
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"LLM request failed: {exc}")
+        _raise_llm_http_exception(exc)
 
     final_message = final.choices[0].message
     return {
