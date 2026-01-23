@@ -349,8 +349,11 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
                       elevation={1}
                       sx={{
                         p: 2,
-                        backgroundColor: message.sender === 'user' ? 'primary.light' : 'grey.100',
-                        color: message.sender === 'user' ? 'white' : 'text.primary',
+                        backgroundColor: message.sender === 'user' ? 'primary.dark' : 'grey.100',
+                        color: (theme) =>
+                          message.sender === 'user'
+                            ? theme.palette.primary.contrastText
+                            : theme.palette.text.primary,
                         borderRadius: 2,
                         wordBreak: 'break-word'
                       }}
