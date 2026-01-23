@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -25,6 +25,7 @@ import {
   ListItemAvatar,
   Alert,
   CircularProgress,
+  InputAdornment,
 } from '@mui/material';
 import {
   Edit,
@@ -36,6 +37,7 @@ import {
   Logout,
   Info,
 } from '@mui/icons-material';
+import { format } from 'date-fns';
 import { User, WeightLog } from '../types';
 import { calculateDailyExpenditure, calculateWeightLossTimeline, calculateProgressPercentage } from '../utils/calculations';
 import { apiService, convertUserToBackend, convertUserFromBackend, convertWeightLogFromBackend, isUserNotFoundError } from '../services/api';
@@ -52,6 +54,11 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate, onSignOut }) => {
   const [loading, setLoading] = useState(true);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [signOutDialogOpen, setSignOutDialogOpen] = useState(false);
+  const [checkInWeight, setCheckInWeight] = useState('');
+  const [checkInLoading, setCheckInLoading] = useState(false);
+  const [checkInError, setCheckInError] = useState<string | null>(null);
+  const [checkInSuccess, setCheckInSuccess] = useState<string | null>(null);
+  const checkInTouchedRef = useRef(false);
   const [formData, setFormData] = useState({
     name: '',
     age: '',
@@ -79,6 +86,18 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate, onSignOut }) => {
 
     fetchWeightLogs();
   }, [user.id]);
+
+  const latestWeightLog = useMemo(() => {
+    if (!weightLogs.length) return null;
+    return weightLogs.reduce((latest, current) => (current.date > latest.date ? current : latest), weightLogs[0]);
+  }, [weightLogs]);
+
+  const currentWeight = latestWeightLog?.weight || user.weight;
+
+  useEffect(() => {
+    if (checkInTouchedRef.current) return;
+    setCheckInWeight(String(currentWeight));
+  }, [currentWeight]);
 
   const handleEditProfile = () => {
     setFormData({
@@ -183,11 +202,60 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate, onSignOut }) => {
     return <LinearProgress />;
   }
 
-  const currentWeight = weightLogs[weightLogs.length - 1]?.weight || user.weight;
   const progressPercentage = calculateProgressPercentage(user, currentWeight);
   const weightLost = user.weight - currentWeight;
   const timeline = calculateWeightLossTimeline(user);
   const dailyExpenditure = calculateDailyExpenditure(user);
+
+  const getWeightCheckInValidationError = (raw: string) => {
+    const trimmed = raw.trim();
+    if (!trimmed) return 'Enter a weight.';
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed)) return 'Enter a valid number.';
+    if (parsed < 50 || parsed > 1000) return 'Enter a realistic weight.';
+    return null;
+  };
+
+  const handleWeightCheckIn = async () => {
+    const validationError = getWeightCheckInValidationError(checkInWeight);
+    if (validationError) {
+      setCheckInError(validationError);
+      setCheckInSuccess(null);
+      return;
+    }
+
+    setCheckInLoading(true);
+    setCheckInError(null);
+    setCheckInSuccess(null);
+
+    try {
+      const todayIso = format(new Date(), 'yyyy-MM-dd');
+      const weight = Number(checkInWeight.trim());
+      const existingToday = weightLogs.find((log) => format(log.date, 'yyyy-MM-dd') === todayIso);
+
+      const updated = existingToday
+        ? await apiService.updateWeightLog(existingToday.id, { weight, date: todayIso, user_id: user.id })
+        : await apiService.createWeightLog({ user_id: user.id, weight, date: todayIso });
+
+      const nextLog = convertWeightLogFromBackend(updated);
+
+      setWeightLogs((prev) => {
+        if (!existingToday) return [...prev, nextLog];
+        const replaced = prev.map((log) => (log.id === existingToday.id ? nextLog : log));
+        if (replaced.some((log) => log.id === nextLog.id)) return replaced;
+        return [...replaced, nextLog];
+      });
+
+      setCheckInSuccess(existingToday ? 'Updated today’s check-in.' : 'Saved today’s check-in.');
+    } catch (err) {
+      if (isUserNotFoundError(err)) {
+        return;
+      }
+      setCheckInError(err instanceof Error ? err.message : 'Failed to save weight check-in.');
+    } finally {
+      setCheckInLoading(false);
+    }
+  };
 
   return (
     <Box>
@@ -197,8 +265,8 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate, onSignOut }) => {
 
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         {/* Profile Overview and Progress */}
-        <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
-          <Card sx={{ flex: '1 1 600px' }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <Card>
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -270,26 +338,85 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate, onSignOut }) => {
             </CardContent>
           </Card>
 
-          <Card sx={{ flex: '0 1 300px' }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Progress to Goal
-              </Typography>
-              <Box sx={{ textAlign: 'center', mb: 2 }}>
-                <Typography variant="h3" color="primary" gutterBottom>
-                  {progressPercentage.toFixed(1)}%
+          <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', alignItems: 'stretch' }}>
+            <Card sx={{ flex: '1 1 400px' }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Progress to Goal
                 </Typography>
-                <LinearProgress
-                  variant="determinate"
-                  value={progressPercentage}
-                  sx={{ height: 8, borderRadius: 4 }}
-                />
-              </Box>
-              <Typography variant="body2" color="text.secondary" align="center">
-                {weightLost.toFixed(1)}lbs lost of {(user.weight - user.targetWeight).toFixed(1)}lbs goal
-              </Typography>
-            </CardContent>
-          </Card>
+                <Box sx={{ textAlign: 'center', mb: 2 }}>
+                  <Typography variant="h3" color="primary" gutterBottom>
+                    {progressPercentage.toFixed(1)}%
+                  </Typography>
+                  <LinearProgress
+                    variant="determinate"
+                    value={progressPercentage}
+                    sx={{ height: 8, borderRadius: 4 }}
+                  />
+                </Box>
+                <Typography variant="body2" color="text.secondary" align="center">
+                  {weightLost.toFixed(1)}lbs lost of {(user.weight - user.targetWeight).toFixed(1)}lbs goal
+                </Typography>
+              </CardContent>
+            </Card>
+
+            <Card sx={{ flex: '1 1 400px' }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Weight Check-in
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                  Log today’s weight to keep your progress up to date.
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                  <TextField
+                    label="Today’s weight"
+                    value={checkInWeight}
+                    onChange={(e) => {
+                      checkInTouchedRef.current = true;
+                      setCheckInWeight(e.target.value);
+                      setCheckInError(null);
+                      setCheckInSuccess(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleWeightCheckIn();
+                      }
+                    }}
+                    type="number"
+                    size="small"
+                    fullWidth
+                    disabled={checkInLoading}
+                    placeholder={`${currentWeight}`}
+                    inputProps={{ inputMode: 'decimal', step: '0.1', min: 50, max: 1000 }}
+                    InputProps={{
+                      endAdornment: <InputAdornment position="end">lbs</InputAdornment>,
+                    }}
+                  />
+                  <Button
+                    variant="contained"
+                    onClick={handleWeightCheckIn}
+                    disabled={Boolean(getWeightCheckInValidationError(checkInWeight)) || checkInLoading}
+                    startIcon={checkInLoading ? <CircularProgress size={18} /> : undefined}
+                    sx={{ whiteSpace: 'nowrap' }}
+                  >
+                    Check in
+                  </Button>
+                </Box>
+                {checkInError && (
+                  <Alert severity="error" sx={{ mt: 1.5 }}>
+                    {checkInError}
+                  </Alert>
+                )}
+                {checkInSuccess && (
+                  <Alert severity="success" sx={{ mt: 1.5 }}>
+                    {checkInSuccess}
+                  </Alert>
+                )}
+              </CardContent>
+            </Card>
+          </Box>
         </Box>
 
         {/* Goals and Activity */}
@@ -365,6 +492,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate, onSignOut }) => {
                         />
                       </Box>
                     }
+                    secondaryTypographyProps={{ component: 'div' }}
                   />
                 </ListItem>
                 <ListItem>
@@ -407,6 +535,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate, onSignOut }) => {
             ) : (
               <List>
                 {weightLogs
+                  .slice()
                   .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                   .map((log, index) => (
                   <ListItem key={log.id}>
