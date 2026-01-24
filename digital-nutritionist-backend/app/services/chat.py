@@ -5,7 +5,7 @@ import re
 from datetime import date, datetime, timedelta
 from typing import Any
 
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from fastapi import HTTPException, status
 from openai import (
@@ -33,9 +33,11 @@ SYSTEM_PROMPT = (
     "log it by calling the `create_meal_log` tool.\n"
     "- Use the user's local 'today' date unless the user specifies a different date.\n"
     "- Set `meal_type` to one of: breakfast, lunch, dinner, snack (or omit if unknown).\n"
-    "- `user_description` should be a concise description of what they consumed.\n"
+    "- `user_description` should be ONLY a concise description of what they consumed (no meta commentary).\n"
     "- `estimated_calories` should be an integer; if the user gives calories, use them; otherwise broadly estimate.\n"
     "- If the message is too ambiguous to log (no food/drink details), ask a clarifying question instead of logging.\n"
+    "- If the user is correcting a previous meal log (e.g., “wait no it was …”), call `create_meal_log` with "
+    "`replace_previous: true` so the most recent entry for that date is updated instead of creating a duplicate.\n"
     "\n"
     "If the user is planning a meal (especially for a future date/time) and provides enough detail, "
     "create a planned meal by calling the `create_planned_meal` tool.\n"
@@ -74,6 +76,14 @@ MEAL_LOG_TOOL: dict[str, Any] = {
                 "estimated_calories": {
                     "type": "integer",
                     "description": "Estimated calories for this meal (integer).",
+                },
+                "replace_previous": {
+                    "type": "boolean",
+                    "description": "If true, replace the most recently logged meal on that date (and meal_type if provided).",
+                },
+                "replace_meal_log_id": {
+                    "type": ["string", "null"],
+                    "description": "If provided, update this existing meal log instead of creating a new one.",
                 },
             },
             "required": ["date", "user_description", "estimated_calories"],
@@ -332,6 +342,8 @@ def _coerce_description(value: Any) -> str | None:
     text = value.strip()
     if not text:
         return None
+    # Keep tool arguments from polluting the DB with meta commentary like "(replacing previously logged ...)".
+    text = re.sub(r"\s*\((?:replacing|previously logged).*\)\s*$", "", text, flags=re.IGNORECASE).strip()
     # Avoid extremely long blobs (e.g., full conversation)
     return text[:500]
 
@@ -388,6 +400,24 @@ def _coerce_planned_meal_name(value: Any) -> str | None:
 def _coerce_planned_meal_type(value: Any) -> str | None:
     return _normalize_meal_type(value)
 
+def _looks_like_meal_correction_message(message: str) -> bool:
+    lower = (message or "").strip().lower()
+    if not lower:
+        return False
+
+    # Conservative: only treat obvious "correction" phrasing as a replacement signal.
+    patterns = (
+        r"^wait\b",
+        r"^sorry\b",
+        r"^actually\b",
+        r"^correction\b",
+        r"^scratch that\b",
+        r"^i\s+(mean|meant)\b",
+        r"^no[, ]+(it|that)\b",
+        r"^nope[, ]+(it|that)\b",
+    )
+    return any(re.search(p, lower) for p in patterns)
+
 
 def _create_meal_log_from_args(session: Session, user_id: str, args: dict[str, Any]) -> MealLog | None:
     description = _coerce_description(args.get("user_description"))
@@ -395,10 +425,46 @@ def _create_meal_log_from_args(session: Session, user_id: str, args: dict[str, A
     if not description or calories is None:
         return None
 
+    meal_date = _coerce_date(args.get("date"))
+    meal_type = _normalize_meal_type(args.get("meal_type"))
+
+    replace_meal_log_id = args.get("replace_meal_log_id")
+    if isinstance(replace_meal_log_id, str):
+        replace_meal_log_id = replace_meal_log_id.strip() or None
+    else:
+        replace_meal_log_id = None
+
+    replace_previous = args.get("replace_previous")
+    if isinstance(replace_previous, str):
+        replace_previous = replace_previous.strip().lower() == "true"
+    replace_previous = bool(replace_previous)
+
+    def apply_update(target: MealLog) -> MealLog:
+        target.date = meal_date
+        target.meal_type = meal_type
+        target.user_description = description
+        target.estimated_calories = calories
+        target.updated_at = datetime.utcnow()
+        session.add(target)
+        return target
+
+    if replace_meal_log_id:
+        existing = session.get(MealLog, replace_meal_log_id)
+        if existing and existing.user_id == user_id:
+            return apply_update(existing)
+
+    if replace_previous:
+        query = select(MealLog).where(MealLog.user_id == user_id).where(MealLog.date == meal_date)
+        if meal_type:
+            query = query.where(MealLog.meal_type == meal_type)
+        existing = session.exec(query.order_by(MealLog.created_at.desc())).first()
+        if existing:
+            return apply_update(existing)
+
     log = MealLog(
         user_id=user_id,
-        date=_coerce_date(args.get("date")),
-        meal_type=_normalize_meal_type(args.get("meal_type")),
+        date=meal_date,
+        meal_type=meal_type,
         user_description=description,
         estimated_calories=calories,
     )
@@ -524,6 +590,7 @@ def assistant_chat(
     has_explicit_iso_date = bool(re.search(r"\b\d{4}-\d{2}-\d{2}\b", user_text))
     force_no_tools = ("return only" in lower_message) and ("json" in lower_message)
     tools = [MEAL_LOG_TOOL, PLANNED_MEAL_TOOL] if (enable_meal_logging and not force_no_tools) else None
+    looks_like_correction = _looks_like_meal_correction_message(user_text)
 
     try:
         first = _openai_chat_create(
@@ -571,6 +638,10 @@ def assistant_chat(
             if default_date and not args_with_default.get("date"):
                 inferred = default_date + timedelta(days=1) if ("tomorrow" in lower_message) else default_date
                 args_with_default["date"] = inferred.isoformat()
+            # If the user is correcting a recently logged meal, replace the last entry for that date instead
+            # of appending another record.
+            if looks_like_correction and "replace_previous" not in args_with_default:
+                args_with_default["replace_previous"] = True
             # If the user used a relative date (today/tomorrow) and the model is offset (often UTC vs local),
             # correct it unless the user explicitly provided an ISO date in the message.
             if default_date and not has_explicit_iso_date and isinstance(args_with_default.get("date"), str):
