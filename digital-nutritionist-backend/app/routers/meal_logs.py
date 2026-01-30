@@ -3,6 +3,7 @@ from datetime import date, datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
 
+from ..deps import get_current_user
 from ..db import get_session
 from ..models import MealLog, MealLogCreate, MealLogRead, MealLogUpdate, User
 
@@ -10,13 +11,12 @@ router = APIRouter(prefix="/meal-logs", tags=["meal_logs"])
 
 
 @router.post("/", response_model=MealLogRead, status_code=status.HTTP_201_CREATED)
-def create_meal_log(*, session: Session = Depends(get_session), payload: MealLogCreate):
-    user = session.get(User, payload.user_id)
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+def create_meal_log(*, session: Session = Depends(get_session), payload: MealLogCreate, current_user: User = Depends(get_current_user)):
+    if payload.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
     log = MealLog(
-        user_id=payload.user_id,
+        user_id=current_user.id,
         date=payload.date,
         user_description=payload.user_description,
         meal_type=payload.meal_type,
@@ -41,10 +41,12 @@ def list_meal_logs(
     user_id: str | None = None,
     start: date | None = None,
     end: date | None = None,
+    current_user: User = Depends(get_current_user),
 ):
-    query = select(MealLog).order_by(MealLog.date.desc())
-    if user_id:
-        query = query.where(MealLog.user_id == user_id)
+    if user_id is not None and user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+    query = select(MealLog).where(MealLog.user_id == current_user.id).order_by(MealLog.date.desc())
     if start:
         query = query.where(MealLog.date >= start)
     if end:
@@ -53,17 +55,17 @@ def list_meal_logs(
 
 
 @router.get("/{log_id}", response_model=MealLogRead)
-def get_meal_log(*, session: Session = Depends(get_session), log_id: str):
+def get_meal_log(*, session: Session = Depends(get_session), log_id: str, current_user: User = Depends(get_current_user)):
     log = session.get(MealLog, log_id)
-    if not log:
+    if not log or log.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meal log not found")
     return log
 
 
 @router.put("/{log_id}", response_model=MealLogRead)
-def update_meal_log(*, session: Session = Depends(get_session), log_id: str, payload: MealLogUpdate):
+def update_meal_log(*, session: Session = Depends(get_session), log_id: str, payload: MealLogUpdate, current_user: User = Depends(get_current_user)):
     log = session.get(MealLog, log_id)
-    if not log:
+    if not log or log.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meal log not found")
 
     update_data = payload.model_dump(exclude_unset=True)
@@ -81,9 +83,9 @@ def update_meal_log(*, session: Session = Depends(get_session), log_id: str, pay
 
 
 @router.delete("/{log_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_meal_log(*, session: Session = Depends(get_session), log_id: str):
+def delete_meal_log(*, session: Session = Depends(get_session), log_id: str, current_user: User = Depends(get_current_user)):
     log = session.get(MealLog, log_id)
-    if not log:
+    if not log or log.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Meal log not found")
     session.delete(log)
     session.commit()

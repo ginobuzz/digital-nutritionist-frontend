@@ -170,6 +170,14 @@ export class UserNotFoundError extends Error {
 export const isUserNotFoundError = (error: unknown): error is UserNotFoundError =>
   error instanceof Error && error.name === 'UserNotFoundError';
 
+const readTokenFromStorage = (): string | null => {
+  try {
+    return authService.getToken();
+  } catch {
+    return null;
+  }
+};
+
 // Helper functions to convert between frontend and backend formats
 export const convertUserToBackend = (user: User): CreateUserRequest => {
   // Split name into first and last name
@@ -247,6 +255,9 @@ class ApiService {
 
   constructor(baseUrl: string = API_BASE_URL) {
     this.baseUrl = baseUrl;
+    // Ensure refreshed tabs can make authenticated requests immediately, even
+    // before React effects run and call `setAuthToken`.
+    this.authToken = readTokenFromStorage();
   }
 
   setAuthToken(token: string | null) {
@@ -257,6 +268,9 @@ class ApiService {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
+    if (!this.authToken) {
+      this.authToken = readTokenFromStorage();
+    }
     const url = `${this.baseUrl}${endpoint}`;
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
@@ -383,7 +397,7 @@ class ApiService {
 
   // User endpoints
   async createUser(userData: CreateUserRequest): Promise<UserResponse> {
-    return this.request<UserResponse>('/users', {
+    return this.request<UserResponse>('/users/', {
       method: 'POST',
       body: JSON.stringify(userData),
     });
@@ -414,7 +428,7 @@ class ApiService {
   }
 
   async createWeightLog(weightLogData: CreateWeightLogRequest): Promise<WeightLogResponse> {
-    return this.request<WeightLogResponse>('/weight-logs', {
+    return this.request<WeightLogResponse>('/weight-logs/', {
       method: 'POST',
       body: JSON.stringify(weightLogData),
     });
@@ -439,11 +453,11 @@ class ApiService {
     qs.set('user_id', String(params.userId));
     if (params.start) qs.set('start', toIsoDate(params.start));
     if (params.end) qs.set('end', toIsoDate(params.end));
-    return this.request<MealLogResponse[]>(`/meal-logs?${qs.toString()}`);
+    return this.request<MealLogResponse[]>(`/meal-logs/?${qs.toString()}`);
   }
 
   async createMealLog(payload: CreateMealLogRequest): Promise<MealLogResponse> {
-    return this.request<MealLogResponse>('/meal-logs', {
+    return this.request<MealLogResponse>('/meal-logs/', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
@@ -466,11 +480,11 @@ class ApiService {
     qs.set('user_id', String(params.userId));
     if (params.start) qs.set('start', toIsoDate(params.start));
     if (params.end) qs.set('end', toIsoDate(params.end));
-    return this.request<PlannedMealResponse[]>(`/planned-meals?${qs.toString()}`);
+    return this.request<PlannedMealResponse[]>(`/planned-meals/?${qs.toString()}`);
   }
 
   async createPlannedMeal(payload: CreatePlannedMealRequest): Promise<PlannedMealResponse> {
-    return this.request<PlannedMealResponse>('/planned-meals', {
+    return this.request<PlannedMealResponse>('/planned-meals/', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
@@ -493,11 +507,11 @@ class ApiService {
     qs.set('user_id', String(params.userId));
     if (params.start) qs.set('start', toIsoDate(params.start));
     if (params.end) qs.set('end', toIsoDate(params.end));
-    return this.request<ActivityLogResponse[]>(`/activity-logs?${qs.toString()}`);
+    return this.request<ActivityLogResponse[]>(`/activity-logs/?${qs.toString()}`);
   }
 
   async createActivityLog(payload: CreateActivityLogRequest): Promise<ActivityLogResponse> {
-    return this.request<ActivityLogResponse>('/activity-logs', {
+    return this.request<ActivityLogResponse>('/activity-logs/', {
       method: 'POST',
       body: JSON.stringify(payload),
     });

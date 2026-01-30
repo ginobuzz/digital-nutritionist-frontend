@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 
-def _create_user(client, email: str = "logs@example.com") -> str:
+def _create_user(client, email: str = "logs@example.com") -> tuple[str, dict[str, str]]:
     res = client.post(
-        "/users/",
+        "/auth/signup",
         json={
             "email": email,
             "password": "pw-123",
@@ -15,11 +15,13 @@ def _create_user(client, email: str = "logs@example.com") -> str:
         },
     )
     assert res.status_code == 201, res.text
-    return res.json()["id"]
+    token = res.json()["access_token"]
+    user_id = res.json()["user"]["id"]
+    return user_id, {"Authorization": f"Bearer {token}"}
 
 
 def test_meal_logs_crud(client):
-    user_id = _create_user(client)
+    user_id, headers = _create_user(client)
 
     created = client.post(
         "/meal-logs/",
@@ -30,27 +32,32 @@ def test_meal_logs_crud(client):
             "user_description": "Oatmeal",
             "estimated_calories": 350,
         },
+        headers=headers,
     )
     assert created.status_code == 201, created.text
     log_id = created.json()["id"]
 
-    listed = client.get("/meal-logs", params={"user_id": user_id, "start": "2025-01-01", "end": "2025-01-01"})
+    listed = client.get(
+        "/meal-logs",
+        params={"user_id": user_id, "start": "2025-01-01", "end": "2025-01-01"},
+        headers=headers,
+    )
     assert listed.status_code == 200
     assert any(item["id"] == log_id for item in listed.json())
 
-    updated = client.put(f"/meal-logs/{log_id}", json={"estimated_calories": 400})
+    updated = client.put(f"/meal-logs/{log_id}", json={"estimated_calories": 400}, headers=headers)
     assert updated.status_code == 200
     assert updated.json()["estimated_calories"] == 400
 
-    deleted = client.delete(f"/meal-logs/{log_id}")
+    deleted = client.delete(f"/meal-logs/{log_id}", headers=headers)
     assert deleted.status_code == 204
 
-    missing = client.get(f"/meal-logs/{log_id}")
+    missing = client.get(f"/meal-logs/{log_id}", headers=headers)
     assert missing.status_code == 404
 
 
 def test_planned_meals_crud(client):
-    user_id = _create_user(client, email="planned@example.com")
+    user_id, headers = _create_user(client, email="planned@example.com")
 
     created = client.post(
         "/planned-meals/",
@@ -63,6 +70,7 @@ def test_planned_meals_crud(client):
             "time": "2025-01-02T12:00:00",
             "description": "Greens + chicken",
         },
+        headers=headers,
     )
     assert created.status_code == 201, created.text
     meal_id = created.json()["id"]
@@ -70,23 +78,24 @@ def test_planned_meals_crud(client):
     listed = client.get(
         "/planned-meals",
         params={"user_id": user_id, "start": "2025-01-02", "end": "2025-01-02"},
+        headers=headers,
     )
     assert listed.status_code == 200
     assert any(item["id"] == meal_id for item in listed.json())
 
-    updated = client.put(f"/planned-meals/{meal_id}", json={"calories": 650})
+    updated = client.put(f"/planned-meals/{meal_id}", json={"calories": 650}, headers=headers)
     assert updated.status_code == 200
     assert updated.json()["calories"] == 650
 
-    deleted = client.delete(f"/planned-meals/{meal_id}")
+    deleted = client.delete(f"/planned-meals/{meal_id}", headers=headers)
     assert deleted.status_code == 204
 
-    missing = client.get(f"/planned-meals/{meal_id}")
+    missing = client.get(f"/planned-meals/{meal_id}", headers=headers)
     assert missing.status_code == 404
 
 
 def test_weight_logs_and_user_weight_log_listing(client):
-    user_id = _create_user(client, email="weight@example.com")
+    user_id, headers = _create_user(client, email="weight@example.com")
 
     created = client.post(
         "/weight-logs/",
@@ -96,21 +105,22 @@ def test_weight_logs_and_user_weight_log_listing(client):
             "date": "2025-01-03",
             "notes": "Morning",
         },
+        headers=headers,
     )
     assert created.status_code == 201, created.text
     log_id = created.json()["id"]
 
-    listed = client.get("/weight-logs", params={"user_id": user_id})
+    listed = client.get("/weight-logs", params={"user_id": user_id}, headers=headers)
     assert listed.status_code == 200
     assert any(item["id"] == log_id for item in listed.json())
 
-    listed_via_user = client.get(f"/users/{user_id}/weight-logs")
+    listed_via_user = client.get(f"/users/{user_id}/weight-logs", headers=headers)
     assert listed_via_user.status_code == 200
     assert any(item["id"] == log_id for item in listed_via_user.json())
 
 
 def test_activity_logs_crud(client):
-    user_id = _create_user(client, email="activity@example.com")
+    user_id, headers = _create_user(client, email="activity@example.com")
 
     created = client.post(
         "/activity-logs/",
@@ -123,6 +133,7 @@ def test_activity_logs_crud(client):
             "type": "cardio",
             "time": "2025-01-04T10:00:00",
         },
+        headers=headers,
     )
     assert created.status_code == 201, created.text
     activity_id = created.json()["id"]
@@ -130,17 +141,17 @@ def test_activity_logs_crud(client):
     listed = client.get(
         "/activity-logs",
         params={"user_id": user_id, "start": "2025-01-04", "end": "2025-01-04"},
+        headers=headers,
     )
     assert listed.status_code == 200
     assert any(item["id"] == activity_id for item in listed.json())
 
-    updated = client.put(f"/activity-logs/{activity_id}", json={"duration": 45})
+    updated = client.put(f"/activity-logs/{activity_id}", json={"duration": 45}, headers=headers)
     assert updated.status_code == 200
     assert updated.json()["duration"] == 45
 
-    deleted = client.delete(f"/activity-logs/{activity_id}")
+    deleted = client.delete(f"/activity-logs/{activity_id}", headers=headers)
     assert deleted.status_code == 204
 
-    missing = client.get(f"/activity-logs/{activity_id}")
+    missing = client.get(f"/activity-logs/{activity_id}", headers=headers)
     assert missing.status_code == 404
-

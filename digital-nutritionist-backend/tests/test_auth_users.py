@@ -49,18 +49,20 @@ def test_signup_rejects_passwords_over_72_bytes(client):
 
 
 def test_users_crud_and_password_update_affects_login(client):
-    create = client.post("/users/", json=_signup_payload("user-crud@example.com", password="pw-123"))
+    create = client.post("/auth/signup", json=_signup_payload("user-crud@example.com", password="pw-123"))
     assert create.status_code == 201, create.text
-    user_id = create.json()["id"]
+    token = create.json()["access_token"]
+    user_id = create.json()["user"]["id"]
+    headers = {"Authorization": f"Bearer {token}"}
 
-    get_user = client.get(f"/users/{user_id}")
+    get_user = client.get(f"/users/{user_id}", headers=headers)
     assert get_user.status_code == 200
     assert get_user.json()["email"] == "user-crud@example.com"
 
     login_ok = client.post("/auth/login", json={"email": "user-crud@example.com", "password": "pw-123"})
     assert login_ok.status_code == 200
 
-    update = client.put(f"/users/{user_id}", json={"password": "new-pw"})
+    update = client.put(f"/users/{user_id}", json={"password": "new-pw"}, headers=headers)
     assert update.status_code == 200
 
     login_old = client.post("/auth/login", json={"email": "user-crud@example.com", "password": "pw-123"})
@@ -69,9 +71,8 @@ def test_users_crud_and_password_update_affects_login(client):
     login_new = client.post("/auth/login", json={"email": "user-crud@example.com", "password": "new-pw"})
     assert login_new.status_code == 200
 
-    delete = client.delete(f"/users/{user_id}")
+    delete = client.delete(f"/users/{user_id}", headers=headers)
     assert delete.status_code == 204
 
-    missing = client.get(f"/users/{user_id}")
-    assert missing.status_code == 404
-
+    login_deleted = client.post("/auth/login", json={"email": "user-crud@example.com", "password": "new-pw"})
+    assert login_deleted.status_code == 401

@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field, model_validator
 from sqlmodel import Session
 
+from ..deps import get_current_user
 from ..db import get_session
 from ..models import MealLogRead, PlannedMealRead, User, UserRead
 from ..services.chat import assistant_chat
@@ -49,19 +50,17 @@ class ChatResponse(BaseModel):
 
 @router.post("", response_model=ChatResponse)
 @router.post("/", response_model=ChatResponse, include_in_schema=False)
-def chat_endpoint(*, session: Session = Depends(get_session), payload: ChatRequest):
-    user_context = None
-    if payload.user_id:
-        user = session.get(User, payload.user_id)
-        if not user:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-        user_context = UserRead.model_validate(user, from_attributes=True).model_dump()
+def chat_endpoint(*, session: Session = Depends(get_session), payload: ChatRequest, current_user: User = Depends(get_current_user)):
+    if payload.user_id and str(payload.user_id) != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+    user_context = UserRead.model_validate(current_user, from_attributes=True).model_dump()
 
     result = assistant_chat(
         payload.message or "",
         user_context=user_context,
         session=session,
-        user_id=payload.user_id,
+        user_id=current_user.id,
         history=[turn.model_dump() for turn in payload.history] if payload.history else None,
         client_local_date=payload.client_local_date,
         client_time_zone=payload.client_time_zone,

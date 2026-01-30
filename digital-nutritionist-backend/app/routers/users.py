@@ -3,6 +3,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Path, status
 from sqlmodel import Session, select
 
+from ..deps import get_current_user
 from ..db import get_session
 from ..models import User, UserCreate, UserRead, UserUpdate, WeightLogRead
 from ..security import hash_password
@@ -11,7 +12,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 
 @router.post("/", response_model=UserRead, status_code=status.HTTP_201_CREATED)
-def create_user(*, session: Session = Depends(get_session), user: UserCreate):
+def create_user(*, session: Session = Depends(get_session), user: UserCreate, current_user: User = Depends(get_current_user)):
     existing = session.exec(select(User).where(User.email == user.email)).first()
     if existing:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
@@ -37,7 +38,14 @@ def create_user(*, session: Session = Depends(get_session), user: UserCreate):
 
 
 @router.get("/{user_id}", response_model=UserRead)
-def get_user(*, session: Session = Depends(get_session), user_id: str = Path(..., description="User ID")):
+def get_user(
+    *,
+    session: Session = Depends(get_session),
+    user_id: str = Path(..., description="User ID"),
+    current_user: User = Depends(get_current_user),
+):
+    if user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
     user = session.get(User, user_id)
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
@@ -45,7 +53,9 @@ def get_user(*, session: Session = Depends(get_session), user_id: str = Path(...
 
 
 @router.put("/{user_id}", response_model=UserRead)
-def update_user(*, session: Session = Depends(get_session), user_id: str, payload: UserUpdate):
+def update_user(*, session: Session = Depends(get_session), user_id: str, payload: UserUpdate, current_user: User = Depends(get_current_user)):
+    if user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
     user = session.get(User, user_id)
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
@@ -72,7 +82,9 @@ def update_user(*, session: Session = Depends(get_session), user_id: str, payloa
 
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_user(*, session: Session = Depends(get_session), user_id: str):
+def delete_user(*, session: Session = Depends(get_session), user_id: str, current_user: User = Depends(get_current_user)):
+    if user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
     user = session.get(User, user_id)
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
@@ -81,7 +93,9 @@ def delete_user(*, session: Session = Depends(get_session), user_id: str):
 
 
 @router.get("/{user_id}/weight-logs", response_model=list[WeightLogRead])
-def list_weight_logs(*, session: Session = Depends(get_session), user_id: str):
+def list_weight_logs(*, session: Session = Depends(get_session), user_id: str, current_user: User = Depends(get_current_user)):
+    if user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
     user = session.get(User, user_id)
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
