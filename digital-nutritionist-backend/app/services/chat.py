@@ -5,6 +5,7 @@ import re
 from datetime import date, datetime, timedelta
 from typing import Any
 
+from sqlalchemy import func
 from sqlmodel import Session, select
 
 from fastapi import HTTPException, status
@@ -46,6 +47,12 @@ SYSTEM_PROMPT = (
     "- If the user says “today/tomorrow”, interpret it relative to the user's local 'today' date.\n"
     "- Use the date the user specifies; otherwise use the user's local 'today' date.\n"
     "- Pick a reasonable time if none is given.\n"
+    "\n"
+    "If the user asks what they ate/drank on a given date/meal (e.g. “What was my breakfast today?”, "
+    "“How many calories did I have for lunch yesterday?”, “Summarize what I ate today”), you MUST call the "
+    "`get_meal_logs` tool to look up the saved meal logs.\n"
+    "- The database is the source of truth; do NOT rely on prior chat messages for what the user ate.\n"
+    "- If nothing is logged for that date/meal, say so and ask if they'd like to log it.\n"
     "\n"
     "If the user is asking for advice or planning guidance without wanting anything saved, do not call any tool.\n"
     "If the user requests a strict output format (e.g. “Return ONLY JSON”), obey it and do not call any tool.\n"
@@ -140,6 +147,30 @@ PLANNED_MEAL_TOOL: dict[str, Any] = {
                 },
             },
             "required": ["date", "meal_type", "name", "calories", "time"],
+        },
+    },
+}
+
+MEAL_LOOKUP_TOOL_NAME = "get_meal_logs"
+MEAL_LOOKUP_TOOL: dict[str, Any] = {
+    "type": "function",
+    "function": {
+        "name": MEAL_LOOKUP_TOOL_NAME,
+        "description": "Look up the current user's meal logs for a specific date (optionally filtered by meal type).",
+        "parameters": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "date": {
+                    "type": "string",
+                    "description": "Date to look up in ISO format (YYYY-MM-DD). Use today's date if not specified.",
+                },
+                "meal_type": {
+                    "type": ["string", "null"],
+                    "description": "Optional filter: one of breakfast, lunch, dinner, snack (or null for all meals).",
+                },
+            },
+            "required": ["date"],
         },
     },
 }
@@ -371,6 +402,50 @@ def _coerce_description(value: Any) -> str | None:
     text = re.sub(r"\s*\((?:replacing|previously logged).*\)\s*$", "", text, flags=re.IGNORECASE).strip()
     # Avoid extremely long blobs (e.g., full conversation)
     return text[:500]
+
+
+def _serialize_meal_log_for_tool(log: MealLog) -> dict[str, Any]:
+    return {
+        "id": log.id,
+        "date": log.date.isoformat(),
+        "meal_type": log.meal_type,
+        "user_description": log.user_description,
+        "estimated_calories": log.estimated_calories,
+        "protein_g": log.protein_g,
+        "carbs_g": log.carbs_g,
+        "fat_g": log.fat_g,
+        "created_at": log.created_at.isoformat() if log.created_at else None,
+        "updated_at": log.updated_at.isoformat() if log.updated_at else None,
+    }
+
+
+def _summarize_meal_logs_for_tool(logs: list[MealLog]) -> dict[str, Any]:
+    totals = {"estimated_calories": 0, "protein_g": 0.0, "carbs_g": 0.0, "fat_g": 0.0}
+    missing = {"estimated_calories": 0, "protein_g": 0, "carbs_g": 0, "fat_g": 0}
+
+    for log in logs:
+        if log.estimated_calories is None:
+            missing["estimated_calories"] += 1
+        else:
+            totals["estimated_calories"] += int(log.estimated_calories)
+
+        for key in ("protein_g", "carbs_g", "fat_g"):
+            value = getattr(log, key, None)
+            if value is None:
+                missing[key] += 1
+            else:
+                totals[key] += float(value)
+
+    totals["protein_g"] = round(totals["protein_g"], 1)
+    totals["carbs_g"] = round(totals["carbs_g"], 1)
+    totals["fat_g"] = round(totals["fat_g"], 1)
+
+    return {
+        "count": len(logs),
+        "totals": totals,
+        "missing": missing,
+        "meal_logs": [_serialize_meal_log_for_tool(log) for log in logs],
+    }
 
 def _default_time_for_meal_type(meal_type: str | None) -> str:
     match (meal_type or "").strip().lower():
@@ -622,7 +697,7 @@ def assistant_chat(
     lower_message = user_text.lower()
     has_explicit_iso_date = bool(re.search(r"\b\d{4}-\d{2}-\d{2}\b", user_text))
     force_no_tools = ("return only" in lower_message) and ("json" in lower_message)
-    tools = [MEAL_LOG_TOOL, PLANNED_MEAL_TOOL] if (enable_meal_logging and not force_no_tools) else None
+    tools = [MEAL_LOG_TOOL, PLANNED_MEAL_TOOL, MEAL_LOOKUP_TOOL] if (enable_meal_logging and not force_no_tools) else None
     looks_like_correction = _looks_like_meal_correction_message(user_text)
 
     try:
@@ -739,6 +814,59 @@ def assistant_chat(
                 )
             else:
                 tool_content = json.dumps({"ok": False, "error": "Invalid planned meal arguments"})
+        elif tool_name == MEAL_LOOKUP_TOOL_NAME:
+            if not session or not user_id:
+                tool_content = json.dumps({"ok": False, "error": "Meal lookup unavailable"})
+            else:
+                args_with_default = dict(args)
+                if default_date and not args_with_default.get("date"):
+                    args_with_default["date"] = default_date.isoformat()
+
+                if default_date and not has_explicit_iso_date and isinstance(args_with_default.get("date"), str):
+                    try:
+                        model_date = date.fromisoformat(args_with_default["date"])
+                        if "today" in lower_message and model_date == default_date + timedelta(days=1):
+                            args_with_default["date"] = default_date.isoformat()
+                        if "yesterday" in lower_message and model_date == default_date:
+                            args_with_default["date"] = (default_date - timedelta(days=1)).isoformat()
+                    except ValueError:
+                        pass
+
+                lookup_date = _coerce_date(args_with_default.get("date"), default=default_date)
+                lookup_meal_type = _normalize_meal_type(args_with_default.get("meal_type"))
+
+                query = (
+                    select(MealLog)
+                    .where(MealLog.user_id == user_id)
+                    .where(MealLog.date == lookup_date)
+                    .order_by(MealLog.created_at.asc())
+                )
+                if lookup_meal_type:
+                    query = query.where(func.lower(MealLog.meal_type) == lookup_meal_type)
+                logs = session.exec(query).all()
+
+                payload = {
+                    "ok": True,
+                    "date": lookup_date.isoformat(),
+                    "meal_type": lookup_meal_type,
+                    **_summarize_meal_logs_for_tool(logs),
+                }
+
+                # If the user asked about a specific meal type but none are tagged, return untyped logs
+                # for the same date so the assistant can ask a clarifying question.
+                if lookup_meal_type and not logs:
+                    untyped_query = (
+                        select(MealLog)
+                        .where(MealLog.user_id == user_id)
+                        .where(MealLog.date == lookup_date)
+                        .where((MealLog.meal_type.is_(None)) | (func.trim(MealLog.meal_type) == ""))
+                        .order_by(MealLog.created_at.asc())
+                    )
+                    untyped_logs = session.exec(untyped_query).all()
+                    if untyped_logs:
+                        payload["untyped_meal_logs"] = [_serialize_meal_log_for_tool(log) for log in untyped_logs]
+
+                tool_content = json.dumps(payload)
         else:
             continue
 
