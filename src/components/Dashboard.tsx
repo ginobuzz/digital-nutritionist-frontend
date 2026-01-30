@@ -801,6 +801,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                     if (describeReply) setDescribeReply(null);
                     if (logError) setLogError(null);
                   }}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Enter' || event.shiftKey) return;
+                    if (event.nativeEvent.isComposing) return;
+                    event.preventDefault();
+                    if (sendingDescribeLog || logBusy || describeVoiceListening) return;
+                    void handleDescribeMealLog();
+                  }}
                   multiline
                   minRows={3}
                   disabled={logBusy || describeVoiceListening}

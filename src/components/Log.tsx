@@ -1605,6 +1605,13 @@ const Log: React.FC<LogProps> = ({ user }) => {
                     if (describeReply) setDescribeReply(null);
                     if (logError) setLogError(null);
                   }}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Enter' || event.shiftKey) return;
+                    if (event.nativeEvent.isComposing) return;
+                    event.preventDefault();
+                    if (sendingDescribeLog || dialogBusy || logVoiceListening) return;
+                    void handleDescribeMealLog();
+                  }}
                   multiline
                   minRows={3}
                   disabled={dialogBusy || logVoiceListening}
