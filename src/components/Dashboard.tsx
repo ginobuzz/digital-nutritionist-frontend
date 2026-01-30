@@ -66,10 +66,25 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   const [dayEntries, setDayEntries] = useState<DayEntry[]>([]);
   const [actualCaloriesByDate, setActualCaloriesByDate] = useState<Record<string, number>>({});
   const [plannedCaloriesByDate, setPlannedCaloriesByDate] = useState<Record<string, number>>({});
+  const [macroTotalsByDate, setMacroTotalsByDate] = useState<
+    Record<
+      string,
+      {
+        protein: number;
+        carbs: number;
+        fat: number;
+        mealsWithAnyMacros: number;
+        mealsTotal: number;
+      }
+    >
+  >({});
   const [logMode, setLogMode] = useState<'quick' | 'describe'>('describe');
   const [logForm, setLogForm] = useState({
     description: '',
     calories: '',
+    protein: '',
+    carbs: '',
+    fat: '',
   });
   const [mealType, setMealType] = useState<MealType>('');
   const [describeInput, setDescribeInput] = useState('');
@@ -177,10 +192,33 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       ]);
 
       const nextActualByDate: Record<string, number> = {};
+      const nextMacrosByDate: Record<
+        string,
+        { protein: number; carbs: number; fat: number; mealsWithAnyMacros: number; mealsTotal: number }
+      > = {};
       for (const log of logs) {
         const key = log.date; // YYYY-MM-DD
         const cals = Number(log.estimated_calories || 0);
         nextActualByDate[key] = (nextActualByDate[key] || 0) + cals;
+
+        const protein = typeof log.protein_g === 'number' ? log.protein_g : 0;
+        const carbs = typeof log.carbs_g === 'number' ? log.carbs_g : 0;
+        const fat = typeof log.fat_g === 'number' ? log.fat_g : 0;
+        const hasAnyMacros =
+          typeof log.protein_g === 'number' || typeof log.carbs_g === 'number' || typeof log.fat_g === 'number';
+        const entry = nextMacrosByDate[key] || {
+          protein: 0,
+          carbs: 0,
+          fat: 0,
+          mealsWithAnyMacros: 0,
+          mealsTotal: 0,
+        };
+        entry.protein += protein;
+        entry.carbs += carbs;
+        entry.fat += fat;
+        entry.mealsTotal += 1;
+        if (hasAnyMacros) entry.mealsWithAnyMacros += 1;
+        nextMacrosByDate[key] = entry;
       }
 
       const nextPlannedByDate: Record<string, number> = {};
@@ -207,6 +245,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
 
       setActualCaloriesByDate(nextActualByDate);
       setPlannedCaloriesByDate(nextPlannedByDate);
+      setMacroTotalsByDate(nextMacrosByDate);
       setDayEntries(entries);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -228,6 +267,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   const isSelectedPast = isBefore(selectedDay, today);
   const isSelectedToday = isSameDay(selectedDay, today);
   const isSelectedFuture = false;
+  const selectedMacros = macroTotalsByDate[selectedKey];
+  const hasSelectedMacros = Boolean(selectedMacros && selectedMacros.mealsWithAnyMacros > 0);
+  const selectedMealsMissingMacros = selectedMacros
+    ? Math.max(0, selectedMacros.mealsTotal - selectedMacros.mealsWithAnyMacros)
+    : 0;
 
   const selectedActualCalories = Math.round(actualCaloriesByDate[selectedKey] || 0);
   const selectedPlannedCalories = Math.round(plannedCaloriesByDate[selectedKey] || 0);
@@ -293,7 +337,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       : <CheckRoundedIcon fontSize="small" />;
   };
 
-  const handleLogInputChange = (field: 'description' | 'calories', value: string) => {
+  const handleLogInputChange = (field: 'description' | 'calories' | 'protein' | 'carbs' | 'fat', value: string) => {
     setLogForm(prev => ({ ...prev, [field]: value }));
   };
 
@@ -315,6 +359,27 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       return;
     }
 
+    const parseOptionalMacroGrams = (raw: string, label: string): number | null => {
+      const trimmed = raw.trim();
+      if (!trimmed) return null;
+      const value = Number(trimmed);
+      if (!Number.isFinite(value)) throw new Error(`${label} must be a number.`);
+      return Math.max(0, Math.min(500, value));
+    };
+
+    let protein: number | null;
+    let carbs: number | null;
+    let fat: number | null;
+    try {
+      protein = parseOptionalMacroGrams(logForm.protein, 'Protein');
+      carbs = parseOptionalMacroGrams(logForm.carbs, 'Carbs');
+      fat = parseOptionalMacroGrams(logForm.fat, 'Fat');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Invalid macro values.';
+      setLogError(message);
+      return;
+    }
+
     try {
       setSavingQuickLog(true);
       setLogError(null);
@@ -325,10 +390,16 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
         user_description: logForm.description.trim(),
         meal_type: mealType || null,
         estimated_calories: Number(logForm.calories),
+        protein_g: protein,
+        carbs_g: carbs,
+        fat_g: fat,
       });
       setLogForm({
         description: '',
         calories: '',
+        protein: '',
+        carbs: '',
+        fat: '',
       });
       setMealType('');
       await fetchData();
@@ -359,6 +430,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
         ...(mealType ? [`Meal type: ${mealType}.`] : []),
         describeImageDataUrl ? `A meal photo is attached. Use it to identify foods and portions.` : null,
         `If details are missing, make reasonable assumptions and estimate calories (integer) rather than asking follow-up questions.`,
+        `Also estimate macros in grams (protein, carbs, fat).`,
         ``,
         describeInput.trim() || '(No additional text — use the meal photo.)',
       ].join('\n');
@@ -461,6 +533,36 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
               },
             }}
           />
+
+          <Box
+            sx={{
+              mt: 1.5,
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+              gap: 1.5,
+            }}
+          >
+            {[
+              { label: 'Protein', value: hasSelectedMacros ? `${Math.round(selectedMacros?.protein || 0)}g` : '—' },
+              { label: 'Carbs', value: hasSelectedMacros ? `${Math.round(selectedMacros?.carbs || 0)}g` : '—' },
+              { label: 'Fat', value: hasSelectedMacros ? `${Math.round(selectedMacros?.fat || 0)}g` : '—' },
+            ].map((item) => (
+              <Box key={item.label} sx={{ minWidth: 0 }}>
+                <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 800 }}>
+                  {item.label}
+                </Typography>
+                <Typography variant="subtitle1" sx={{ fontWeight: 900, lineHeight: 1.2 }}>
+                  {item.value}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+
+          {selectedMealsMissingMacros > 0 && (
+            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 1 }}>
+              {selectedMealsMissingMacros} meal{selectedMealsMissingMacros === 1 ? '' : 's'} missing macros
+            </Typography>
+          )}
 
           {showRebalanceNotice && (
             <Box sx={{ mt: 1.25, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
@@ -594,6 +696,35 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                 onChange={(event) => handleLogInputChange('calories', event.target.value)}
                 disabled={logBusy}
               />
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
+                <TextField
+                  margin="dense"
+                  label="Protein (g)"
+                  type="number"
+                  inputProps={{ min: 0, step: 1 }}
+                  value={logForm.protein}
+                  onChange={(event) => handleLogInputChange('protein', event.target.value)}
+                  disabled={logBusy}
+                />
+                <TextField
+                  margin="dense"
+                  label="Carbs (g)"
+                  type="number"
+                  inputProps={{ min: 0, step: 1 }}
+                  value={logForm.carbs}
+                  onChange={(event) => handleLogInputChange('carbs', event.target.value)}
+                  disabled={logBusy}
+                />
+                <TextField
+                  margin="dense"
+                  label="Fat (g)"
+                  type="number"
+                  inputProps={{ min: 0, step: 1 }}
+                  value={logForm.fat}
+                  onChange={(event) => handleLogInputChange('fat', event.target.value)}
+                  disabled={logBusy}
+                />
+              </Box>
             </>
           ) : (
             <>

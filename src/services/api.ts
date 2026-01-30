@@ -66,6 +66,9 @@ export interface MealLogResponse {
   meal_type?: string | null;
   user_description: string;
   estimated_calories?: number | null;
+  protein_g?: number | null;
+  carbs_g?: number | null;
+  fat_g?: number | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -76,6 +79,9 @@ export interface CreateMealLogRequest {
   user_description: string;
   meal_type?: string | null;
   estimated_calories?: number | null;
+  protein_g?: number | null;
+  carbs_g?: number | null;
+  fat_g?: number | null;
   // Optional time-of-day for UI logging; stored in backend `created_at`.
   time?: string;
 }

@@ -1,5 +1,6 @@
 from collections.abc import Iterator
 
+from sqlalchemy import inspect, text
 from sqlalchemy.engine.url import URL, make_url
 from sqlalchemy.pool import NullPool
 from sqlmodel import Session, SQLModel, create_engine
@@ -33,9 +34,33 @@ elif "pooler" in (database_url.host or ""):
 
 engine = create_engine(database_url, **engine_kwargs)
 
+def _ensure_meal_log_macro_columns() -> None:
+    try:
+        inspector = inspect(engine)
+        if not inspector.has_table("meal_logs"):
+            return
+        existing = {col.get("name") for col in inspector.get_columns("meal_logs")}
+    except Exception:
+        return
+
+    ddls: dict[str, str] = {
+        "protein_g": "protein_g FLOAT",
+        "carbs_g": "carbs_g FLOAT",
+        "fat_g": "fat_g FLOAT",
+    }
+
+    missing_ddls = [ddl for name, ddl in ddls.items() if name not in existing]
+    if not missing_ddls:
+        return
+
+    with engine.begin() as conn:
+        for ddl in missing_ddls:
+            conn.execute(text(f"ALTER TABLE meal_logs ADD COLUMN {ddl}"))
+
 
 def init_db() -> None:
     SQLModel.metadata.create_all(engine)
+    _ensure_meal_log_macro_columns()
 
 
 def get_session() -> Iterator[Session]:

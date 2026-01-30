@@ -21,6 +21,9 @@ def create_meal_log(*, session: Session = Depends(get_session), payload: MealLog
         user_description=payload.user_description,
         meal_type=payload.meal_type,
         estimated_calories=payload.estimated_calories,
+        protein_g=payload.protein_g,
+        carbs_g=payload.carbs_g,
+        fat_g=payload.fat_g,
     )
     if payload.time:
         log.created_at = payload.time
