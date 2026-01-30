@@ -15,13 +15,14 @@ import {
   Radio,
   RadioGroup,
   IconButton,
+  Tooltip,
   useTheme,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
-import LockRoundedIcon from '@mui/icons-material/LockRounded';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import TodayRoundedIcon from '@mui/icons-material/TodayRounded';
 import PhotoCameraRoundedIcon from '@mui/icons-material/PhotoCameraRounded';
 import MicRoundedIcon from '@mui/icons-material/MicRounded';
@@ -232,7 +233,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
         const date = addDays(weekStart, idx);
         const key = toIsoDate(date);
         const kind: DayKind = isSameDay(date, today) ? 'today' : isBefore(date, today) ? 'past' : 'future';
-        const label = format(date, 'EEEE');
+        const label = format(date, 'EEEE M/d');
         return {
           key,
           date,
@@ -305,7 +306,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
     if (entry.kind === 'future') return theme.palette.info.main;
     if (entry.kind === 'past') {
       const hasLogged = entry.actualCalories > 0;
-      if (!hasLogged) return theme.palette.grey[600];
+      if (!hasLogged) return theme.palette.grey[500];
       const isOver = entry.actualCalories > targetCalories;
       return alpha(isOver ? theme.palette.error.main : theme.palette.success.main, 0.75);
     }
@@ -316,7 +317,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   const getDayChipLabel = (entry: DayEntry, targetCalories: number) => {
     if (entry.kind === 'past') {
       const hasLogged = entry.actualCalories > 0;
-      if (!hasLogged) return 'No Log';
+      if (!hasLogged) return 'Log';
       return entry.actualCalories > targetCalories ? 'Over Budget' : 'Under Budget';
     }
     if (entry.kind === 'future') return entry.plannedCalories > 0 ? 'Planned' : 'Plan';
@@ -326,7 +327,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   const getDayIcon = (entry: DayEntry, targetCalories: number) => {
     if (entry.kind === 'past') {
       const hasLogged = entry.actualCalories > 0;
-      if (!hasLogged) return <LockRoundedIcon fontSize="small" />;
+      if (!hasLogged) return <AddRoundedIcon fontSize="small" />;
       return entry.actualCalories > targetCalories
         ? <CloseRoundedIcon fontSize="small" />
         : <CheckRoundedIcon fontSize="small" />;
@@ -352,6 +353,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   if (loading) {
     return <LinearProgress />;
   }
+
+  const hasUnloggedPastDays = dayEntries.some((entry) => entry.kind === 'past' && entry.actualCalories <= 0);
 
   const handleSaveMealLog = async () => {
     if (!logForm.description.trim() || !logForm.calories.trim()) {
@@ -504,7 +507,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
               </Typography>
               <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
                 {isSelectedPast
-                  ? 'Past day (locked)'
+                  ? 'Past day — you can still log meals'
                   : isSelectedFuture
                     ? `${Math.max(0, Math.round(selectedTargetCalories - selectedDisplayedCalories))} kcal available to plan`
                     : selectedDisplayedCalories > selectedTargetCalories
@@ -872,11 +875,37 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
         </CardContent>
       </Card>
 
-      {/* Days */}
+      {/* This Week */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-        <Typography variant="h6" sx={{ color: 'text.secondary', px: 0.5 }}>
-          Days
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 0.5 }}>
+          <Typography variant="h6" sx={{ color: 'text.secondary' }}>
+            This Week
+          </Typography>
+          <Tooltip
+            arrow
+            placement="top"
+            title={
+              <Box sx={{ maxWidth: 320 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+                  Why a fixed week?
+                </Typography>
+                <Typography variant="body2">
+                  We always show a full Sunday–Saturday week so you can plan at a glance.
+                  If one day runs higher or lower, the remaining days’ calorie targets automatically rebalance so you still hit your weekly goal.
+                </Typography>
+              </Box>
+            }
+          >
+            <IconButton size="small" aria-label="About this week view" sx={{ color: 'text.secondary' }}>
+              <InfoOutlinedIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+        {hasUnloggedPastDays && (
+          <Typography variant="caption" sx={{ color: 'text.secondary', px: 0.5, mt: -0.75 }}>
+            Missed a day? Tap any earlier day to log meals.
+          </Typography>
+        )}
         {dayEntries.map((entry) => {
           const targetCalories = dynamicTargetsByDate[entry.key] ?? baseDailyTarget;
           const color = getDayColor(entry, targetCalories);
@@ -901,7 +930,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
           const subtitleWithAdjustment =
             entry.kind === 'future' ? `${subtitle}${adjustmentText}` : subtitle;
           const pastMeta =
-            entry.kind === 'past' && !hasLogged && entry.plannedCalories > 0 ? ' (planned, not logged)' : '';
+            entry.kind === 'past' && !hasLogged
+              ? entry.plannedCalories > 0
+                ? ' • Not logged yet'
+                : ' • Tap to log'
+              : '';
           return (
             <Card
               key={entry.key}
@@ -916,6 +949,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                 boxShadow: isSelected ? `0 14px 40px ${alpha(color, 0.24)}` : 'none',
                 transform: isSelected ? 'translateY(-2px) scale(1.01)' : 'none',
                 transition: 'border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease, transform 180ms ease',
+                '&:hover': {
+                  borderColor: alpha(color, isSelected ? 0.9 : 0.55),
+                  backgroundColor: alpha(color, isSelected ? 0.18 : 0.09),
+                },
                 '&::before': isSelected
                   ? {
                       content: '""',
