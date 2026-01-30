@@ -31,6 +31,9 @@ export interface PlannedMeal extends Meal {
 export interface ActualMeal extends Meal {
   isPlanned: false;
   actualCalories?: number;
+  proteinGrams?: number;
+  carbsGrams?: number;
+  fatGrams?: number;
   notes?: string;
 }
 

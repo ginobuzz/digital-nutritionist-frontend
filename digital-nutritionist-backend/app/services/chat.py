@@ -35,6 +35,7 @@ SYSTEM_PROMPT = (
     "- Set `meal_type` to one of: breakfast, lunch, dinner, snack (or omit if unknown).\n"
     "- `user_description` should be ONLY a concise description of what they consumed (no meta commentary).\n"
     "- `estimated_calories` should be an integer; if the user gives calories, use them; otherwise broadly estimate.\n"
+    "- Also estimate macros in grams when possible: `protein_g`, `carbs_g`, `fat_g` (numbers; broad estimates are fine).\n"
     "- If the message is too ambiguous to log (no food/drink details), ask a clarifying question instead of logging.\n"
     "- If the user is correcting a previous meal log (e.g., “wait no it was …”), call `create_meal_log` with "
     "`replace_previous: true` so the most recent entry for that date is updated instead of creating a duplicate.\n"
@@ -76,6 +77,18 @@ MEAL_LOG_TOOL: dict[str, Any] = {
                 "estimated_calories": {
                     "type": "integer",
                     "description": "Estimated calories for this meal (integer).",
+                },
+                "protein_g": {
+                    "type": ["number", "null"],
+                    "description": "Estimated protein in grams (number) or null if unknown.",
+                },
+                "carbs_g": {
+                    "type": ["number", "null"],
+                    "description": "Estimated carbs in grams (number) or null if unknown.",
+                },
+                "fat_g": {
+                    "type": ["number", "null"],
+                    "description": "Estimated fat in grams (number) or null if unknown.",
                 },
                 "replace_previous": {
                     "type": "boolean",
@@ -336,6 +349,18 @@ def _coerce_calories(value: Any) -> int | None:
     return calories_int
 
 
+def _coerce_macro_grams(value: Any) -> float | None:
+    try:
+        grams = float(value)
+    except (TypeError, ValueError):
+        return None
+    if grams < 0:
+        return 0.0
+    if grams > 500:
+        return 500.0
+    return round(grams, 1)
+
+
 def _coerce_description(value: Any) -> str | None:
     if not isinstance(value, str):
         return None
@@ -428,6 +453,11 @@ def _create_meal_log_from_args(session: Session, user_id: str, args: dict[str, A
     meal_date = _coerce_date(args.get("date"))
     meal_type = _normalize_meal_type(args.get("meal_type"))
 
+    macro_updates: dict[str, float | None] = {}
+    for key in ("protein_g", "carbs_g", "fat_g"):
+        if key in args:
+            macro_updates[key] = _coerce_macro_grams(args.get(key))
+
     replace_meal_log_id = args.get("replace_meal_log_id")
     if isinstance(replace_meal_log_id, str):
         replace_meal_log_id = replace_meal_log_id.strip() or None
@@ -444,6 +474,8 @@ def _create_meal_log_from_args(session: Session, user_id: str, args: dict[str, A
         target.meal_type = meal_type
         target.user_description = description
         target.estimated_calories = calories
+        for key, value in macro_updates.items():
+            setattr(target, key, value)
         target.updated_at = datetime.utcnow()
         session.add(target)
         return target
@@ -467,6 +499,7 @@ def _create_meal_log_from_args(session: Session, user_id: str, args: dict[str, A
         meal_type=meal_type,
         user_description=description,
         estimated_calories=calories,
+        **macro_updates,
     )
     session.add(log)
     return log
@@ -664,6 +697,9 @@ def assistant_chat(
                         "meal_type": log.meal_type,
                         "user_description": log.user_description,
                         "estimated_calories": log.estimated_calories,
+                        "protein_g": log.protein_g,
+                        "carbs_g": log.carbs_g,
+                        "fat_g": log.fat_g,
                     }
                 )
             else:

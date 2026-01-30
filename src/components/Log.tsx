@@ -100,6 +100,9 @@ const mapMealLogToActualMeal = (log: MealLogResponse): ActualMeal => {
     name: userDescription,
     calories,
     actualCalories: calories || undefined,
+    proteinGrams: typeof log.protein_g === 'number' ? log.protein_g : undefined,
+    carbsGrams: typeof log.carbs_g === 'number' ? log.carbs_g : undefined,
+    fatGrams: typeof log.fat_g === 'number' ? log.fat_g : undefined,
     type: normalizeMealType(log.meal_type),
     time: createdAt,
     isPlanned: false,
@@ -137,6 +140,9 @@ const Log: React.FC<LogProps> = ({ user }) => {
     description: '',
     calories: '',
     mealType: 'lunch',
+    protein: '',
+    carbs: '',
+    fat: '',
   });
   const [describeInput, setDescribeInput] = useState('');
   const [describeReply, setDescribeReply] = useState<string | null>(null);
@@ -169,6 +175,9 @@ const Log: React.FC<LogProps> = ({ user }) => {
   const [mealFormData, setMealFormData] = useState({
     name: '',
     calories: '',
+    protein: '',
+    carbs: '',
+    fat: '',
     type: 'breakfast' as PlannedMeal['type'] | ActualMeal['type'],
     description: '',
     time: '',
@@ -356,6 +365,9 @@ const Log: React.FC<LogProps> = ({ user }) => {
       description: '',
       calories: '',
       mealType: 'lunch',
+      protein: '',
+      carbs: '',
+      fat: '',
     });
     setDescribeInput('');
     setLogDialogOpen(true);
@@ -397,7 +409,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
     }
   };
 
-  const handleLogInputChange = (field: 'description' | 'calories' | 'mealType', value: string) => {
+  const handleLogInputChange = (field: 'description' | 'calories' | 'mealType' | 'protein' | 'carbs' | 'fat', value: string) => {
     setLogForm(prev => ({ ...prev, [field]: value }));
   };
 
@@ -411,6 +423,27 @@ const Log: React.FC<LogProps> = ({ user }) => {
       return;
     }
 
+    const parseOptionalMacroGrams = (raw: string, label: string): number | null => {
+      const trimmed = raw.trim();
+      if (!trimmed) return null;
+      const value = Number(trimmed);
+      if (!Number.isFinite(value)) throw new Error(`${label} must be a number.`);
+      return Math.max(0, Math.min(500, value));
+    };
+
+    let protein: number | null;
+    let carbs: number | null;
+    let fat: number | null;
+    try {
+      protein = parseOptionalMacroGrams(logForm.protein, 'Protein');
+      carbs = parseOptionalMacroGrams(logForm.carbs, 'Carbs');
+      fat = parseOptionalMacroGrams(logForm.fat, 'Fat');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Invalid macro values.';
+      setLogError(message);
+      return;
+    }
+
     try {
       setSavingQuickLog(true);
       setLogError(null);
@@ -420,12 +453,18 @@ const Log: React.FC<LogProps> = ({ user }) => {
         user_description: logForm.description.trim(),
         meal_type: logForm.mealType || null,
         estimated_calories: Number(logForm.calories),
+        protein_g: protein,
+        carbs_g: carbs,
+        fat_g: fat,
       });
       setLogDialogOpen(false);
       setLogForm({
         description: '',
         calories: '',
         mealType: 'lunch',
+        protein: '',
+        carbs: '',
+        fat: '',
       });
       await fetchLogData();
     } catch (error) {
@@ -500,6 +539,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
         `Please log what I consumed on ${selectedKey}.`,
         describeImageDataUrl ? `A meal photo is attached. Use it to identify foods and portions.` : null,
         `If details are missing, make reasonable assumptions and estimate calories (integer) rather than asking follow-up questions.`,
+        `Also estimate macros in grams (protein, carbs, fat).`,
         ``,
         describeInput.trim() || '(No additional text — use the meal photo.)',
       ].join('\n');
@@ -616,9 +656,17 @@ const Log: React.FC<LogProps> = ({ user }) => {
   const handleEditMeal = (meal: PlannedMeal | ActualMeal) => {
     setEditingMeal(meal);
     setIsEditingPlanned(meal.isPlanned);
+    const macros = meal.isPlanned
+      ? { protein: '', carbs: '', fat: '' }
+      : {
+          protein: (meal as ActualMeal).proteinGrams?.toString() || '',
+          carbs: (meal as ActualMeal).carbsGrams?.toString() || '',
+          fat: (meal as ActualMeal).fatGrams?.toString() || '',
+        };
     setMealFormData({
       name: meal.name,
       calories: (meal as ActualMeal).actualCalories?.toString() || meal.calories.toString(),
+      ...macros,
       type: meal.type,
       description: meal.description || '',
       time: new Date(meal.time).toLocaleTimeString('en-US', { 
@@ -666,6 +714,13 @@ const Log: React.FC<LogProps> = ({ user }) => {
         const isoDate = toIsoDate(selectedDate);
         const time = new Date(`${isoDate}T${mealFormData.time}:00`);
         const calories = parseInt(mealFormData.calories, 10);
+        const parseOptionalMacroGrams = (raw: string): number | null => {
+          const trimmed = raw.trim();
+          if (!trimmed) return null;
+          const value = Number(trimmed);
+          if (!Number.isFinite(value)) return null;
+          return Math.max(0, Math.min(500, value));
+        };
 
         if (mealFormData.isPlanned) {
           const payload = {
@@ -687,12 +742,18 @@ const Log: React.FC<LogProps> = ({ user }) => {
             ? `${mealFormData.name} - ${mealFormData.description}`
             : mealFormData.name;
           const userDescription = mealFormData.notes ? `${baseDescription} (Note: ${mealFormData.notes})` : baseDescription;
+          const protein = parseOptionalMacroGrams(mealFormData.protein);
+          const carbs = parseOptionalMacroGrams(mealFormData.carbs);
+          const fat = parseOptionalMacroGrams(mealFormData.fat);
           const payload = {
             user_id: user.id,
             date: isoDate,
             user_description: userDescription,
             meal_type: mealFormData.type,
             estimated_calories: calories,
+            protein_g: protein,
+            carbs_g: carbs,
+            fat_g: fat,
             time: time.toISOString(),
           };
           if (editingMeal && !editingMeal.isPlanned) {
@@ -727,6 +788,19 @@ const Log: React.FC<LogProps> = ({ user }) => {
 
   const totalPlannedCalories = plannedMeals.reduce((sum, meal) => sum + meal.calories, 0);
   const totalActualCalories = actualMeals.reduce((sum, meal) => sum + (meal.actualCalories || meal.calories), 0);
+  const macroTotals = actualMeals.reduce(
+    (totals, meal) => ({
+      protein: totals.protein + (meal.proteinGrams || 0),
+      carbs: totals.carbs + (meal.carbsGrams || 0),
+      fat: totals.fat + (meal.fatGrams || 0),
+    }),
+    { protein: 0, carbs: 0, fat: 0 }
+  );
+  const mealsWithAnyMacros = actualMeals.filter(
+    (meal) => meal.proteinGrams != null || meal.carbsGrams != null || meal.fatGrams != null
+  ).length;
+  const mealsMissingMacros = Math.max(0, actualMeals.length - mealsWithAnyMacros);
+  const hasAnyMacros = mealsWithAnyMacros > 0;
 
   const isToday = selectedDate.toDateString() === new Date().toDateString();
   const isPast = selectedDate < new Date(new Date().setHours(0, 0, 0, 0));
@@ -865,6 +939,45 @@ const Log: React.FC<LogProps> = ({ user }) => {
               )}
             </CardContent>
           </Card>
+
+          {!isFuture && (
+            <Card sx={{ flex: 1 }}>
+              <CardContent sx={{ p: 2.5 }}>
+                <Typography variant="overline" sx={{ color: 'text.secondary', lineHeight: 1 }}>
+                  Macros
+                </Typography>
+                <Box
+                  sx={{
+                    mt: 1,
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                    gap: 1.5,
+                  }}
+                >
+                  {[
+                    { label: 'Protein', value: hasAnyMacros ? `${Math.round(macroTotals.protein)}g` : '—' },
+                    { label: 'Carbs', value: hasAnyMacros ? `${Math.round(macroTotals.carbs)}g` : '—' },
+                    { label: 'Fat', value: hasAnyMacros ? `${Math.round(macroTotals.fat)}g` : '—' },
+                  ].map((item) => (
+                    <Box key={item.label} sx={{ minWidth: 0 }}>
+                      <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 800 }}>
+                        {item.label}
+                      </Typography>
+                      <Typography variant="h6" sx={{ lineHeight: 1.2 }}>
+                        {item.value}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+
+                {mealsMissingMacros > 0 && (
+                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 1 }}>
+                    {mealsMissingMacros} meal{mealsMissingMacros === 1 ? '' : 's'} missing macros
+                  </Typography>
+                )}
+              </CardContent>
+            </Card>
+          )}
           
           {isFuture && (
             <Card sx={{ flex: 1 }}>
@@ -1010,6 +1123,27 @@ const Log: React.FC<LogProps> = ({ user }) => {
                             <Typography variant="body2" color="text.secondary">
                               {Math.round((meal as ActualMeal).actualCalories || meal.calories)} calories
                             </Typography>
+                            {!meal.isPlanned &&
+                              (((meal as ActualMeal).proteinGrams != null) ||
+                                ((meal as ActualMeal).carbsGrams != null) ||
+                                ((meal as ActualMeal).fatGrams != null)) && (
+                                <Typography variant="body2" color="text.secondary">
+                                  Macros:{' '}
+                                  {`P ${
+                                    (meal as ActualMeal).proteinGrams != null
+                                      ? `${Math.round((meal as ActualMeal).proteinGrams!)}g`
+                                      : '—'
+                                  } • C ${
+                                    (meal as ActualMeal).carbsGrams != null
+                                      ? `${Math.round((meal as ActualMeal).carbsGrams!)}g`
+                                      : '—'
+                                  } • F ${
+                                    (meal as ActualMeal).fatGrams != null
+                                      ? `${Math.round((meal as ActualMeal).fatGrams!)}g`
+                                      : '—'
+                                  }`}
+                                </Typography>
+                              )}
                             {meal.description && (
                               <Typography
                                 variant="body2"
@@ -1094,6 +1228,35 @@ const Log: React.FC<LogProps> = ({ user }) => {
                 fullWidth
                 required
               />
+
+              {!isEditingPlanned && (
+                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
+                  <TextField
+                    label="Protein (g)"
+                    type="number"
+                    inputProps={{ min: 0, step: 1 }}
+                    value={mealFormData.protein}
+                    onChange={(e) => setMealFormData(prev => ({ ...prev, protein: e.target.value }))}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Carbs (g)"
+                    type="number"
+                    inputProps={{ min: 0, step: 1 }}
+                    value={mealFormData.carbs}
+                    onChange={(e) => setMealFormData(prev => ({ ...prev, carbs: e.target.value }))}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Fat (g)"
+                    type="number"
+                    inputProps={{ min: 0, step: 1 }}
+                    value={mealFormData.fat}
+                    onChange={(e) => setMealFormData(prev => ({ ...prev, fat: e.target.value }))}
+                    fullWidth
+                  />
+                </Box>
+              )}
               
               <FormControl fullWidth>
                 <InputLabel>Meal Type</InputLabel>
@@ -1376,6 +1539,35 @@ const Log: React.FC<LogProps> = ({ user }) => {
                   onChange={(event) => handleLogInputChange('calories', event.target.value)}
                   disabled={dialogBusy}
                 />
+                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
+                  <TextField
+                    margin="dense"
+                    label="Protein (g)"
+                    type="number"
+                    inputProps={{ min: 0, step: 1 }}
+                    value={logForm.protein}
+                    onChange={(event) => handleLogInputChange('protein', event.target.value)}
+                    disabled={dialogBusy}
+                  />
+                  <TextField
+                    margin="dense"
+                    label="Carbs (g)"
+                    type="number"
+                    inputProps={{ min: 0, step: 1 }}
+                    value={logForm.carbs}
+                    onChange={(event) => handleLogInputChange('carbs', event.target.value)}
+                    disabled={dialogBusy}
+                  />
+                  <TextField
+                    margin="dense"
+                    label="Fat (g)"
+                    type="number"
+                    inputProps={{ min: 0, step: 1 }}
+                    value={logForm.fat}
+                    onChange={(event) => handleLogInputChange('fat', event.target.value)}
+                    disabled={dialogBusy}
+                  />
+                </Box>
                 <TextField
                   select
                   fullWidth

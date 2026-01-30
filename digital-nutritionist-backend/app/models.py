@@ -35,6 +35,9 @@ class MealLogBase(SQLModel):
     user_description: str
     meal_type: Optional[str] = None
     estimated_calories: Optional[int] = None
+    protein_g: Optional[float] = None
+    carbs_g: Optional[float] = None
+    fat_g: Optional[float] = None
 
 
 class MealLog(MealLogBase, table=True):
@@ -58,6 +61,9 @@ class MealLogUpdate(SQLModel):
     user_description: Optional[str] = None
     meal_type: Optional[str] = None
     estimated_calories: Optional[int] = None
+    protein_g: Optional[float] = None
+    carbs_g: Optional[float] = None
+    fat_g: Optional[float] = None
     # Optional time-of-day for UI updates; stored in `MealLog.created_at`.
     time: Optional[datetime] = None
 
