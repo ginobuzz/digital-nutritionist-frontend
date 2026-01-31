@@ -1738,7 +1738,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
                 onClick={handleDescribeMealLog}
                 disabled={dialogBusy || logVoiceListening || !(describeInput.trim() || describeImageDataUrl)}
               >
-                {sendingDescribeLog ? 'Sending...' : 'Send to AI'}
+                {sendingDescribeLog ? 'Sending...' : 'Send'}
               </Button>
             )}
           </DialogActions>
