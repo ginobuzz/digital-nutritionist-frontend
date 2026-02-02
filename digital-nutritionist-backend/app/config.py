@@ -3,6 +3,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    # Set to "beta"/"staging"/"production" on hosted deployments.
+    app_env: str = "development"
     database_url: str = "sqlite:///./app.db"
     openai_api_key: str | None = None
     openai_model: str = "gpt-5.1"

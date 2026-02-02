@@ -19,6 +19,7 @@ describe('apiService (request behavior)', () => {
   beforeEach(() => {
     (global as any).fetch = jest.fn();
     apiService.setAuthToken(null);
+    localStorage.clear();
   });
 
   afterEach(() => {
@@ -38,6 +39,22 @@ describe('apiService (request behavior)', () => {
 
     const [, options] = fetchMock.mock.calls[0];
     expect((options.headers as any).Authorization).toBe('Bearer abc123');
+  });
+
+  test('includes Authorization header when token is in localStorage', async () => {
+    const fetchMock = global.fetch as unknown as jest.Mock;
+    fetchMock.mockResolvedValueOnce(
+      mockFetchResponse({
+        text: async () => JSON.stringify({ id: 'u1' }),
+      })
+    );
+
+    localStorage.setItem('dn_access_token', 'stored-token');
+    apiService.setAuthToken(null);
+    await apiService.getUser('u1');
+
+    const [, options] = fetchMock.mock.calls[0];
+    expect((options.headers as any).Authorization).toBe('Bearer stored-token');
   });
 
   test('returns empty array for GET /weight-logs 404', async () => {

@@ -3,6 +3,7 @@ from datetime import date, datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
 
+from ..deps import get_current_user
 from ..db import get_session
 from ..models import PlannedMeal, PlannedMealCreate, PlannedMealRead, PlannedMealUpdate, User
 
@@ -10,10 +11,9 @@ router = APIRouter(prefix="/planned-meals", tags=["planned_meals"])
 
 
 @router.post("/", response_model=PlannedMealRead, status_code=status.HTTP_201_CREATED)
-def create_planned_meal(*, session: Session = Depends(get_session), payload: PlannedMealCreate):
-    user = session.get(User, payload.user_id)
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+def create_planned_meal(*, session: Session = Depends(get_session), payload: PlannedMealCreate, current_user: User = Depends(get_current_user)):
+    if payload.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
     meal = PlannedMeal.model_validate(payload)
     session.add(meal)
@@ -29,10 +29,12 @@ def list_planned_meals(
     user_id: str | None = None,
     start: date | None = None,
     end: date | None = None,
+    current_user: User = Depends(get_current_user),
 ):
-    query = select(PlannedMeal).order_by(PlannedMeal.time.asc())
-    if user_id:
-        query = query.where(PlannedMeal.user_id == user_id)
+    if user_id is not None and user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+    query = select(PlannedMeal).where(PlannedMeal.user_id == current_user.id).order_by(PlannedMeal.time.asc())
     if start:
         query = query.where(PlannedMeal.date >= start)
     if end:
@@ -41,17 +43,17 @@ def list_planned_meals(
 
 
 @router.get("/{meal_id}", response_model=PlannedMealRead)
-def get_planned_meal(*, session: Session = Depends(get_session), meal_id: str):
+def get_planned_meal(*, session: Session = Depends(get_session), meal_id: str, current_user: User = Depends(get_current_user)):
     meal = session.get(PlannedMeal, meal_id)
-    if not meal:
+    if not meal or meal.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Planned meal not found")
     return meal
 
 
 @router.put("/{meal_id}", response_model=PlannedMealRead)
-def update_planned_meal(*, session: Session = Depends(get_session), meal_id: str, payload: PlannedMealUpdate):
+def update_planned_meal(*, session: Session = Depends(get_session), meal_id: str, payload: PlannedMealUpdate, current_user: User = Depends(get_current_user)):
     meal = session.get(PlannedMeal, meal_id)
-    if not meal:
+    if not meal or meal.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Planned meal not found")
 
     for key, value in payload.model_dump(exclude_unset=True).items():
@@ -64,10 +66,9 @@ def update_planned_meal(*, session: Session = Depends(get_session), meal_id: str
 
 
 @router.delete("/{meal_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_planned_meal(*, session: Session = Depends(get_session), meal_id: str):
+def delete_planned_meal(*, session: Session = Depends(get_session), meal_id: str, current_user: User = Depends(get_current_user)):
     meal = session.get(PlannedMeal, meal_id)
-    if not meal:
+    if not meal or meal.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Planned meal not found")
     session.delete(meal)
     session.commit()
-

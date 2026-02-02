@@ -202,8 +202,9 @@ This repo is already set up to deploy the frontend to GitHub Pages via `gh-pages
    - Set **Root Directory** to `digital-nutritionist-backend`
    - Set **Build Command** to `pip install -r requirements.txt`
    - Set **Start Command** to `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-   - Add env vars (at minimum): `OPENAI_API_KEY`, `JWT_SECRET_KEY`, and `ALLOWED_ORIGINS` (include `https://glockstock.github.io`)
+   - Add env vars (at minimum): `APP_ENV=beta`, `OPENAI_API_KEY`, `JWT_SECRET_KEY`, `ALLOWED_ORIGINS` (include `https://glockstock.github.io`), and `DATABASE_URL` (Neon Postgres, include `?sslmode=require`)
    - Verify: `https://<your-service>.onrender.com/health` returns `{"status":"ok"}`
+   - Verify DB: `https://<your-service>.onrender.com/health/db` returns `{"status":"ok"}`
 
 2. **Point the frontend at the backend**
    - Edit `.env.production` and set `REACT_APP_API_BASE_URL` to your Render URL, e.g. `https://<your-service>.onrender.com`

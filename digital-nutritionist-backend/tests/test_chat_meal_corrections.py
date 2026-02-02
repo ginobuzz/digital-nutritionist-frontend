@@ -12,7 +12,7 @@ from app.services import chat as chat_service
 
 def _create_user(client, email: str = "correction@example.com") -> str:
     res = client.post(
-        "/users/",
+        "/auth/signup",
         json={
             "email": email,
             "password": "pw-123",
@@ -21,7 +21,7 @@ def _create_user(client, email: str = "correction@example.com") -> str:
         },
     )
     assert res.status_code == 201, res.text
-    return res.json()["id"]
+    return res.json()["user"]["id"]
 
 
 def _make_tool_call(*, call_id: str, name: str, args: dict) -> SimpleNamespace:
