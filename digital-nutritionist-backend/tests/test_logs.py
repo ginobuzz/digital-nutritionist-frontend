@@ -155,3 +155,117 @@ def test_activity_logs_crud(client):
 
     missing = client.get(f"/activity-logs/{activity_id}", headers=headers)
     assert missing.status_code == 404
+
+
+def test_list_endpoints_are_scoped_without_user_id(client):
+    user1_id, headers1 = _create_user(client, email="scope1@example.com")
+    user2_id, headers2 = _create_user(client, email="scope2@example.com")
+
+    client.post(
+        "/meal-logs/",
+        json={
+            "user_id": user1_id,
+            "date": "2025-01-10",
+            "meal_type": "breakfast",
+            "user_description": "User1 oatmeal",
+            "estimated_calories": 300,
+        },
+        headers=headers1,
+    )
+    client.post(
+        "/meal-logs/",
+        json={
+            "user_id": user2_id,
+            "date": "2025-01-10",
+            "meal_type": "breakfast",
+            "user_description": "User2 oatmeal",
+            "estimated_calories": 300,
+        },
+        headers=headers2,
+    )
+
+    client.post(
+        "/planned-meals/",
+        json={
+            "user_id": user1_id,
+            "date": "2025-01-11",
+            "name": "User1 plan",
+            "calories": 500,
+            "meal_type": "lunch",
+            "time": "2025-01-11T12:00:00",
+        },
+        headers=headers1,
+    )
+    client.post(
+        "/planned-meals/",
+        json={
+            "user_id": user2_id,
+            "date": "2025-01-11",
+            "name": "User2 plan",
+            "calories": 500,
+            "meal_type": "lunch",
+            "time": "2025-01-11T12:00:00",
+        },
+        headers=headers2,
+    )
+
+    client.post(
+        "/weight-logs/",
+        json={"user_id": user1_id, "weight": 160.0, "date": "2025-01-12"},
+        headers=headers1,
+    )
+    client.post(
+        "/weight-logs/",
+        json={"user_id": user2_id, "weight": 170.0, "date": "2025-01-12"},
+        headers=headers2,
+    )
+
+    client.post(
+        "/activity-logs/",
+        json={
+            "user_id": user1_id,
+            "date": "2025-01-13",
+            "name": "User1 run",
+            "calories_burned": 300,
+            "duration": 30,
+            "type": "cardio",
+            "time": "2025-01-13T10:00:00",
+        },
+        headers=headers1,
+    )
+    client.post(
+        "/activity-logs/",
+        json={
+            "user_id": user2_id,
+            "date": "2025-01-13",
+            "name": "User2 run",
+            "calories_burned": 300,
+            "duration": 30,
+            "type": "cardio",
+            "time": "2025-01-13T10:00:00",
+        },
+        headers=headers2,
+    )
+
+    res = client.get("/meal-logs/", headers=headers1)
+    assert res.status_code == 200, res.text
+    assert res.json()
+    assert all(item["user_id"] == user1_id for item in res.json())
+
+    res = client.get("/planned-meals/", headers=headers1)
+    assert res.status_code == 200, res.text
+    assert res.json()
+    assert all(item["user_id"] == user1_id for item in res.json())
+
+    res = client.get("/weight-logs/", headers=headers1)
+    assert res.status_code == 200, res.text
+    assert res.json()
+    assert all(item["user_id"] == user1_id for item in res.json())
+
+    res = client.get("/activity-logs/", headers=headers1)
+    assert res.status_code == 200, res.text
+    assert res.json()
+    assert all(item["user_id"] == user1_id for item in res.json())
+
+    forbidden = client.get("/meal-logs/", params={"user_id": user2_id}, headers=headers1)
+    assert forbidden.status_code == 403

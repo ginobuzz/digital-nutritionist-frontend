@@ -1,9 +1,8 @@
 import { User, WeightLog } from '../types';
 import { format } from 'date-fns';
 import { authService } from './auth';
+import { API_BASE_URL } from './config';
 
-// Use env-configurable base URL for local dev; fallback to local FastAPI backend
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
 const toIsoDate = (d: Date) => format(d, 'yyyy-MM-dd');
 
 // API Response types based on FastAPI backend

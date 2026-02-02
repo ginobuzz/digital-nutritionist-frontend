@@ -31,3 +31,6 @@ __pycache__/
 *.sqlite
 *.sqlite3
 .venv/
+digital-nutritionist-backend/backups/
+*.dump
+*.sql.gz
