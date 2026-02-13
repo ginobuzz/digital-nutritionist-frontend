@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   AppBar,
@@ -12,26 +12,68 @@ import {
   useMediaQuery,
   BottomNavigation,
   BottomNavigationAction,
-  Paper
+  Paper,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
+  Tooltip,
 } from '@mui/material';
 import {
   Home,
   Timeline,
   Person,
   Chat,
+  BrightnessAuto,
+  DarkMode,
+  LightMode,
+  Check,
 } from '@mui/icons-material';
+import { type PaletteMode } from '@mui/material/styles';
 import { User } from '../types';
+import { type ThemePreference } from '../theme';
 
 interface LayoutProps {
   children: React.ReactNode;
   user: User;
+  themePreference: ThemePreference;
+  resolvedThemeMode: PaletteMode;
+  onThemePreferenceChange: (next: ThemePreference) => void;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, user }) => {
+const Layout: React.FC<LayoutProps> = ({
+  children,
+  user,
+  themePreference,
+  resolvedThemeMode,
+  onThemePreferenceChange,
+}) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
   const location = useLocation();
+  const [themeMenuAnchorEl, setThemeMenuAnchorEl] = useState<null | HTMLElement>(null);
+
+  const themeMenuOpen = Boolean(themeMenuAnchorEl);
+  const handleThemeMenuOpen = (event: React.MouseEvent<HTMLElement>) => setThemeMenuAnchorEl(event.currentTarget);
+  const handleThemeMenuClose = () => setThemeMenuAnchorEl(null);
+  const handleThemeSelect = (next: ThemePreference) => {
+    onThemePreferenceChange(next);
+    handleThemeMenuClose();
+  };
+
+  const themeButtonLabel =
+    themePreference === 'system'
+      ? `Theme: System (${resolvedThemeMode})`
+      : `Theme: ${themePreference.charAt(0).toUpperCase()}${themePreference.slice(1)}`;
+  const themeButtonIcon =
+    themePreference === 'system' ? (
+      <BrightnessAuto fontSize="small" />
+    ) : themePreference === 'dark' ? (
+      <DarkMode fontSize="small" />
+    ) : (
+      <LightMode fontSize="small" />
+    );
 
   const handleLogoClick = () => {
     navigate('/profile');
@@ -110,9 +152,54 @@ const Layout: React.FC<LayoutProps> = ({ children, user }) => {
             />
             Sunday Mornings
           </Typography>
-          <Box sx={{ width: 34, height: 34, flexShrink: 0 }} />
+          <Tooltip title={themeButtonLabel}>
+            <IconButton
+              aria-label={themeButtonLabel}
+              onClick={handleThemeMenuOpen}
+              size="small"
+              sx={{ width: 34, height: 34, flexShrink: 0 }}
+            >
+              {themeButtonIcon}
+            </IconButton>
+          </Tooltip>
         </Toolbar>
       </AppBar>
+
+      <Menu
+        anchorEl={themeMenuAnchorEl}
+        open={themeMenuOpen}
+        onClose={handleThemeMenuClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <MenuItem selected={themePreference === 'system'} onClick={() => handleThemeSelect('system')}>
+          <ListItemIcon>
+            <BrightnessAuto fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary="System" secondary={`Currently: ${resolvedThemeMode}`} />
+          <Box sx={{ width: 24, display: 'flex', justifyContent: 'flex-end' }}>
+            {themePreference === 'system' ? <Check fontSize="small" /> : null}
+          </Box>
+        </MenuItem>
+        <MenuItem selected={themePreference === 'light'} onClick={() => handleThemeSelect('light')}>
+          <ListItemIcon>
+            <LightMode fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary="Light" />
+          <Box sx={{ width: 24, display: 'flex', justifyContent: 'flex-end' }}>
+            {themePreference === 'light' ? <Check fontSize="small" /> : null}
+          </Box>
+        </MenuItem>
+        <MenuItem selected={themePreference === 'dark'} onClick={() => handleThemeSelect('dark')}>
+          <ListItemIcon>
+            <DarkMode fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary="Dark" />
+          <Box sx={{ width: 24, display: 'flex', justifyContent: 'flex-end' }}>
+            {themePreference === 'dark' ? <Check fontSize="small" /> : null}
+          </Box>
+        </MenuItem>
+      </Menu>
 
       <Box sx={{ display: 'flex', flex: 1 }}>
         <Box

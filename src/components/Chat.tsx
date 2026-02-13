@@ -25,6 +25,7 @@ import {
 } from '@mui/icons-material';
 import Markdown from 'markdown-to-jsx';
 import { format } from 'date-fns';
+import { alpha } from '@mui/material/styles';
 import { ChatMessage, User } from '../types';
 import { apiService, ChatTurn, isUserNotFoundError } from '../services/api';
 import { imageFileToDataUrl } from '../utils/images';
@@ -349,13 +350,26 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
                       elevation={1}
                       sx={{
                         p: 2,
-                        backgroundColor: message.sender === 'user' ? 'primary.dark' : 'grey.100',
+                        backgroundColor: (theme) => {
+                          if (message.sender === 'user') {
+                            return theme.palette.mode === 'dark'
+                              ? alpha(theme.palette.primary.main, 0.26)
+                              : theme.palette.primary.dark;
+                          }
+                          return theme.palette.mode === 'dark'
+                            ? alpha(theme.palette.common.white, 0.06)
+                            : theme.palette.grey[100];
+                        },
                         color: (theme) =>
                           message.sender === 'user'
                             ? theme.palette.primary.contrastText
                             : theme.palette.text.primary,
                         borderRadius: 2,
-                        wordBreak: 'break-word'
+                        wordBreak: 'break-word',
+                        border: (theme) =>
+                          message.sender === 'user'
+                            ? `1px solid ${alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.28 : 0.18)}`
+                            : `1px solid ${theme.palette.divider}`,
                       }}
                     >
                       <Box
@@ -373,7 +387,12 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
                             overflowX: 'auto',
                             p: 1,
                             borderRadius: 1,
-                            backgroundColor: message.sender === 'user' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.06)',
+                            backgroundColor: (theme) => {
+                              if (message.sender === 'user') return alpha(theme.palette.common.white, 0.18);
+                              return theme.palette.mode === 'dark'
+                                ? alpha(theme.palette.common.black, 0.35)
+                                : alpha(theme.palette.common.black, 0.06);
+                            },
                           },
                           '& pre code': { fontSize: '0.85em' },
                         }}
@@ -389,7 +408,7 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
                               maxWidth: 360,
                               borderRadius: 1.5,
                               mb: 1.25,
-                              border: '1px solid rgba(0,0,0,0.08)',
+                              border: (theme) => `1px solid ${theme.palette.divider}`,
                             }}
                           />
                         )}
@@ -430,8 +449,11 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
                     elevation={1}
                     sx={{
                       p: 2,
-                      backgroundColor: 'grey.100',
-                      borderRadius: 2
+                      backgroundColor: (theme) =>
+                        theme.palette.mode === 'dark' ? alpha(theme.palette.common.white, 0.06) : theme.palette.grey[100],
+                      color: (theme) => theme.palette.text.primary,
+                      borderRadius: 2,
+                      border: (theme) => `1px solid ${theme.palette.divider}`,
                     }}
                   >
                     <Typography variant="body1">
@@ -460,7 +482,7 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
                     height: 88,
                     objectFit: 'cover',
                     borderRadius: 1.5,
-                    border: '1px solid rgba(0,0,0,0.10)',
+                    border: (theme) => `1px solid ${theme.palette.divider}`,
                   }}
                 />
                 <IconButton

@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { useMediaQuery } from '@mui/material';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 
@@ -17,7 +18,7 @@ import { User } from './types';
 import { calculateDailyCalorieTarget, calculateDailyExpenditure } from './utils/calculations';
 import { apiService } from './services/api';
 import { authService } from './services/auth';
-import theme from './theme';
+import { createAppTheme, THEME_PREFERENCE_STORAGE_KEY, type ThemePreference } from './theme';
 
 function SignInRedirect() {
   const location = useLocation();
@@ -32,6 +33,18 @@ function SignInRedirect() {
 function App() {
   const [user, setUser] = useState<User | null>(null);
   const [setupComplete, setSetupComplete] = useState(false);
+  const [themePreference, setThemePreference] = useState<ThemePreference>(() => {
+    const stored = localStorage.getItem(THEME_PREFERENCE_STORAGE_KEY);
+    return stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system';
+  });
+
+  const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)', { noSsr: true });
+  const resolvedThemeMode = themePreference === 'system' ? (prefersDarkMode ? 'dark' : 'light') : themePreference;
+  const theme = useMemo(() => createAppTheme(resolvedThemeMode), [resolvedThemeMode]);
+
+  useEffect(() => {
+    localStorage.setItem(THEME_PREFERENCE_STORAGE_KEY, themePreference);
+  }, [themePreference]);
 
   useEffect(() => {
     const token = localStorage.getItem('dn_access_token');
@@ -99,7 +112,7 @@ function App() {
   if (!localStorage.getItem('dn_access_token')) {
     return (
       <ThemeProvider theme={theme}>
-        <CssBaseline />
+        <CssBaseline enableColorScheme />
         <Router basename={process.env.PUBLIC_URL}>
           <Routes>
             <Route
@@ -127,7 +140,7 @@ function App() {
   if (!setupComplete) {
     return (
       <ThemeProvider theme={theme}>
-        <CssBaseline />
+        <CssBaseline enableColorScheme />
         <Router basename={process.env.PUBLIC_URL}>
           <Routes>
             <Route path="/setup" element={<Setup onComplete={handleSetupComplete} />} />
@@ -141,9 +154,14 @@ function App() {
 
   return (
     <ThemeProvider theme={theme}>
-      <CssBaseline />
+      <CssBaseline enableColorScheme />
       <Router basename={process.env.PUBLIC_URL}>
-        <Layout user={user!}>
+        <Layout
+          user={user!}
+          themePreference={themePreference}
+          resolvedThemeMode={resolvedThemeMode}
+          onThemePreferenceChange={setThemePreference}
+        >
           <Routes>
             <Route path="/" element={<Dashboard user={user!} />} />
             <Route path="/setup" element={<Navigate to="/" replace />} />
