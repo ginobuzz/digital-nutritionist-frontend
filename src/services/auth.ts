@@ -14,6 +14,14 @@ export interface SignupResponse {
   email?: string;
 }
 
+export interface PasswordResetRequestResponse {
+  detail?: string;
+}
+
+export interface PasswordResetConfirmResponse {
+  detail?: string;
+}
+
 const TOKEN_KEY = 'dn_access_token';
 
 export const authService = {
@@ -119,5 +127,58 @@ export const authService = {
   logout() {
     this.setToken(null);
   },
+  async requestPasswordReset(email: string): Promise<PasswordResetRequestResponse> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/password-reset/request`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ email }),
+        mode: 'cors',
+        credentials: 'omit',
+      });
+      if (!res.ok) {
+        const msg = await res.text().catch(() => '');
+        throw new Error(`Password reset request failed: ${res.status} ${res.statusText}${msg ? ` - ${msg}` : ''}`);
+      }
+      const data = await res.json().catch(() => ({}));
+      return data;
+    } catch (error) {
+      if (error instanceof TypeError) {
+        throw new Error(
+          'Network or CORS error: Unable to reach authentication service. Ensure the backend allows this origin and method.'
+        );
+      }
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error(String(error));
+    }
+  },
+  async resetPassword(token: string, new_password: string): Promise<PasswordResetConfirmResponse> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/password-reset/confirm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ token, new_password }),
+        mode: 'cors',
+        credentials: 'omit',
+      });
+      if (!res.ok) {
+        const msg = await res.text().catch(() => '');
+        throw new Error(`Password reset failed: ${res.status} ${res.statusText}${msg ? ` - ${msg}` : ''}`);
+      }
+      const data = await res.json().catch(() => ({}));
+      return data;
+    } catch (error) {
+      if (error instanceof TypeError) {
+        throw new Error(
+          'Network or CORS error: Unable to reach authentication service. Ensure the backend allows this origin and method.'
+        );
+      }
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error(String(error));
+    }
+  },
 };
-

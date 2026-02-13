@@ -1,12 +1,18 @@
+import logging
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, status
+from jose import ExpiredSignatureError, JWTError, jwt
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
+from ..config import settings
 from ..db import get_session
 from ..models import User, UserCreate, UserRead
-from ..security import create_access_token, hash_password, verify_password
+from ..security import create_access_token, create_password_reset_token, hash_password, verify_password
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+logger = logging.getLogger(__name__)
 
 
 class LoginRequest(BaseModel):
@@ -71,3 +77,64 @@ def login(*, session: Session = Depends(get_session), payload: LoginRequest):
 
     token = create_access_token(user.id, extra_claims={"email": user.email})
     return TokenResponse(access_token=token, token_type="bearer", user=_user_to_read(user))
+
+
+class PasswordResetRequest(BaseModel):
+    email: str
+
+
+class PasswordResetConfirm(BaseModel):
+    token: str
+    new_password: str
+
+
+@router.post("/password-reset/request")
+def request_password_reset(*, session: Session = Depends(get_session), payload: PasswordResetRequest):
+    """
+    Always returns a generic success message (avoids account enumeration).
+    In non-production envs, logs a usable reset link.
+    """
+    email = (payload.email or "").strip()
+    user = session.exec(select(User).where(User.email == email)).first()
+    if user:
+        token = create_password_reset_token(user.id)
+        if settings.app_env != "production":
+            base = settings.frontend_base_url.rstrip("/")
+            reset_url = f"{base}/reset-password?token={token}"
+            logger.info("Password reset link for %s: %s", user.email, reset_url)
+        # TODO: send email in production
+    return {"detail": "If an account exists for that email, you'll receive a reset link shortly."}
+
+
+@router.post("/password-reset/confirm")
+def confirm_password_reset(*, session: Session = Depends(get_session), payload: PasswordResetConfirm):
+    try:
+        decoded = jwt.decode(
+            payload.token,
+            settings.password_reset_secret_key,
+            algorithms=[settings.jwt_algorithm],
+        )
+    except ExpiredSignatureError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Reset link expired") from exc
+    except JWTError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid reset link") from exc
+
+    if decoded.get("purpose") != "password_reset":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid reset link")
+
+    subject = decoded.get("sub")
+    if not subject:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid reset link")
+
+    user = session.get(User, str(subject))
+    if not user:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid reset link")
+
+    try:
+        user.password_hash = hash_password(payload.new_password)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    user.updated_at = datetime.utcnow()
+    session.add(user)
+    session.commit()
+    return {"detail": "Password updated"}

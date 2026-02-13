@@ -24,6 +24,7 @@ const SignIn: React.FC<SignInProps> = ({ onSignedIn }) => {
   const [password, setPassword] = useState('');
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const forgotPasswordTo = email ? `/forgot-password?email=${encodeURIComponent(email)}` : '/forgot-password';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,7 +86,12 @@ const SignIn: React.FC<SignInProps> = ({ onSignedIn }) => {
           {err && <Alert severity="error" sx={{ mb: 2 }}>{err}</Alert>}
           <Box component="form" onSubmit={handleSubmit}>
             <TextField fullWidth label="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} sx={{ mb: 2 }} />
-            <TextField fullWidth label="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} sx={{ mb: 2 }} />
+            <TextField fullWidth label="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} sx={{ mb: 1 }} />
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+              <Link component={RouterLink} to={forgotPasswordTo} variant="body2">
+                Forgot password?
+              </Link>
+            </Box>
             <Button type="submit" variant="contained" fullWidth disabled={loading} startIcon={loading ? <CircularProgress size={18} /> : undefined}>
               Sign In
             </Button>
