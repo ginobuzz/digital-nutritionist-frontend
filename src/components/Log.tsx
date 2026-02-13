@@ -1484,7 +1484,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
                 onClick={handleDescribeMealPlan}
                 disabled={planDialogBusy || planVoiceListening || Boolean(planDescribeReply)}
               >
-                {sendingDescribePlan ? 'Sending...' : 'Send to AI'}
+                {sendingDescribePlan ? 'Sending...' : 'Send'}
               </Button>
             )}
           </DialogActions>

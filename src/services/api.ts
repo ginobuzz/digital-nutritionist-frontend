@@ -251,6 +251,7 @@ export const convertWeightLogFromBackend = (logResponse: WeightLogResponse): Wei
 class ApiService {
   private baseUrl: string;
   private authToken: string | null = null;
+  private isRedirectingToSignIn = false;
 
   constructor(baseUrl: string = API_BASE_URL) {
     this.baseUrl = baseUrl;
@@ -296,6 +297,11 @@ class ApiService {
         } catch {
           errorData = null;
         }
+      }
+
+      if (response.status === 401) {
+        const detail = typeof errorData?.detail === 'string' ? errorData.detail : responseText;
+        this.handleUnauthorized(detail);
       }
 
       if (response.status === 404) {
@@ -392,6 +398,43 @@ class ApiService {
       const base = process.env.PUBLIC_URL || '';
       window.location.assign(`${base}/signin`);
     }
+  }
+
+  private handleUnauthorized(detail: unknown) {
+    if (this.isRedirectingToSignIn) return;
+    this.isRedirectingToSignIn = true;
+
+    authService.logout();
+    this.setAuthToken(null);
+    localStorage.removeItem('user');
+    localStorage.removeItem('setupComplete');
+
+    if (typeof window === 'undefined') return;
+
+    const detailStr = typeof detail === 'string' ? detail : '';
+    const reason = /token expired|expired/i.test(detailStr) ? 'expired' : 'unauthorized';
+
+    const base = (process.env.PUBLIC_URL || '').replace(/\/+$/, '');
+    let next = '/';
+    try {
+      const pathname = window.location.pathname || '/';
+      const search = window.location.search || '';
+      const hash = window.location.hash || '';
+      const basePrefix = base ? `${base}/` : '';
+      let relPathname = pathname;
+      if (base && pathname === base) relPathname = '/';
+      else if (basePrefix && pathname.startsWith(basePrefix)) relPathname = pathname.slice(base.length) || '/';
+      if (!relPathname.startsWith('/')) relPathname = `/${relPathname}`;
+      next = `${relPathname}${search}${hash}` || '/';
+      if (next.startsWith('/signin')) next = '/';
+    } catch {
+      next = '/';
+    }
+
+    const qs = new URLSearchParams();
+    qs.set('reason', reason);
+    qs.set('next', next);
+    window.location.assign(`${base}/signin?${qs.toString()}`);
   }
 
   // User endpoints

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 
@@ -16,6 +16,16 @@ import { calculateDailyCalorieTarget, calculateDailyExpenditure } from './utils/
 import { apiService } from './services/api';
 import { authService } from './services/auth';
 import theme from './theme';
+
+function SignInRedirect() {
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const next = params.get('next');
+  const safeNext = next && next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/signin')
+    ? next
+    : null;
+  return <Navigate to={safeNext || '/'} replace />;
+}
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -133,7 +143,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Dashboard user={user!} />} />
             <Route path="/setup" element={<Navigate to="/" replace />} />
-            <Route path="/signin" element={<Navigate to="/" replace />} />
+            <Route path="/signin" element={<SignInRedirect />} />
             <Route path="/log" element={<Log user={user!} />} />
             <Route path="/chat" element={<Chat user={user!} />} />
             <Route path="/profile" element={<Profile user={user!} onUserUpdate={setUser} onSignOut={handleSignOut} />} />

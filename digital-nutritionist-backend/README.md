@@ -27,6 +27,7 @@ A FastAPI backend that mirrors the REST interface expected by the digital nutrit
    OPENAI_API_KEY=sk-...
    ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
    JWT_SECRET_KEY=dev-secret-change-me
+   JWT_EXP_MINUTES=43200
    ```
    You can start from `.env.example` and copy it to `.env`.
 3. Run the API (use the virtualenv so dependencies like `fastapi` are available):
@@ -42,6 +43,7 @@ A FastAPI backend that mirrors the REST interface expected by the digital nutrit
   - `APP_ENV=beta` (or `production`)
   - `OPENAI_API_KEY`
   - `JWT_SECRET_KEY`
+  - `JWT_EXP_MINUTES` (e.g. `43200` for 30 days)
   - `ALLOWED_ORIGINS` (include your deployed frontend origin, e.g. `https://glockstock.github.io`)
   - `DATABASE_URL` (Neon/Postgres; include `?sslmode=require`)
 
