@@ -10,6 +10,8 @@ import Chat from './components/Chat';
 import Profile from './components/Profile';
 import Setup from './components/Setup';
 import SignIn from './components/SignIn';
+import ForgotPassword from './components/ForgotPassword';
+import ResetPassword from './components/ResetPassword';
 import About from './components/About';
 import { User } from './types';
 import { calculateDailyCalorieTarget, calculateDailyExpenditure } from './utils/calculations';
@@ -109,6 +111,8 @@ function App() {
                 }} />
               }
             />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/about" element={<About />} />
             <Route path="/setup" element={<Setup onComplete={handleSetupComplete} />} />
             <Route path="/" element={<Navigate to="/signin" replace />} />

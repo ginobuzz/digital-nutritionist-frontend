@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     jwt_secret_key: str = Field(default="change-me")
     jwt_algorithm: str = "HS256"
     jwt_exp_minutes: int = 60 * 24 * 30
+    frontend_base_url: str = "http://localhost:3000"
+    password_reset_secret_key: str = Field(default="change-me-password-reset")
+    password_reset_exp_minutes: int = 30
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -93,5 +93,42 @@ describe('authService', () => {
       /signup failed: 400 bad request/i
     );
   });
-});
 
+  test('requestPasswordReset posts email to backend', async () => {
+    const fetchMock = global.fetch as unknown as jest.Mock;
+    fetchMock.mockResolvedValueOnce(
+      mockFetchResponse({
+        json: async () => ({ detail: 'ok' }),
+      })
+    );
+
+    const result = await authService.requestPasswordReset('u1@example.com');
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:8000/auth/password-reset/request',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ email: 'u1@example.com' }),
+      })
+    );
+    expect(result.detail).toBe('ok');
+  });
+
+  test('resetPassword posts token + new_password to backend', async () => {
+    const fetchMock = global.fetch as unknown as jest.Mock;
+    fetchMock.mockResolvedValueOnce(
+      mockFetchResponse({
+        json: async () => ({ detail: 'updated' }),
+      })
+    );
+
+    const result = await authService.resetPassword('tok1', 'pw2');
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:8000/auth/password-reset/confirm',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ token: 'tok1', new_password: 'pw2' }),
+      })
+    );
+    expect(result.detail).toBe('updated');
+  });
+});
