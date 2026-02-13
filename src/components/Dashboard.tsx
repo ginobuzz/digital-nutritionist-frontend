@@ -875,7 +875,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                 onClick={handleDescribeMealLog}
                 disabled={logBusy || describeVoiceListening || !(describeInput.trim() || describeImageDataUrl)}
               >
-                {sendingDescribeLog ? 'Sending...' : 'Send to AI'}
+                {sendingDescribeLog ? 'Sending...' : 'Send'}
               </Button>
             )}
           </Box>
