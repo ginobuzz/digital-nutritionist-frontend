@@ -19,6 +19,7 @@ describe('apiService (request behavior)', () => {
   beforeEach(() => {
     (global as any).fetch = jest.fn();
     apiService.setAuthToken(null);
+    (apiService as any).isRedirectingToSignIn = false;
     localStorage.clear();
   });
 
@@ -117,7 +118,7 @@ describe('apiService (request behavior)', () => {
     ).rejects.toThrow(/daily calorie budget must be a whole number/i);
   });
 
-  test('surfaces FastAPI error detail for non-422 responses', async () => {
+  test('logs out and redirects to signin on 401 responses', async () => {
     const fetchMock = global.fetch as unknown as jest.Mock;
     fetchMock.mockResolvedValueOnce(
       mockFetchResponse({
@@ -128,7 +129,20 @@ describe('apiService (request behavior)', () => {
       })
     );
 
+    localStorage.setItem('dn_access_token', 'token');
+    localStorage.setItem('user', JSON.stringify({ id: 'u1' }));
+    localStorage.setItem('setupComplete', 'true');
+    const assignMock = jest.fn();
+    Object.defineProperty(window, 'location', {
+      value: { assign: assignMock, pathname: '/', search: '', hash: '' },
+      writable: true,
+    });
+
     await expect(apiService.getUser('u1')).rejects.toThrow(/401 unauthorized.*invalid token/i);
+    expect(localStorage.getItem('dn_access_token')).toBeNull();
+    expect(localStorage.getItem('user')).toBeNull();
+    expect(localStorage.getItem('setupComplete')).toBeNull();
+    expect(assignMock).toHaveBeenCalledWith('/signin?reason=unauthorized&next=%2F');
   });
 
   test('redirects to signin on user not found errors', async () => {

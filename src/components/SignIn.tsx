@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Box, Card, CardContent, TextField, Button, Typography, Alert, CircularProgress, Link } from '@mui/material';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useLocation } from 'react-router-dom';
 import { authService } from '../services/auth';
 import { apiService, convertUserFromBackend, isUserNotFoundError } from '../services/api';
 import { User } from '../types';
@@ -10,6 +10,16 @@ interface SignInProps {
 }
 
 const SignIn: React.FC<SignInProps> = ({ onSignedIn }) => {
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const reason = params.get('reason');
+  const infoMessage =
+    reason === 'expired'
+      ? 'Your session expired. Please sign in again.'
+      : reason === 'unauthorized'
+        ? 'Please sign in to continue.'
+        : null;
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [err, setErr] = useState<string | null>(null);
@@ -71,6 +81,7 @@ const SignIn: React.FC<SignInProps> = ({ onSignedIn }) => {
           <Typography variant="h5" gutterBottom sx={{ fontWeight: 900 }}>
             Welcome back
           </Typography>
+          {infoMessage && <Alert severity="info" sx={{ mb: 2 }}>{infoMessage}</Alert>}
           {err && <Alert severity="error" sx={{ mb: 2 }}>{err}</Alert>}
           <Box component="form" onSubmit={handleSubmit}>
             <TextField fullWidth label="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} sx={{ mb: 2 }} />
