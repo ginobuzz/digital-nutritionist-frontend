@@ -9,6 +9,8 @@ import {
   Button,
   TextField,
   Alert,
+  Menu,
+  MenuItem,
   ToggleButton,
   ToggleButtonGroup,
   FormControlLabel,
@@ -22,6 +24,7 @@ import { alpha } from '@mui/material/styles';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
+import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import TodayRoundedIcon from '@mui/icons-material/TodayRounded';
 import PhotoCameraRoundedIcon from '@mui/icons-material/PhotoCameraRounded';
@@ -31,7 +34,7 @@ import { useNavigate } from 'react-router-dom';
 import { addDays, format, isBefore, isSameDay, startOfDay, startOfWeek } from 'date-fns';
 import Markdown from 'markdown-to-jsx';
 import { User } from '../types';
-import { apiService, isUserNotFoundError } from '../services/api';
+import { apiService, isUserNotFoundError, MealLogResponse } from '../services/api';
 import { imageFileToDataUrl } from '../utils/images';
 import { calculateDynamicWeeklyCalorieTargets, getMinimumHealthyDailyCalories } from '../utils/weeklyTargets';
 import { useSpeechToText } from '../hooks/useSpeechToText';
@@ -56,6 +59,36 @@ type MealType = '' | 'breakfast' | 'lunch' | 'dinner' | 'snack';
 
 const WEEK_LENGTH_DAYS = 7;
 const toIsoDate = (d: Date) => format(d, 'yyyy-MM-dd');
+const RECENT_MEALS_LIMIT = 4;
+const RECENT_MEALS_LOOKBACK_DAYS = 120;
+
+const normalizeMealType = (value: string | null | undefined): MealType => {
+  const v = (value || '').trim().toLowerCase();
+  if (v === 'breakfast' || v === 'lunch' || v === 'dinner' || v === 'snack') return v;
+  return '';
+};
+
+const formatMealTypeLabel = (value: string | null | undefined): string | null => {
+  const v = (value || '').trim();
+  if (!v) return null;
+  const lower = v.toLowerCase();
+  return `${lower.charAt(0).toUpperCase()}${lower.slice(1)}`;
+};
+
+const normalizeMealTypeForBackend = (value: string | null | undefined): string | null => {
+  const v = (value || '').trim().toLowerCase();
+  return v ? v : null;
+};
+
+const parseBackendDateTime = (value: string): Date => {
+  const hasTimeZone = /[zZ]|[+-]\d{2}:\d{2}$/.test(value);
+  return new Date(hasTimeZone ? value : `${value}Z`);
+};
+
+const getMealLogCreatedAt = (log: MealLogResponse): Date => {
+  if (log.created_at) return parseBackendDateTime(log.created_at);
+  return new Date(`${log.date}T12:00:00`);
+};
 
 const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   const theme = useTheme();
@@ -94,6 +127,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   const [logError, setLogError] = useState<string | null>(null);
   const [savingQuickLog, setSavingQuickLog] = useState(false);
   const [sendingDescribeLog, setSendingDescribeLog] = useState(false);
+  const [recentMealsAnchorEl, setRecentMealsAnchorEl] = useState<HTMLElement | null>(null);
+  const [recentMealsLogs, setRecentMealsLogs] = useState<MealLogResponse[] | null>(null);
+  const [recentMealsLoading, setRecentMealsLoading] = useState(false);
+  const [recentMealsError, setRecentMealsError] = useState<string | null>(null);
+  const [addingRecentMealId, setAddingRecentMealId] = useState<string | null>(null);
   const [describeDictationBaseText, setDescribeDictationBaseText] = useState('');
   const [describeVoiceError, setDescribeVoiceError] = useState<string | null>(null);
 
@@ -302,6 +340,33 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   }, [baseDailyTarget, dayEntries, dynamicTargetsByDate]);
   const showRebalanceNotice = hasFutureAdjustments || dynamicWeek.overBudgetBy > 0;
 
+  const recentMeals = useMemo(() => {
+    const logs = recentMealsLogs ?? [];
+    const filtered = mealType ? logs.filter((log) => normalizeMealType(log.meal_type) === mealType) : logs;
+    return filtered.slice(0, RECENT_MEALS_LIMIT);
+  }, [mealType, recentMealsLogs]);
+
+  const fetchRecentMeals = useCallback(async () => {
+    try {
+      setRecentMealsLoading(true);
+      setRecentMealsError(null);
+      const userId = getActiveUserId();
+      const today = startOfDay(new Date());
+      const start = addDays(today, -RECENT_MEALS_LOOKBACK_DAYS);
+      const logs = await apiService.getMealLogs({ userId, start, end: today });
+      const sorted = [...logs].sort((a, b) => getMealLogCreatedAt(b).getTime() - getMealLogCreatedAt(a).getTime());
+      setRecentMealsLogs(sorted);
+    } catch (error) {
+      if (isUserNotFoundError(error)) {
+        return;
+      }
+      const message = error instanceof Error ? error.message : 'Unable to load recent meals. Please try again.';
+      setRecentMealsError(message);
+    } finally {
+      setRecentMealsLoading(false);
+    }
+  }, [getActiveUserId]);
+
   const getDayColor = (entry: DayEntry, targetCalories: number) => {
     if (entry.kind === 'future') return theme.palette.info.main;
     if (entry.kind === 'past') {
@@ -356,6 +421,52 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
 
   const hasUnloggedPastDays = dayEntries.some((entry) => entry.kind === 'past' && entry.actualCalories <= 0);
 
+  const isRecentMealsOpen = Boolean(recentMealsAnchorEl);
+
+  const handleOpenRecentMeals = (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (describeVoiceListening) stopDescribeVoice();
+    setRecentMealsError(null);
+    setRecentMealsAnchorEl(event.currentTarget);
+    if (recentMealsLogs === null && !recentMealsLoading) {
+      void fetchRecentMeals();
+    }
+  };
+
+  const handleCloseRecentMeals = () => {
+    setRecentMealsAnchorEl(null);
+    setRecentMealsError(null);
+  };
+
+  const handleAddRecentMeal = async (meal: MealLogResponse) => {
+    const mealId = String(meal.id);
+    try {
+      setAddingRecentMealId(mealId);
+      setRecentMealsError(null);
+      const userId = getActiveUserId();
+      await apiService.createMealLog({
+        user_id: userId,
+        date: selectedKey,
+        user_description: meal.user_description || 'Meal',
+        meal_type: mealType ? mealType : normalizeMealTypeForBackend(meal.meal_type),
+        estimated_calories: typeof meal.estimated_calories === 'number' ? meal.estimated_calories : null,
+        protein_g: typeof meal.protein_g === 'number' ? meal.protein_g : null,
+        carbs_g: typeof meal.carbs_g === 'number' ? meal.carbs_g : null,
+        fat_g: typeof meal.fat_g === 'number' ? meal.fat_g : null,
+      });
+      setRecentMealsLogs(null);
+      setRecentMealsAnchorEl(null);
+      await fetchData();
+    } catch (error) {
+      if (isUserNotFoundError(error)) {
+        return;
+      }
+      const message = error instanceof Error ? error.message : 'Unable to add that meal. Please try again.';
+      setRecentMealsError(message);
+    } finally {
+      setAddingRecentMealId(null);
+    }
+  };
+
   const handleSaveMealLog = async () => {
     if (!logForm.description.trim() || !logForm.calories.trim()) {
       setLogError('Enter a short description and calories to log the meal.');
@@ -405,6 +516,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
         fat: '',
       });
       setMealType('');
+      setRecentMealsLogs(null);
       await fetchData();
     } catch (error) {
       if (isUserNotFoundError(error)) {
@@ -449,6 +561,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       setDescribeReply(response.reply || 'OK.');
       setDescribeInput('');
       setDescribeImageDataUrl(null);
+      setRecentMealsLogs(null);
       await fetchData();
       window.setTimeout(() => focusLogInput('describe'), 0);
     } catch (error) {
@@ -462,7 +575,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
     }
   };
 
-  const logBusy = savingQuickLog || sendingDescribeLog;
+  const logBusy = savingQuickLog || sendingDescribeLog || Boolean(addingRecentMealId);
 
   const handleAttachDescribeImage = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -611,6 +724,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
               setLogError(null);
               setDescribeReply(null);
               if (value === 'quick') setDescribeImageDataUrl(null);
+              setRecentMealsAnchorEl(null);
+              setRecentMealsError(null);
               window.setTimeout(() => focusLogInput(value), 0);
             }}
           >
@@ -864,7 +979,134 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
             </>
           )}
 
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 2 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: logMode === 'describe' ? 'space-between' : 'flex-end',
+              alignItems: 'center',
+              gap: 1,
+              mt: 2,
+            }}
+          >
+            {logMode === 'describe' && (
+              <Box>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  endIcon={<ExpandMoreRoundedIcon />}
+                  onClick={handleOpenRecentMeals}
+                  disabled={logBusy}
+                  aria-haspopup="menu"
+                  aria-expanded={isRecentMealsOpen ? 'true' : undefined}
+                  sx={{ textTransform: 'none', fontWeight: 800 }}
+                >
+                  Recent Meals
+                </Button>
+                <Menu
+                  anchorEl={recentMealsAnchorEl}
+                  open={isRecentMealsOpen}
+                  onClose={handleCloseRecentMeals}
+                  PaperProps={{ sx: { width: { xs: 360, sm: 420 }, maxWidth: '92vw' } }}
+                  MenuListProps={{ sx: { py: 0 } }}
+                >
+                  <Box sx={{ px: 2, py: 1.25 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 900, lineHeight: 1.1 }}>
+                      Recent Meals
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                      {mealType
+                        ? `Showing recent ${formatMealTypeLabel(mealType) ?? mealType} logs`
+                        : 'Showing recent logs across meal types'}
+                    </Typography>
+                  </Box>
+
+                  {recentMealsLoading && <LinearProgress />}
+
+                  {recentMealsError && (
+                    <Box sx={{ px: 2, pb: 1.25 }}>
+                      <Typography variant="caption" color="error">
+                        {recentMealsError}
+                      </Typography>
+                    </Box>
+                  )}
+
+                  {!recentMealsLoading && recentMeals.length === 0 && (
+                    <Box sx={{ px: 2, pb: 1.5 }}>
+                      <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                        No recent meals found.
+                      </Typography>
+                    </Box>
+                  )}
+
+                  {recentMeals.map((meal) => {
+                    const createdAt = getMealLogCreatedAt(meal);
+                    const calories =
+                      typeof meal.estimated_calories === 'number' ? Math.round(meal.estimated_calories) : null;
+                    const typeLabel = formatMealTypeLabel(meal.meal_type);
+                    const meta = [
+                      calories != null ? `${calories} kcal` : null,
+                      typeLabel,
+                      format(createdAt, 'M/d p'),
+                    ].filter(Boolean);
+
+                    return (
+                      <MenuItem
+                        key={String(meal.id)}
+                        disableGutters
+                        sx={{
+                          px: 2,
+                          py: 1,
+                          alignItems: 'flex-start',
+                          borderTop: `1px solid ${alpha(theme.palette.text.primary, 0.06)}`,
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            width: '100%',
+                            gap: 1.5,
+                            alignItems: 'flex-start',
+                            justifyContent: 'space-between',
+                          }}
+                        >
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                fontWeight: 800,
+                                overflow: 'hidden',
+                                display: '-webkit-box',
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: 'vertical',
+                              }}
+                            >
+                              {meal.user_description || 'Meal'}
+                            </Typography>
+                            {meta.length > 0 && (
+                              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                                {meta.join(' • ')}
+                              </Typography>
+                            )}
+                          </Box>
+
+                          <Button
+                            size="small"
+                            variant="contained"
+                            disableElevation
+                            startIcon={<AddRoundedIcon fontSize="small" />}
+                            onClick={() => void handleAddRecentMeal(meal)}
+                            disabled={logBusy}
+                            sx={{ whiteSpace: 'nowrap', mt: 0.15 }}
+                          >
+                            {addingRecentMealId === String(meal.id) ? 'Adding…' : 'Add'}
+                          </Button>
+                        </Box>
+                      </MenuItem>
+                    );
+                  })}
+                </Menu>
+              </Box>
+            )}
             {logMode === 'quick' ? (
               <Button variant="contained" onClick={handleSaveMealLog} disabled={logBusy}>
                 {savingQuickLog ? 'Saving...' : 'Log Meal'}
