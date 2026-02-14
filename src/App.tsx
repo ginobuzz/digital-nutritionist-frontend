@@ -14,6 +14,7 @@ import SignIn from './components/SignIn';
 import ForgotPassword from './components/ForgotPassword';
 import ResetPassword from './components/ResetPassword';
 import About from './components/About';
+import Legal from './components/Legal';
 import { User } from './types';
 import { calculateDailyCalorieTarget, calculateDailyExpenditure } from './utils/calculations';
 import { apiService } from './services/api';
@@ -127,6 +128,7 @@ function App() {
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/about" element={<About />} />
+            <Route path="/legal" element={<Legal />} />
             <Route path="/setup" element={<Setup onComplete={handleSetupComplete} />} />
             <Route path="/" element={<Navigate to="/signin" replace />} />
             <Route path="*" element={<Navigate to="/signin" replace />} />
@@ -145,6 +147,7 @@ function App() {
           <Routes>
             <Route path="/setup" element={<Setup onComplete={handleSetupComplete} />} />
             <Route path="/about" element={<About />} />
+            <Route path="/legal" element={<Legal />} />
             <Route path="*" element={<Navigate to="/setup" replace />} />
           </Routes>
         </Router>
@@ -170,6 +173,7 @@ function App() {
             <Route path="/chat" element={<Chat user={user!} />} />
             <Route path="/profile" element={<Profile user={user!} onUserUpdate={setUser} onSignOut={handleSignOut} />} />
             <Route path="/about" element={<About />} />
+            <Route path="/legal" element={<Legal />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Layout>

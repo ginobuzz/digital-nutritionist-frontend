@@ -95,6 +95,9 @@ const SignIn: React.FC<SignInProps> = ({ onSignedIn }) => {
             <Button type="submit" variant="contained" fullWidth disabled={loading} startIcon={loading ? <CircularProgress size={18} /> : undefined}>
               Sign In
             </Button>
+            <Typography variant="caption" sx={{ mt: 1, display: 'block', color: 'text.secondary' }}>
+              By signing in, you agree to our <Link component={RouterLink} to="/legal">Privacy Policy & Terms</Link>.
+            </Typography>
           </Box>
           <Typography variant="body2" sx={{ mt: 2 }}>
             Don't have an account?{' '}
@@ -103,6 +106,9 @@ const SignIn: React.FC<SignInProps> = ({ onSignedIn }) => {
           <Typography variant="body2" sx={{ mt: 1 }}>
             Want to learn more?{' '}
             <Link component={RouterLink} to="/about">About Sunday Mornings</Link>
+          </Typography>
+          <Typography variant="body2" sx={{ mt: 0.5 }}>
+            Need legal details? <Link component={RouterLink} to="/legal">Privacy, terms & consent</Link>
           </Typography>
         </CardContent>
         </Card>
