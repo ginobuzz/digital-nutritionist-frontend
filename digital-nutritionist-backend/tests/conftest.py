@@ -6,6 +6,7 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
 from app import db, main
+from app.abuse_guards import rate_limiter
 
 
 @pytest.fixture()
@@ -42,3 +43,10 @@ def client(session):
     finally:
         main.app.dependency_overrides.clear()
 
+
+
+@pytest.fixture(autouse=True)
+def clear_rate_limiter():
+    rate_limiter.clear()
+    yield
+    rate_limiter.clear()

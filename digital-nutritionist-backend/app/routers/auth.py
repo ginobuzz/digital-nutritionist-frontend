@@ -1,11 +1,12 @@
 import logging
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from jose import ExpiredSignatureError, JWTError, jwt
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
+from ..abuse_guards import AuthRateLimit
 from ..config import settings
 from ..db import get_session
 from ..models import User, UserCreate, UserRead
@@ -16,8 +17,8 @@ logger = logging.getLogger(__name__)
 
 
 class LoginRequest(BaseModel):
-    email: str
-    password: str
+    email: str = Field(max_length=254)
+    password: str = Field(min_length=1, max_length=256)
 
 
 class TokenResponse(BaseModel):
@@ -26,12 +27,28 @@ class TokenResponse(BaseModel):
     user: UserRead
 
 
+class PasswordResetRequest(BaseModel):
+    email: str = Field(max_length=254)
+
+
+class PasswordResetConfirm(BaseModel):
+    token: str = Field(min_length=1, max_length=4096)
+    new_password: str = Field(min_length=1, max_length=256)
+
+
 def _user_to_read(user: User) -> UserRead:
     return UserRead.model_validate(user, from_attributes=True)
 
 
-@router.post("/signup", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-def signup(*, session: Session = Depends(get_session), payload: UserCreate):
+def _enforce_auth_payload_cap(request: Request) -> None:
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > settings.auth_max_payload_bytes:
+        raise HTTPException(status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail="Auth payload too large")
+
+
+@router.post("/signup", response_model=TokenResponse, status_code=status.HTTP_201_CREATED, dependencies=[AuthRateLimit])
+def signup(*, request: Request, session: Session = Depends(get_session), payload: UserCreate):
+    _enforce_auth_payload_cap(request)
     existing = session.exec(select(User).where(User.email == payload.email)).first()
     if existing:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
@@ -63,8 +80,9 @@ def signup(*, session: Session = Depends(get_session), payload: UserCreate):
     return TokenResponse(access_token=token, token_type="bearer", user=_user_to_read(db_user))
 
 
-@router.post("/login", response_model=TokenResponse)
-def login(*, session: Session = Depends(get_session), payload: LoginRequest):
+@router.post("/login", response_model=TokenResponse, dependencies=[AuthRateLimit])
+def login(*, request: Request, session: Session = Depends(get_session), payload: LoginRequest):
+    _enforce_auth_payload_cap(request)
     user = session.exec(select(User).where(User.email == payload.email)).first()
     password_valid = False
     if user:
@@ -79,21 +97,13 @@ def login(*, session: Session = Depends(get_session), payload: LoginRequest):
     return TokenResponse(access_token=token, token_type="bearer", user=_user_to_read(user))
 
 
-class PasswordResetRequest(BaseModel):
-    email: str
-
-
-class PasswordResetConfirm(BaseModel):
-    token: str
-    new_password: str
-
-
-@router.post("/password-reset/request")
-def request_password_reset(*, session: Session = Depends(get_session), payload: PasswordResetRequest):
+@router.post("/password-reset/request", dependencies=[AuthRateLimit])
+def request_password_reset(*, request: Request, session: Session = Depends(get_session), payload: PasswordResetRequest):
     """
     Always returns a generic success message (avoids account enumeration).
     In non-production envs, logs a usable reset link.
     """
+    _enforce_auth_payload_cap(request)
     email = (payload.email or "").strip()
     user = session.exec(select(User).where(User.email == email)).first()
     if user:
@@ -106,8 +116,9 @@ def request_password_reset(*, session: Session = Depends(get_session), payload: 
     return {"detail": "If an account exists for that email, you'll receive a reset link shortly."}
 
 
-@router.post("/password-reset/confirm")
-def confirm_password_reset(*, session: Session = Depends(get_session), payload: PasswordResetConfirm):
+@router.post("/password-reset/confirm", dependencies=[AuthRateLimit])
+def confirm_password_reset(*, request: Request, session: Session = Depends(get_session), payload: PasswordResetConfirm):
+    _enforce_auth_payload_cap(request)
     try:
         decoded = jwt.decode(
             payload.token,

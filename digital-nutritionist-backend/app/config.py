@@ -25,6 +25,18 @@ class Settings(BaseSettings):
     password_reset_secret_key: str = Field(default="change-me-password-reset")
     password_reset_exp_minutes: int = 30
 
+    # Abuse/cost guardrails
+    auth_rate_limit_requests: int = 20
+    auth_rate_limit_window_seconds: int = 60
+    chat_rate_limit_requests: int = 12
+    chat_rate_limit_window_seconds: int = 60
+    auth_max_payload_bytes: int = 32_768
+    chat_max_payload_bytes: int = 4_194_304
+    chat_max_message_chars: int = 4_000
+    chat_max_history_turns_payload: int = 40
+    chat_max_history_turn_chars_payload: int = 4_000
+    chat_max_image_data_url_chars: int = 4_000_000
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
