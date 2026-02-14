@@ -732,6 +732,9 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
               Want to learn more?{' '}
               <Link component={RouterLink} to="/about">About Sunday Mornings</Link>
             </Typography>
+            <Typography variant="caption" align="center" sx={{ mt: 0.5, color: 'text.secondary', display: 'block' }}>
+              Legal on demand: <Link component={RouterLink} to="/legal">Privacy, terms & consent</Link>
+            </Typography>
           </Box>
 
           {isMobile ? (
@@ -789,6 +792,10 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
             </Alert>
           )}
           
+          <Typography variant="caption" sx={{ color: 'text.secondary', mt: 1.5, textAlign: 'center' }}>
+            By continuing, you agree to our <Link component={RouterLink} to="/legal">Privacy Policy, Terms, and data-use consent</Link>.
+          </Typography>
+
           <Box sx={{ 
             display: 'flex', 
             flexDirection: { xs: 'column', sm: 'row' },
