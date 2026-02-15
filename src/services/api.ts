@@ -2,6 +2,7 @@ import { User, WeightLog } from '../types';
 import { format } from 'date-fns';
 import { authService } from './auth';
 import { API_BASE_URL } from './config';
+import { calculateDailyExpenditure } from '../utils/calculations';
 
 const toIsoDate = (d: Date) => format(d, 'yyyy-MM-dd');
 
@@ -18,7 +19,13 @@ export interface UserResponse {
   daily_calorie_budget: number | null;
   age: number;
   gender: 'male' | 'female';
-  activity_level: 'sedentary' | 'lightly_active' | 'moderately_active' | 'very_active' | 'extremely_active';
+  activity_level:
+    | 'sedentary'
+    | 'lightly_active'
+    | 'moderately_active'
+    | 'very_active'
+    | 'extremely_active'
+    | 'extra_active';
   created_at: string;
   updated_at: string;
 }
@@ -222,7 +229,12 @@ export const convertUserFromBackend = (userResponse: UserResponse): User => {
     .filter(Boolean)
     .join(' ') || 'Unknown User';
   
-  return {
+  const activityLevel: User['activityLevel'] =
+    userResponse.activity_level === 'extra_active' ? 'extremely_active' : userResponse.activity_level;
+
+  const dailyCalorieTarget = userResponse.daily_calorie_budget || 0;
+
+  const baseUser: User = {
     id: userResponse.id,
     name: fullName,
     age: userResponse.age,
@@ -232,11 +244,22 @@ export const convertUserFromBackend = (userResponse: UserResponse): User => {
     },
     weight: userResponse.starting_weight_lb || 0,
     gender: userResponse.gender,
-    activityLevel: userResponse.activity_level,
+    activityLevel,
     targetWeight: userResponse.goal_weight_lb || 0,
     targetDate: userResponse.goal_weight_date ? new Date(userResponse.goal_weight_date) : new Date(),
-    dailyCalorieTarget: userResponse.daily_calorie_budget || 0,
-    dailyDeficitTarget: 0, // Not provided by backend
+    dailyCalorieTarget,
+    dailyDeficitTarget: 0,
+  };
+
+  const dailyExpenditure = calculateDailyExpenditure(baseUser);
+  const dailyDeficitTarget =
+    dailyCalorieTarget > 0 && Number.isFinite(dailyExpenditure)
+      ? Math.max(0, dailyExpenditure - dailyCalorieTarget)
+      : 0;
+
+  return {
+    ...baseUser,
+    dailyDeficitTarget,
   };
 };
 

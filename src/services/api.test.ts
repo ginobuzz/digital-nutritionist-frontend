@@ -1,5 +1,6 @@
 import { apiService, convertUserToBackend, convertUserFromBackend } from './api';
 import { User } from '../types';
+import { calculateDailyExpenditure } from '../utils/calculations';
 
 // Test data
 const testUser: User = {
@@ -62,7 +63,8 @@ describe('API Service', () => {
     expect(frontendUser.activityLevel).toBe(testUser.activityLevel);
     expect(frontendUser.targetWeight).toBe(testUser.targetWeight);
     expect(frontendUser.dailyCalorieTarget).toBe(testUser.dailyCalorieTarget);
-    expect(frontendUser.dailyDeficitTarget).toBe(0); // Not provided by backend
+    const expectedDeficit = Math.max(0, calculateDailyExpenditure(frontendUser) - frontendUser.dailyCalorieTarget);
+    expect(frontendUser.dailyDeficitTarget).toBeCloseTo(expectedDeficit, 6);
   });
 
   test('API service should have correct base URL', () => {

@@ -100,6 +100,10 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate, onSignOut }) => {
   }, [currentWeight]);
 
   const handleEditProfile = () => {
+    const dailyExpenditure = calculateDailyExpenditure(user);
+    const derivedDailyDeficitTarget =
+      user.dailyCalorieTarget > 0 ? Math.max(0, dailyExpenditure - user.dailyCalorieTarget) : 0;
+
     setFormData({
       name: user.name,
       age: user.age.toString(),
@@ -110,7 +114,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate, onSignOut }) => {
       activityLevel: user.activityLevel,
       targetWeight: user.targetWeight.toString(),
       targetDate: user.targetDate.toISOString().split('T')[0],
-      dailyDeficitTarget: user.dailyDeficitTarget.toString()
+      dailyDeficitTarget: Math.round(derivedDailyDeficitTarget).toString(),
     });
     setEditDialogOpen(true);
   };
@@ -204,8 +208,19 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate, onSignOut }) => {
 
   const progressPercentage = calculateProgressPercentage(user, currentWeight);
   const weightLost = user.weight - currentWeight;
-  const timeline = calculateWeightLossTimeline(user);
   const dailyExpenditure = calculateDailyExpenditure(user);
+  const dailyDeficitTarget =
+    user.dailyCalorieTarget > 0 ? Math.max(0, dailyExpenditure - user.dailyCalorieTarget) : 0;
+  const timelineDays =
+    dailyDeficitTarget > 0 && currentWeight > user.targetWeight
+      ? calculateWeightLossTimeline({ ...user, weight: currentWeight, dailyDeficitTarget })
+      : null;
+  const timelineText =
+    currentWeight <= user.targetWeight
+      ? 'Goal reached'
+      : timelineDays !== null && Number.isFinite(timelineDays)
+        ? `${timelineDays} days to reach goal`
+        : '—';
 
   const getWeightCheckInValidationError = (raw: string) => {
     const trimmed = raw.trim();
@@ -435,7 +450,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate, onSignOut }) => {
                   </ListItemAvatar>
                   <ListItemText
                     primary="Daily Calorie Deficit"
-                    secondary={`${Math.round(user.dailyDeficitTarget)} calories per day`}
+                    secondary={`${Math.round(dailyDeficitTarget)} calories per day`}
                   />
                 </ListItem>
                 <ListItem>
@@ -457,7 +472,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate, onSignOut }) => {
                   </ListItemAvatar>
                   <ListItemText
                     primary="Estimated Timeline"
-                    secondary={`${timeline} days to reach goal`}
+                    secondary={timelineText}
                   />
                 </ListItem>
               </List>
