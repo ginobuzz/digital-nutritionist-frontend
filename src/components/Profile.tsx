@@ -36,6 +36,7 @@ import {
   Scale,
   Logout,
   Info,
+  Gavel,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { User, WeightLog } from '../types';
@@ -594,6 +595,19 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate, onSignOut }) => {
                   <ListItemText
                     primary="About Sunday Mornings"
                     secondary="Learn how the app works"
+                  />
+                </ListItemButton>
+              </ListItem>
+              <ListItem disablePadding>
+                <ListItemButton onClick={() => navigate('/legal')}>
+                  <ListItemAvatar>
+                    <Avatar sx={{ bgcolor: 'secondary.light' }}>
+                      <Gavel />
+                    </Avatar>
+                  </ListItemAvatar>
+                  <ListItemText
+                    primary="Privacy, terms & consent"
+                    secondary="See what data is stored and the medical disclaimer"
                   />
                 </ListItemButton>
               </ListItem>

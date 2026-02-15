@@ -76,3 +76,28 @@ def test_users_crud_and_password_update_affects_login(client):
 
     login_deleted = client.post("/auth/login", json={"email": "user-crud@example.com", "password": "new-pw"})
     assert login_deleted.status_code == 401
+
+
+def test_auth_rate_limit_returns_429(client, monkeypatch):
+    from app import config
+
+    monkeypatch.setattr(config.settings, "auth_rate_limit_requests", 2, raising=False)
+    monkeypatch.setattr(config.settings, "auth_rate_limit_window_seconds", 60, raising=False)
+
+    payload = _signup_payload("rate-auth@example.com")
+    assert client.post("/auth/signup", json=payload).status_code == 201
+    assert client.post("/auth/login", json={"email": payload["email"], "password": payload["password"]}).status_code == 200
+
+    limited = client.post("/auth/login", json={"email": payload["email"], "password": payload["password"]})
+    assert limited.status_code == 429
+    assert "Too many auth requests" in limited.json()["detail"]
+
+
+def test_auth_payload_cap_returns_413(client, monkeypatch):
+    from app import config
+
+    monkeypatch.setattr(config.settings, "auth_max_payload_bytes", 200, raising=False)
+    too_large_password = "x" * 300
+    res = client.post("/auth/login", json={"email": "big@example.com", "password": too_large_password})
+    assert res.status_code == 413
+    assert res.json()["detail"] == "Auth payload too large"

@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -10,6 +10,7 @@ import {
   Stack,
   Typography,
   useTheme,
+  Link,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import InfoRoundedIcon from '@mui/icons-material/InfoRounded';
@@ -106,6 +107,9 @@ const About: React.FC = () => {
             </Typography>
             <Typography variant="caption" sx={{ display: 'block', color: 'text.disabled', mt: 1 }}>
               Not medical advice. For health concerns, talk to a clinician.
+            </Typography>
+            <Typography variant="caption" sx={{ display: 'block', color: 'text.disabled', mt: 0.5 }}>
+              Legal details are available on demand in our <Link component={RouterLink} to="/legal" underline="hover">Privacy & Terms</Link>.
             </Typography>
           </CardContent>
         </Card>

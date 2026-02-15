@@ -1,5 +1,6 @@
 from sqlalchemy import text
 
+import fastapi
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -21,6 +22,25 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup() -> None:
     init_db()
+
+
+@app.middleware("http")
+async def payload_size_guard(request, call_next):
+    content_length = request.headers.get("content-length")
+    if content_length:
+        size = int(content_length)
+        if request.url.path.startswith("/auth/") and size > settings.auth_max_payload_bytes:
+            return fastapi.responses.JSONResponse(
+                status_code=fastapi.status.HTTP_413_CONTENT_TOO_LARGE,
+                content={"detail": "Auth payload too large"},
+            )
+        if request.url.path.startswith("/chat") and size > settings.chat_max_payload_bytes:
+            return fastapi.responses.JSONResponse(
+                status_code=fastapi.status.HTTP_413_CONTENT_TOO_LARGE,
+                content={"detail": "Chat payload too large"},
+            )
+    return await call_next(request)
+
 
 
 @app.get("/health")
