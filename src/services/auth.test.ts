@@ -94,6 +94,38 @@ describe('authService', () => {
     );
   });
 
+  test('checkEmailAvailability calls backend and returns availability', async () => {
+    const fetchMock = global.fetch as unknown as jest.Mock;
+    fetchMock.mockResolvedValueOnce(
+      mockFetchResponse({
+        json: async () => ({ available: true }),
+      })
+    );
+
+    const result = await authService.checkEmailAvailability('u1@example.com');
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:8000/auth/email-available?email=u1%40example.com',
+      expect.objectContaining({ method: 'GET' })
+    );
+    expect(result.available).toBe(true);
+  });
+
+  test('checkEmailAvailability throws on non-2xx responses', async () => {
+    const fetchMock = global.fetch as unknown as jest.Mock;
+    fetchMock.mockResolvedValueOnce(
+      mockFetchResponse({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        text: async () => 'nope',
+      })
+    );
+
+    await expect(authService.checkEmailAvailability('u1@example.com')).rejects.toThrow(
+      /email availability check failed: 500/i
+    );
+  });
+
   test('requestPasswordReset posts email to backend', async () => {
     const fetchMock = global.fetch as unknown as jest.Mock;
     fetchMock.mockResolvedValueOnce(

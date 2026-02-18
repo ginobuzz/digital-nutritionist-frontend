@@ -4,6 +4,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from jose import ExpiredSignatureError, JWTError, jwt
 from pydantic import BaseModel, Field
+from sqlalchemy import func
 from sqlmodel import Session, select
 
 from ..abuse_guards import AuthRateLimit
@@ -35,6 +36,9 @@ class PasswordResetConfirm(BaseModel):
     token: str = Field(min_length=1, max_length=4096)
     new_password: str = Field(min_length=1, max_length=256)
 
+class EmailAvailabilityResponse(BaseModel):
+    available: bool
+
 
 def _user_to_read(user: User) -> UserRead:
     return UserRead.model_validate(user, from_attributes=True)
@@ -49,7 +53,8 @@ def _enforce_auth_payload_cap(request: Request) -> None:
 @router.post("/signup", response_model=TokenResponse, status_code=status.HTTP_201_CREATED, dependencies=[AuthRateLimit])
 def signup(*, request: Request, session: Session = Depends(get_session), payload: UserCreate):
     _enforce_auth_payload_cap(request)
-    existing = session.exec(select(User).where(User.email == payload.email)).first()
+    email = (payload.email or "").strip().lower()
+    existing = session.exec(select(User).where(func.lower(User.email) == email)).first()
     if existing:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
 
@@ -59,7 +64,7 @@ def signup(*, request: Request, session: Session = Depends(get_session), payload
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
     db_user = User(
-        email=payload.email,
+        email=email,
         first_name=payload.first_name,
         last_name=payload.last_name,
         age=payload.age,
@@ -83,7 +88,8 @@ def signup(*, request: Request, session: Session = Depends(get_session), payload
 @router.post("/login", response_model=TokenResponse, dependencies=[AuthRateLimit])
 def login(*, request: Request, session: Session = Depends(get_session), payload: LoginRequest):
     _enforce_auth_payload_cap(request)
-    user = session.exec(select(User).where(User.email == payload.email)).first()
+    email = (payload.email or "").strip().lower()
+    user = session.exec(select(User).where(func.lower(User.email) == email)).first()
     password_valid = False
     if user:
         try:
@@ -95,6 +101,14 @@ def login(*, request: Request, session: Session = Depends(get_session), payload:
 
     token = create_access_token(user.id, extra_claims={"email": user.email})
     return TokenResponse(access_token=token, token_type="bearer", user=_user_to_read(user))
+
+@router.get("/email-available", response_model=EmailAvailabilityResponse, dependencies=[AuthRateLimit])
+def email_available(*, email: str, session: Session = Depends(get_session)):
+    normalized = (email or "").strip().lower()
+    if not normalized:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email is required")
+    existing = session.exec(select(User).where(func.lower(User.email) == normalized)).first()
+    return EmailAvailabilityResponse(available=existing is None)
 
 
 @router.post("/password-reset/request", dependencies=[AuthRateLimit])

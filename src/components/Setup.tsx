@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   Box,
   Card,
@@ -40,9 +40,14 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
   
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [emailCheckLoading, setEmailCheckLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState('');
+  const emailRef = useRef('');
   const [password, setPassword] = useState('');
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [emailStatus, setEmailStatus] = useState<'unknown' | 'checking' | 'available' | 'taken'>('unknown');
   const [heightFeetInput, setHeightFeetInput] = useState<string>(() => (5).toString());
   const [heightInchesInput, setHeightInchesInput] = useState<string>(() => (8).toString());
   const [weightInput, setWeightInput] = useState<string>(() => (150).toString());
@@ -65,7 +70,59 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
     'Review'
   ];
 
+  const normalizeEmail = (value: string) => value.trim().toLowerCase();
+
+  const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+
+  const checkEmailAvailability = async (rawEmail: string): Promise<boolean> => {
+    const requestedEmail = normalizeEmail(rawEmail);
+    if (!requestedEmail || !isValidEmail(requestedEmail)) return false;
+
+    setEmailStatus('checking');
+    setEmailCheckLoading(true);
+    setEmailError(null);
+    setError(null);
+    try {
+      const res = await authService.checkEmailAvailability(requestedEmail);
+      if (normalizeEmail(emailRef.current) !== requestedEmail) return false;
+      if (!res.available) {
+        setEmailStatus('taken');
+        setEmailError(null);
+        return false;
+      }
+      setEmailStatus('available');
+      return true;
+    } catch (err) {
+      if (normalizeEmail(emailRef.current) !== requestedEmail) return false;
+      setEmailStatus('unknown');
+      setError(err instanceof Error ? err.message : 'Unable to verify email availability');
+      return false;
+    } finally {
+      setEmailCheckLoading(false);
+    }
+  };
+
   const handleNext = async () => {
+    if (activeStep === 0) {
+      const normalized = normalizeEmail(email);
+      const nextEmailError = !normalized
+        ? 'Email is required.'
+        : (!isValidEmail(normalized) ? 'Enter a valid email address.' : null);
+      const nextPasswordError = !password ? 'Password is required.' : null;
+
+      setEmailError(nextEmailError);
+      setPasswordError(nextPasswordError);
+      setError(null);
+
+      if (nextEmailError || nextPasswordError) return;
+
+      const ok = await checkEmailAvailability(normalized);
+      if (!ok) return;
+
+      setActiveStep((prevStep) => prevStep + 1);
+      return;
+    }
+
     if (activeStep === steps.length - 1) {
       // Complete setup
       setLoading(true);
@@ -144,8 +201,16 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
         if (isUserNotFoundError(err)) {
           return;
         }
-        setError(err instanceof Error ? err.message : 'Failed to create user profile');
-        console.error('Error creating user:', err);
+        const message = err instanceof Error ? err.message : 'Failed to create user profile';
+      if (/email already registered/i.test(message)) {
+        setActiveStep(0);
+        setEmailStatus('taken');
+        setEmailError(null);
+        setError(null);
+        return;
+      }
+      setError(message);
+      console.error('Error creating user:', err);
       } finally {
         setLoading(false);
       }
@@ -211,7 +276,39 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
               label="Email"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                emailRef.current = e.target.value;
+                setEmailStatus('unknown');
+                setEmailError(null);
+                setError(null);
+              }}
+              onBlur={() => {
+                const normalized = normalizeEmail(email);
+                if (!normalized || !isValidEmail(normalized)) return;
+                if (emailStatus === 'available') return;
+                void checkEmailAvailability(normalized);
+              }}
+              error={Boolean(emailError) || emailStatus === 'taken'}
+              helperText={
+                emailStatus === 'taken' ? (
+                  <>
+                    This email is already used.{' '}
+                    <Link component={RouterLink} to="/signin">
+                      Sign in
+                    </Link>
+                    .
+                  </>
+                ) : emailError ? (
+                  <>
+                    {emailError}
+                  </>
+                ) : emailStatus === 'checking' ? (
+                  'Checking email...'
+                ) : (
+                  ' '
+                )
+              }
               size={isMobile ? "small" : "medium"}
               sx={{ 
                 '& .MuiInputBase-root': {
@@ -225,7 +322,13 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
               label="Password"
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setPasswordError(null);
+                setError(null);
+              }}
+              error={Boolean(passwordError)}
+              helperText={passwordError || ' '}
               size={isMobile ? "small" : "medium"}
               sx={{ 
                 '& .MuiInputBase-root': {
@@ -645,7 +748,11 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
         const hasName = Boolean(userData.name);
         const hasAge = typeof userData.age === 'number' && !Number.isNaN(userData.age) && userData.age >= 13;
         const hasGender = Boolean(userData.gender);
-        return hasName && hasAge && hasGender;
+        const normalized = normalizeEmail(email);
+        const hasEmail = Boolean(normalized) && isValidEmail(normalized);
+        const hasPassword = Boolean(password);
+        const emailOk = emailStatus !== 'taken';
+        return hasName && hasAge && hasGender && hasEmail && hasPassword && emailOk && !emailCheckLoading;
       }
       case 1: {
         const feet = userData.height?.feet;

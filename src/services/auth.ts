@@ -22,6 +22,10 @@ export interface PasswordResetConfirmResponse {
   detail?: string;
 }
 
+export interface EmailAvailabilityResponse {
+  available: boolean;
+}
+
 const TOKEN_KEY = 'dn_access_token';
 
 export const authService = {
@@ -118,6 +122,35 @@ export const authService = {
         );
       }
       // Always throw proper Error instances for linter and reliability
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error(String(error));
+    }
+  },
+  async checkEmailAvailability(email: string): Promise<EmailAvailabilityResponse> {
+    try {
+      const qs = new URLSearchParams({ email });
+      const res = await fetch(`${API_BASE_URL}/auth/email-available?${qs.toString()}`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+        mode: 'cors',
+        credentials: 'omit',
+      });
+      if (!res.ok) {
+        const msg = await res.text().catch(() => '');
+        throw new Error(
+          `Email availability check failed: ${res.status} ${res.statusText}${msg ? ` - ${msg}` : ''}`
+        );
+      }
+      const data = await res.json().catch(() => ({}));
+      return { available: Boolean((data as any).available) };
+    } catch (error) {
+      if (error instanceof TypeError) {
+        throw new Error(
+          'Network or CORS error: Unable to verify email availability. Ensure the backend allows this origin and method.'
+        );
+      }
       if (error instanceof Error) {
         throw error;
       }

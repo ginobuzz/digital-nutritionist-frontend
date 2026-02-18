@@ -29,9 +29,21 @@ def test_signup_rejects_duplicate_email(client):
     first = client.post("/auth/signup", json=_signup_payload("dup@example.com"))
     assert first.status_code == 201, first.text
 
-    second = client.post("/auth/signup", json=_signup_payload("dup@example.com"))
+    second = client.post("/auth/signup", json=_signup_payload("DUP@EXAMPLE.COM"))
     assert second.status_code == 400
     assert second.json()["detail"] == "Email already registered"
+
+def test_email_available_endpoint_is_case_insensitive(client):
+    before = client.get("/auth/email-available", params={"email": "avail@example.com"})
+    assert before.status_code == 200, before.text
+    assert before.json()["available"] is True
+
+    created = client.post("/auth/signup", json=_signup_payload("used@example.com"))
+    assert created.status_code == 201, created.text
+
+    after = client.get("/auth/email-available", params={"email": "USED@EXAMPLE.COM"})
+    assert after.status_code == 200, after.text
+    assert after.json()["available"] is False
 
 
 def test_login_rejects_invalid_password(client):
