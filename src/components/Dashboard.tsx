@@ -38,6 +38,7 @@ import { apiService, isUserNotFoundError, MealLogResponse } from '../services/ap
 import { imageFileToDataUrl } from '../utils/images';
 import { calculateDynamicWeeklyCalorieTargets, getMinimumHealthyDailyCalories } from '../utils/weeklyTargets';
 import { useSpeechToText } from '../hooks/useSpeechToText';
+import { formatVoiceInputError, getUserFacingErrorMessage } from '../utils/errors';
 
 interface DashboardProps {
   user: User;
@@ -156,39 +157,14 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
 
   useEffect(() => {
     if (!describeVoiceRawError) return;
-
-    if (describeVoiceRawError === 'unsupported') {
-      setDescribeVoiceError('Voice input isn’t supported in this browser.');
-      return;
-    }
-
-    switch (describeVoiceRawError) {
-      case 'not-allowed':
-      case 'service-not-allowed':
-        setDescribeVoiceError('Microphone permission blocked. Enable it in your browser settings.');
-        return;
-      case 'no-speech':
-        setDescribeVoiceError('No speech detected. Try again.');
-        return;
-      case 'audio-capture':
-        setDescribeVoiceError('No microphone detected.');
-        return;
-      case 'network':
-        setDescribeVoiceError('Network error while using voice input.');
-        return;
-      case 'language-not-supported':
-        setDescribeVoiceError('Language not supported for voice input.');
-        return;
-      default:
-        setDescribeVoiceError(`Voice input error: ${describeVoiceRawError}`);
-    }
+    setDescribeVoiceError(formatVoiceInputError(describeVoiceRawError));
   }, [describeVoiceRawError]);
 
   const handleToggleDescribeVoice = () => {
     setDescribeVoiceError(null);
 
     if (!describeVoiceSupported) {
-      setDescribeVoiceError('Voice input isn’t supported in this browser.');
+      setDescribeVoiceError(formatVoiceInputError('unsupported'));
       return;
     }
 
@@ -360,8 +336,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       if (isUserNotFoundError(error)) {
         return;
       }
-      const message = error instanceof Error ? error.message : 'Unable to load recent meals. Please try again.';
-      setRecentMealsError(message);
+      setRecentMealsError(
+        getUserFacingErrorMessage(error, {
+          action: 'load your recent meals',
+          fallback: 'We couldn’t load your recent meals. Please try again.',
+        })
+      );
     } finally {
       setRecentMealsLoading(false);
     }
@@ -460,8 +440,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       if (isUserNotFoundError(error)) {
         return;
       }
-      const message = error instanceof Error ? error.message : 'Unable to add that meal. Please try again.';
-      setRecentMealsError(message);
+      setRecentMealsError(
+        getUserFacingErrorMessage(error, {
+          action: 'add that meal',
+          fallback: 'We couldn’t add that meal. Please try again.',
+        })
+      );
     } finally {
       setAddingRecentMealId(null);
     }
@@ -469,7 +453,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
 
   const handleSaveMealLog = async () => {
     if (!logForm.description.trim() || !logForm.calories.trim()) {
-      setLogError('Enter a short description and calories to log the meal.');
+      setLogError('Add a short description and calories to log this meal.');
       return;
     }
 
@@ -477,9 +461,16 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       const trimmed = raw.trim();
       if (!trimmed) return null;
       const value = Number(trimmed);
-      if (!Number.isFinite(value)) throw new Error(`${label} must be a number.`);
+      if (!Number.isFinite(value)) throw new Error(`Enter a number for ${label}.`);
       return Math.max(0, Math.min(500, value));
     };
+
+    const caloriesValue = Number(logForm.calories.trim());
+    if (!Number.isFinite(caloriesValue)) {
+      setLogError('Enter calories as a number.');
+      return;
+    }
+    const calories = Math.round(caloriesValue);
 
     let protein: number | null;
     let carbs: number | null;
@@ -489,8 +480,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       carbs = parseOptionalMacroGrams(logForm.carbs, 'Carbs');
       fat = parseOptionalMacroGrams(logForm.fat, 'Fat');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Invalid macro values.';
-      setLogError(message);
+      setLogError(getUserFacingErrorMessage(error, { fallback: 'Please check the macro numbers and try again.' }));
       return;
     }
 
@@ -503,7 +493,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
         date: selectedKey,
         user_description: logForm.description.trim(),
         meal_type: mealType || null,
-        estimated_calories: Number(logForm.calories),
+        estimated_calories: calories,
         protein_g: protein,
         carbs_g: carbs,
         fat_g: fat,
@@ -522,8 +512,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       if (isUserNotFoundError(error)) {
         return;
       }
-      const message = error instanceof Error ? error.message : 'Unable to log meal. Please try again.';
-      setLogError(message);
+      setLogError(
+        getUserFacingErrorMessage(error, {
+          action: 'log that meal',
+          fallback: 'We couldn’t log that meal. Please try again.',
+        })
+      );
     } finally {
       setSavingQuickLog(false);
     }
@@ -568,8 +562,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       if (isUserNotFoundError(error)) {
         return;
       }
-      const message = error instanceof Error ? error.message : 'Unable to log meal. Please try again.';
-      setLogError(message);
+      setLogError(
+        getUserFacingErrorMessage(error, {
+          action: 'log that meal',
+          fallback: 'We couldn’t log that meal. Please try again.',
+        })
+      );
     } finally {
       setSendingDescribeLog(false);
     }
@@ -588,7 +586,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       if (describeReply) setDescribeReply(null);
     } catch (error) {
       console.error('Unable to attach image:', error);
-      setLogError('Unable to read that image. Try a different file.');
+      setLogError('We couldn’t read that photo. Try a different image.');
     }
   };
 

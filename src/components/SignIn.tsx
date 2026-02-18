@@ -4,6 +4,7 @@ import { Link as RouterLink, useLocation } from 'react-router-dom';
 import { authService } from '../services/auth';
 import { apiService, convertUserFromBackend, isUserNotFoundError } from '../services/api';
 import { User } from '../types';
+import { getUserFacingErrorMessage } from '../utils/errors';
 
 interface SignInProps {
   onSignedIn: (user: User) => void;
@@ -41,7 +42,7 @@ const SignIn: React.FC<SignInProps> = ({ onSignedIn }) => {
       const id = (idFromAuth !== undefined && idFromAuth !== null)
         ? idFromAuth
         : authService.getUserIdFromToken(accessToken);
-      if (id === null || id === undefined) throw new Error('Unable to resolve user from token');
+      if (id === null || id === undefined) throw new Error('We couldn’t finish signing you in. Please try again.');
       const userResponse = await apiService.getUser(String(id));
       const user = convertUserFromBackend(userResponse);
       localStorage.setItem('user', JSON.stringify(user));
@@ -51,7 +52,12 @@ const SignIn: React.FC<SignInProps> = ({ onSignedIn }) => {
       if (isUserNotFoundError(e)) {
         return;
       }
-      setErr(e instanceof Error ? e.message : 'Login failed');
+      setErr(
+        getUserFacingErrorMessage(e, {
+          action: 'sign you in',
+          fallback: 'We couldn’t sign you in. Check your email and password and try again.',
+        })
+      );
     } finally {
       setLoading(false);
     }

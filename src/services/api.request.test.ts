@@ -115,7 +115,7 @@ describe('apiService (request behavior)', () => {
         activity_level: 'sedentary',
         daily_calorie_budget: 2000.5 as any,
       })
-    ).rejects.toThrow(/daily calorie budget must be a whole number/i);
+    ).rejects.toThrow(/daily calorie budget.*whole number/i);
   });
 
   test('logs out and redirects to signin on 401 responses', async () => {
@@ -138,7 +138,7 @@ describe('apiService (request behavior)', () => {
       writable: true,
     });
 
-    await expect(apiService.getUser('u1')).rejects.toThrow(/401 unauthorized.*invalid token/i);
+    await expect(apiService.getUser('u1')).rejects.toThrow(/sign in again/i);
     expect(localStorage.getItem('dn_access_token')).toBeNull();
     expect(localStorage.getItem('user')).toBeNull();
     expect(localStorage.getItem('setupComplete')).toBeNull();
@@ -183,6 +183,6 @@ describe('apiService (request behavior)', () => {
       })
     );
 
-    await expect(apiService.getUser('u1')).rejects.toThrow(/returned non-json response/i);
+    await expect(apiService.getUser('u1')).rejects.toThrow(/read the server response|try again/i);
   });
 });

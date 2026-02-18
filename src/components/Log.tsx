@@ -50,6 +50,7 @@ import { useSearchParams } from 'react-router-dom';
 import { imageFileToDataUrl } from '../utils/images';
 import { calculateDynamicWeeklyCalorieTargets, getMinimumHealthyDailyCalories } from '../utils/weeklyTargets';
 import { useSpeechToText } from '../hooks/useSpeechToText';
+import { formatVoiceInputError, getUserFacingErrorMessage } from '../utils/errors';
 import {
   defaultTimeForMealType,
   normalizePlanMealType,
@@ -57,26 +58,6 @@ import {
 } from '../utils/plannedMeals';
 
 const toIsoDate = (d: Date) => format(d, 'yyyy-MM-dd');
-
-const formatVoiceInputError = (code: string): string => {
-  if (code === 'unsupported') return 'Voice input isn’t supported in this browser.';
-
-  switch (code) {
-    case 'not-allowed':
-    case 'service-not-allowed':
-      return 'Microphone permission blocked. Enable it in your browser settings.';
-    case 'no-speech':
-      return 'No speech detected. Try again.';
-    case 'audio-capture':
-      return 'No microphone detected.';
-    case 'network':
-      return 'Network error while using voice input.';
-    case 'language-not-supported':
-      return 'Language not supported for voice input.';
-    default:
-      return `Voice input error: ${code}`;
-  }
-};
 
 const normalizeMealType = (value: string | null | undefined): ActualMeal['type'] => {
   const v = (value || '').toLowerCase();
@@ -419,7 +400,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
 
   const handleSaveMealLog = async () => {
     if (!logForm.description.trim() || !logForm.calories.trim()) {
-      setLogError('Enter a short description and calories to log the meal.');
+      setLogError('Add a short description and calories to log this meal.');
       return;
     }
 
@@ -427,9 +408,16 @@ const Log: React.FC<LogProps> = ({ user }) => {
       const trimmed = raw.trim();
       if (!trimmed) return null;
       const value = Number(trimmed);
-      if (!Number.isFinite(value)) throw new Error(`${label} must be a number.`);
+      if (!Number.isFinite(value)) throw new Error(`Enter a number for ${label}.`);
       return Math.max(0, Math.min(500, value));
     };
+
+    const caloriesValue = Number(logForm.calories.trim());
+    if (!Number.isFinite(caloriesValue)) {
+      setLogError('Enter calories as a number.');
+      return;
+    }
+    const calories = Math.round(caloriesValue);
 
     let protein: number | null;
     let carbs: number | null;
@@ -439,8 +427,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
       carbs = parseOptionalMacroGrams(logForm.carbs, 'Carbs');
       fat = parseOptionalMacroGrams(logForm.fat, 'Fat');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Invalid macro values.';
-      setLogError(message);
+      setLogError(getUserFacingErrorMessage(error, { fallback: 'Please check the macro numbers and try again.' }));
       return;
     }
 
@@ -452,7 +439,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
         date: selectedKey,
         user_description: logForm.description.trim(),
         meal_type: logForm.mealType || null,
-        estimated_calories: Number(logForm.calories),
+        estimated_calories: calories,
         protein_g: protein,
         carbs_g: carbs,
         fat_g: fat,
@@ -471,8 +458,12 @@ const Log: React.FC<LogProps> = ({ user }) => {
       if (isUserNotFoundError(error)) {
         return;
       }
-      const message = error instanceof Error ? error.message : 'Unable to log meal. Please try again.';
-      setLogError(message);
+      setLogError(
+        getUserFacingErrorMessage(error, {
+          action: 'log that meal',
+          fallback: 'We couldn’t log that meal. Please try again.',
+        })
+      );
     } finally {
       setSavingQuickLog(false);
     }
@@ -480,7 +471,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
 
   const handleSaveMealPlan = async () => {
     if (!planForm.description.trim() || !planForm.calories.trim()) {
-      setPlanError('Enter a short description and calories to plan the meal.');
+      setPlanError('Add a short description and calories to plan this meal.');
       return;
     }
 
@@ -492,7 +483,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
       const time = defaultTimeForMealType(mealType);
       const caloriesValue = Number(planForm.calories);
       if (!Number.isFinite(caloriesValue)) {
-        setPlanError('Calories must be a number.');
+        setPlanError('Enter calories as a number.');
         return;
       }
       const calories = Math.max(0, Math.min(5000, Math.round(caloriesValue)));
@@ -518,8 +509,12 @@ const Log: React.FC<LogProps> = ({ user }) => {
       if (isUserNotFoundError(error)) {
         return;
       }
-      const message = error instanceof Error ? error.message : 'Unable to plan meal. Please try again.';
-      setPlanError(message);
+      setPlanError(
+        getUserFacingErrorMessage(error, {
+          action: 'save that plan',
+          fallback: 'We couldn’t save that plan. Please try again.',
+        })
+      );
     } finally {
       setSavingQuickPlan(false);
     }
@@ -559,8 +554,12 @@ const Log: React.FC<LogProps> = ({ user }) => {
       if (isUserNotFoundError(error)) {
         return;
       }
-      const message = error instanceof Error ? error.message : 'Unable to log meal. Please try again.';
-      setLogError(message);
+      setLogError(
+        getUserFacingErrorMessage(error, {
+          action: 'log that meal',
+          fallback: 'We couldn’t log that meal. Please try again.',
+        })
+      );
     } finally {
       setSendingDescribeLog(false);
     }
@@ -578,13 +577,13 @@ const Log: React.FC<LogProps> = ({ user }) => {
       if (describeReply) setDescribeReply(null);
     } catch (error) {
       console.error('Unable to attach image:', error);
-      setLogError('Unable to read that image. Try a different file.');
+      setLogError('We couldn’t read that photo. Try a different image.');
     }
   };
 
   const handleDescribeMealPlan = async () => {
     if (!planDescribeInput.trim()) {
-      setPlanError('Describe what you want to eat to generate a plan.');
+      setPlanError('Describe what you’d like to eat so I can build a plan.');
       return;
     }
 
@@ -617,7 +616,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
       const drafts = parsePlannedMealDraftsFromReply(lastReply);
       if (drafts.length === 0) {
         setPlanDescribeReply(lastReply || 'No response.');
-        throw new Error('AI did not return any planned meals.');
+        throw new Error('I couldn’t make a meal plan from that. Try adding a little more detail and try again.');
       }
 
       await Promise.all(
@@ -641,9 +640,12 @@ const Log: React.FC<LogProps> = ({ user }) => {
       if (isUserNotFoundError(error)) {
         return;
       }
-      const message =
-        error instanceof Error ? error.message : 'Unable to generate meal plan. Please try again.';
-      setPlanError(message);
+      setPlanError(
+        getUserFacingErrorMessage(error, {
+          action: 'generate that meal plan',
+          fallback: 'I couldn’t generate a meal plan right now. Please try again.',
+        })
+      );
       if (lastReply) {
         setPlanDescribeReply(lastReply);
       }
@@ -699,7 +701,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
       }
       console.error('Error deleting meal:', error);
       setDeleteToast({
-        message: 'Unable to delete meal. Please try again.',
+        message: 'We couldn’t delete that meal. Please try again.',
         severity: 'error',
       });
       setDeleteToastOpen(true);

@@ -16,6 +16,7 @@ import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import { authService } from '../services/auth';
+import { getUserFacingErrorMessage } from '../utils/errors';
 
 const ResetPassword: React.FC = () => {
   const location = useLocation();
@@ -45,7 +46,12 @@ const ResetPassword: React.FC = () => {
       setPassword('');
       setConfirm('');
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Unable to update password');
+      setErr(
+        getUserFacingErrorMessage(e, {
+          action: 'update your password',
+          fallback: 'We couldn’t update your password. Please try again.',
+        })
+      );
     } finally {
       setLoading(false);
     }
@@ -79,7 +85,7 @@ const ResetPassword: React.FC = () => {
 
             {!token && (
               <Alert severity="error" sx={{ mb: 2 }}>
-                This reset link is missing or invalid. Please request a new one.
+                This reset link doesn’t look right. Please request a new one.
               </Alert>
             )}
             {done && (
@@ -121,7 +127,7 @@ const ResetPassword: React.FC = () => {
                 onChange={(e) => setConfirm(e.target.value)}
                 disabled={!token || done}
                 error={confirm.length > 0 && password !== confirm}
-                helperText={confirm.length > 0 && password !== confirm ? 'Passwords do not match' : ' '}
+                helperText={confirm.length > 0 && password !== confirm ? 'Passwords don’t match.' : ' '}
                 sx={{ mb: 1 }}
                 InputProps={{
                   endAdornment: (
@@ -166,4 +172,3 @@ const ResetPassword: React.FC = () => {
 };
 
 export default ResetPassword;
-

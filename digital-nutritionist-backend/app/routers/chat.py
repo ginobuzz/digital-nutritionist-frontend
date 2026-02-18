@@ -37,15 +37,15 @@ class ChatRequest(BaseModel):
         has_message = bool(self.message and self.message.strip())
         has_image = bool(self.image_data_url and self.image_data_url.strip())
         if not has_message and not has_image:
-            raise ValueError("Provide `message` or `image_data_url`.")
+            raise ValueError("Please type a message or attach a photo.")
         if has_image and not (self.image_data_url or "").startswith("data:image/"):
-            raise ValueError("`image_data_url` must be a data:image/* URL.")
+            raise ValueError("That doesn’t look like an image. Please attach a photo.")
         if self.image_data_url and len(self.image_data_url) > settings.chat_max_image_data_url_chars:
-            raise ValueError("`image_data_url` exceeds maximum length.")
+            raise ValueError("That photo is too large. Try a smaller image.")
         if self.message and len(self.message) > settings.chat_max_message_chars:
-            raise ValueError("`message` exceeds maximum length.")
+            raise ValueError("That message is too long. Try shortening it.")
         if self.history and len(self.history) > settings.chat_max_history_turns_payload:
-            raise ValueError("`history` has too many turns.")
+            raise ValueError("This chat is getting long. Try starting a new chat.")
         return self
 
 
@@ -60,7 +60,10 @@ class ChatResponse(BaseModel):
 def _enforce_chat_payload_cap(request: Request) -> None:
     content_length = request.headers.get("content-length")
     if content_length and int(content_length) > settings.chat_max_payload_bytes:
-        raise HTTPException(status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail="Chat payload too large")
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            detail="That message is too large. Try shortening it or using a smaller photo.",
+        )
 
 
 @router.post("", response_model=ChatResponse, dependencies=[ChatRateLimit])
@@ -83,5 +86,8 @@ def chat_endpoint(*, request: Request, session: Session = Depends(get_session), 
         image_data_url=payload.image_data_url,
     )
     if not result.get("reply"):
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="No reply received from model")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="I couldn’t get a reply right now. Please try again.",
+        )
     return result

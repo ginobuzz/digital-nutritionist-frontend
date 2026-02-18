@@ -57,7 +57,7 @@ def test_signup_rejects_passwords_over_72_bytes(client):
     password = "a" * 73
     res = client.post("/auth/signup", json=_signup_payload("long@example.com", password=password))
     assert res.status_code == 400
-    assert "72 bytes" in res.json()["detail"]
+    assert "password is too long" in res.json()["detail"].lower()
 
 
 def test_users_crud_and_password_update_affects_login(client):
@@ -112,4 +112,4 @@ def test_auth_payload_cap_returns_413(client, monkeypatch):
     too_large_password = "x" * 300
     res = client.post("/auth/login", json={"email": "big@example.com", "password": too_large_password})
     assert res.status_code == 413
-    assert res.json()["detail"] == "Auth payload too large"
+    assert "request is too large" in res.json()["detail"].lower()

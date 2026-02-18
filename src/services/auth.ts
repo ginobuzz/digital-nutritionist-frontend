@@ -28,6 +28,18 @@ export interface EmailAvailabilityResponse {
 
 const TOKEN_KEY = 'dn_access_token';
 
+const readErrorDetail = async (res: Response): Promise<string> => {
+  const text = await res.text().catch(() => '');
+  if (!text) return '';
+  try {
+    const parsed = JSON.parse(text) as any;
+    const detail = parsed?.detail;
+    return typeof detail === 'string' ? detail : text;
+  } catch {
+    return text;
+  }
+};
+
 export const authService = {
   getToken(): string | null {
     return localStorage.getItem(TOKEN_KEY);
@@ -66,8 +78,17 @@ export const authService = {
         credentials: 'omit',
       });
       if (!res.ok) {
-        const msg = await res.text().catch(() => '');
-        throw new Error(`Login failed: ${res.status} ${res.statusText}${msg ? ` - ${msg}` : ''}`);
+        const detail = await readErrorDetail(res);
+        if (res.status === 401 || res.status === 403) {
+          throw new Error('That email or password didn’t match. Try again, or reset your password.');
+        }
+        if (res.status === 429) {
+          throw new Error('Too many sign-in attempts. Please wait a moment and try again.');
+        }
+        if (/expired/i.test(detail)) {
+          throw new Error('Your session expired. Please sign in again.');
+        }
+        throw new Error('We couldn’t sign you in. Please try again.');
       }
       const data = await res.json();
       // Normalize backend response (which currently returns { token, ...user fields })
@@ -81,16 +102,13 @@ export const authService = {
       return normalized;
     } catch (error) {
       if (error instanceof TypeError) {
-        // Network/CORS errors surface as TypeError in fetch
-        throw new Error(
-          'Network or CORS error: Unable to reach authentication service. Ensure the backend allows this origin and method.'
-        );
+        throw new Error('We couldn’t reach the server. Check your internet connection and try again.');
       }
       // Always throw proper Error instances for linter and reliability
       if (error instanceof Error) {
         throw error;
       }
-      throw new Error(String(error));
+      throw new Error('We couldn’t sign you in. Please try again.');
     }
   },
   async signup(payload: any): Promise<SignupResponse> {
@@ -103,8 +121,20 @@ export const authService = {
         credentials: 'omit',
       });
       if (!res.ok) {
-        const msg = await res.text().catch(() => '');
-        throw new Error(`Signup failed: ${res.status} ${res.statusText}${msg ? ` - ${msg}` : ''}`);
+        const detail = await readErrorDetail(res);
+        if (res.status === 400 && /email already registered/i.test(detail)) {
+          throw new Error('That email is already in use. Try signing in instead.');
+        }
+        if (res.status === 400 && /password/i.test(detail) && detail.trim()) {
+          throw new Error(detail.trim());
+        }
+        if (res.status === 422) {
+          throw new Error('Please double-check your details and try again.');
+        }
+        if (res.status === 429) {
+          throw new Error('Too many attempts. Please wait a moment and try again.');
+        }
+        throw new Error('We couldn’t create your account. Please try again.');
       }
       const data = await res.json();
       // Provide fallback fields so callers can pull user id directly
@@ -116,16 +146,13 @@ export const authService = {
       };
     } catch (error) {
       if (error instanceof TypeError) {
-        // Network/CORS errors surface as TypeError in fetch
-        throw new Error(
-          'Network or CORS error: Your browser blocked the signup request. Ask the backend to enable CORS for this origin (e.g., https://glockstock.github.io).'
-        );
+        throw new Error('We couldn’t reach the server. Check your internet connection and try again.');
       }
       // Always throw proper Error instances for linter and reliability
       if (error instanceof Error) {
         throw error;
       }
-      throw new Error(String(error));
+      throw new Error('We couldn’t create your account. Please try again.');
     }
   },
   async checkEmailAvailability(email: string): Promise<EmailAvailabilityResponse> {
@@ -138,23 +165,21 @@ export const authService = {
         credentials: 'omit',
       });
       if (!res.ok) {
-        const msg = await res.text().catch(() => '');
-        throw new Error(
-          `Email availability check failed: ${res.status} ${res.statusText}${msg ? ` - ${msg}` : ''}`
-        );
+        if (res.status === 429) {
+          throw new Error('Please wait a moment, then try checking that email again.');
+        }
+        throw new Error('We couldn’t check that email right now. Please try again.');
       }
       const data = await res.json().catch(() => ({}));
       return { available: Boolean((data as any).available) };
     } catch (error) {
       if (error instanceof TypeError) {
-        throw new Error(
-          'Network or CORS error: Unable to verify email availability. Ensure the backend allows this origin and method.'
-        );
+        throw new Error('We couldn’t reach the server. Check your internet connection and try again.');
       }
       if (error instanceof Error) {
         throw error;
       }
-      throw new Error(String(error));
+      throw new Error('We couldn’t check that email right now. Please try again.');
     }
   },
   logout() {
@@ -170,21 +195,21 @@ export const authService = {
         credentials: 'omit',
       });
       if (!res.ok) {
-        const msg = await res.text().catch(() => '');
-        throw new Error(`Password reset request failed: ${res.status} ${res.statusText}${msg ? ` - ${msg}` : ''}`);
+        if (res.status === 429) {
+          throw new Error('Too many reset requests. Please wait a moment and try again.');
+        }
+        throw new Error('We couldn’t send the reset link. Please try again.');
       }
       const data = await res.json().catch(() => ({}));
       return data;
     } catch (error) {
       if (error instanceof TypeError) {
-        throw new Error(
-          'Network or CORS error: Unable to reach authentication service. Ensure the backend allows this origin and method.'
-        );
+        throw new Error('We couldn’t reach the server. Check your internet connection and try again.');
       }
       if (error instanceof Error) {
         throw error;
       }
-      throw new Error(String(error));
+      throw new Error('We couldn’t send the reset link. Please try again.');
     }
   },
   async resetPassword(token: string, new_password: string): Promise<PasswordResetConfirmResponse> {
@@ -197,21 +222,28 @@ export const authService = {
         credentials: 'omit',
       });
       if (!res.ok) {
-        const msg = await res.text().catch(() => '');
-        throw new Error(`Password reset failed: ${res.status} ${res.statusText}${msg ? ` - ${msg}` : ''}`);
+        const detail = await readErrorDetail(res);
+        if (/token/i.test(detail) || /expired/i.test(detail)) {
+          throw new Error('That reset link is expired or invalid. Please request a new one.');
+        }
+        if (res.status === 400 && /password/i.test(detail) && detail.trim()) {
+          throw new Error(detail.trim());
+        }
+        if (res.status === 422) {
+          throw new Error('Please choose a new password and try again.');
+        }
+        throw new Error('We couldn’t update your password. Please try again.');
       }
       const data = await res.json().catch(() => ({}));
       return data;
     } catch (error) {
       if (error instanceof TypeError) {
-        throw new Error(
-          'Network or CORS error: Unable to reach authentication service. Ensure the backend allows this origin and method.'
-        );
+        throw new Error('We couldn’t reach the server. Check your internet connection and try again.');
       }
       if (error instanceof Error) {
         throw error;
       }
-      throw new Error(String(error));
+      throw new Error('We couldn’t update your password. Please try again.');
     }
   },
 };

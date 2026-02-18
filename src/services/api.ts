@@ -295,6 +295,7 @@ class ApiService {
       this.authToken = readTokenFromStorage();
     }
     const url = `${this.baseUrl}${endpoint}`;
+    const method = (options.method ?? 'GET').toString().toUpperCase();
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
@@ -303,15 +304,22 @@ class ApiService {
     if (this.authToken) {
       (headers as any).Authorization = `Bearer ${this.authToken}`;
     }
-    const response = await fetch(url, {
-      headers,
-      mode: 'cors',
-      credentials: 'omit',
-      ...options,
-    });
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        headers,
+        mode: 'cors',
+        credentials: 'omit',
+        ...options,
+      });
+    } catch (error) {
+      if (error instanceof TypeError) {
+        throw new Error('We couldn’t reach the server. Check your internet connection and try again.');
+      }
+      throw error;
+    }
 
     if (!response.ok) {
-      let errorMessage = `API request failed: ${response.status} ${response.statusText}`;
       const responseText = await response.text().catch(() => '');
       let errorData: any = null;
       if (responseText) {
@@ -325,6 +333,8 @@ class ApiService {
       if (response.status === 401) {
         const detail = typeof errorData?.detail === 'string' ? errorData.detail : responseText;
         this.handleUnauthorized(detail);
+        const detailStr = typeof detail === 'string' ? detail : '';
+        throw new Error(/token expired|expired/i.test(detailStr) ? 'Your session expired. Please sign in again.' : 'Please sign in again to continue.');
       }
 
       if (response.status === 404) {
@@ -337,60 +347,93 @@ class ApiService {
         // Special-case 404 for endpoints that might not exist yet in dev (e.g., weight logs)
         try {
           // Peek at method and endpoint to detect list endpoints we control
-          const isGet = (options.method ?? 'GET').toString().toUpperCase() === 'GET';
+          const isGet = method === 'GET';
           const looksLikeWeightLogs = endpoint.includes('/weight-logs') || endpoint.includes('/weight_logs');
           if (isGet && looksLikeWeightLogs) {
             return ([] as unknown) as T;
           }
         } catch {}
+        throw new Error('We couldn’t find that. Please try again.');
       }
       
-      // Try to get more detailed error information for 422 errors
       if (response.status === 422) {
-        try {
-          // Provide user-friendly error messages for common validation errors
-          if (errorData && Array.isArray(errorData.detail)) {
-            const userFriendlyErrors = errorData.detail.map((error: any) => {
-              if (error.type === 'int_from_float' && error.loc.includes('daily_calorie_budget')) {
-                return 'Daily calorie budget must be a whole number. The system has automatically rounded this value for you.';
-              }
-              if (error.type === 'missing') {
-                return `Missing required field: ${error.loc.join('.')}`;
-              }
-              if (error.type === 'value_error') {
-                return `Invalid value for ${error.loc.join('.')}: ${error.msg}`;
-              }
-              return `${error.loc.join('.')}: ${error.msg}`;
-            });
-            
-            if (userFriendlyErrors.length > 0) {
-              errorMessage = userFriendlyErrors.join('; ');
-            } else {
-              errorMessage += ` - ${JSON.stringify(errorData)}`;
+        const formatFieldLabel = (loc: unknown): string | null => {
+          if (!Array.isArray(loc)) return null;
+          const parts = loc.filter((part) => typeof part === 'string') as string[];
+          const leaf = parts[parts.length - 1];
+          if (!leaf) return null;
+          const map: Record<string, string> = {
+            daily_calorie_budget: 'daily calorie budget',
+            email: 'email',
+            password: 'password',
+            first_name: 'first name',
+            last_name: 'last name',
+            age: 'age',
+            gender: 'gender',
+            activity_level: 'activity level',
+            height_in: 'height',
+            starting_weight_lb: 'starting weight',
+            goal_weight_lb: 'goal weight',
+            goal_weight_date: 'goal date',
+            user_description: 'description',
+            estimated_calories: 'calories',
+            protein_g: 'protein',
+            carbs_g: 'carbs',
+            fat_g: 'fat',
+            meal_type: 'meal type',
+            name: 'name',
+            calories: 'calories',
+            time: 'time',
+            date: 'date',
+          };
+          return map[leaf] || null;
+        };
+
+        const detailList = Array.isArray(errorData?.detail) ? (errorData.detail as any[]) : [];
+        const messages = detailList
+          .map((item) => {
+            const field = formatFieldLabel(item?.loc);
+            if (!field) return null;
+            if (item?.type === 'int_from_float' && Array.isArray(item?.loc) && item.loc.includes('daily_calorie_budget')) {
+              return 'Daily calorie budget needs to be a whole number. We’ll round it for you.';
             }
-          } else if (errorData) {
-            errorMessage += ` - ${JSON.stringify(errorData)}`;
-          }
-        } catch (e) {
-          // If we can't parse the error response, just use the status
+            if (item?.type === 'missing') return `Please enter your ${field}.`;
+            return `Please check your ${field}.`;
+          })
+          .filter((m): m is string => Boolean(m));
+
+        if (messages.length) {
+          throw new Error(Array.from(new Set(messages)).slice(0, 3).join(' '));
         }
+
+        throw new Error('Some details need a second look. Please check your entries and try again.');
       }
 
-      // For non-422 errors, surface FastAPI-style `{detail: ...}` or raw text.
-      if (response.status !== 422) {
-        const detail = errorData?.detail;
-        if (typeof detail === 'string' && detail.trim()) {
-          errorMessage += ` - ${detail}`;
-        } else if (detail) {
-          errorMessage += ` - ${JSON.stringify(detail)}`;
-        } else if (errorData) {
-          errorMessage += ` - ${JSON.stringify(errorData)}`;
-        } else if (responseText) {
-          errorMessage += ` - ${responseText}`;
-        }
+      if (response.status === 413) {
+        throw new Error(
+          endpoint.includes('/chat')
+            ? 'That message is too large. Try shortening it or using a smaller photo.'
+            : 'That request is too large. Please shorten your input and try again.'
+        );
       }
-      
-      throw new Error(errorMessage);
+
+      if (response.status === 429) {
+        throw new Error('Too many requests. Please wait a moment and try again.');
+      }
+
+      if (response.status >= 500) {
+        throw new Error('We’re having trouble on our side. Please try again in a moment.');
+      }
+
+      const action =
+        endpoint.includes('/chat')
+          ? 'get a reply'
+          : method === 'GET'
+            ? 'load that'
+            : method === 'DELETE'
+              ? 'delete that'
+              : 'save that';
+      throw new Error(`We couldn’t ${action}. Please try again.`);
     }
 
     // Many DELETE endpoints return `204 No Content`; attempting to parse JSON would throw.
@@ -406,9 +449,7 @@ class ApiService {
     try {
       return JSON.parse(responseText) as T;
     } catch {
-      throw new Error(
-        `API request returned non-JSON response: ${response.status} ${response.statusText}`
-      );
+      throw new Error('We couldn’t read the server response. Please try again.');
     }
   }
 

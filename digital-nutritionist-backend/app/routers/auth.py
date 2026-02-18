@@ -47,7 +47,10 @@ def _user_to_read(user: User) -> UserRead:
 def _enforce_auth_payload_cap(request: Request) -> None:
     content_length = request.headers.get("content-length")
     if content_length and int(content_length) > settings.auth_max_payload_bytes:
-        raise HTTPException(status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail="Auth payload too large")
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            detail="That request is too large. Please shorten your input and try again.",
+        )
 
 
 @router.post("/signup", response_model=TokenResponse, status_code=status.HTTP_201_CREATED, dependencies=[AuthRateLimit])

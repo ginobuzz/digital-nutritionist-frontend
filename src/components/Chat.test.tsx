@@ -159,6 +159,6 @@ describe('Chat', () => {
     await userEvent.type(input, 'I had oatmeal');
     await userEvent.click(screen.getByRole('button', { name: /send message/i }));
 
-    expect(await screen.findByText('Boom')).toBeInTheDocument();
+    expect(await screen.findByText(/couldn’t get a reply right now/i)).toBeInTheDocument();
   });
 });

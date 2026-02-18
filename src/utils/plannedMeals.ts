@@ -51,7 +51,7 @@ export const parsePlannedMealDraftsFromReply = (reply: string): PlannedMealDraft
   const candidate = extractJsonArray(reply) ?? reply;
   const parsed = JSON.parse(candidate);
   if (!Array.isArray(parsed)) {
-    throw new Error('Expected a JSON array.');
+    throw new Error('I couldn’t understand that meal plan response. Please try again.');
   }
 
   return parsed
@@ -83,4 +83,3 @@ export const parsePlannedMealDraftsFromReply = (reply: string): PlannedMealDraft
     })
     .filter((item): item is PlannedMealDraft => Boolean(item));
 };
-

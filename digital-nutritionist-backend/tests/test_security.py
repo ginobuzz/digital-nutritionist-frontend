@@ -14,7 +14,7 @@ def test_hash_and_verify_password_roundtrip():
 def test_password_length_limit():
     # bcrypt only considers the first 72 bytes.
     too_long = "a" * 73
-    with pytest.raises(ValueError, match="72 bytes"):
+    with pytest.raises(ValueError, match="Password is too long"):
         hash_password(too_long)
 
 
@@ -24,4 +24,3 @@ def test_create_access_token_contains_subject_and_exp():
     assert payload["sub"] == "user-1"
     assert "exp" in payload
     assert payload["email"] == "u@example.com"
-

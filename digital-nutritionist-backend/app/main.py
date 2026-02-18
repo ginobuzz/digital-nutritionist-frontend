@@ -32,12 +32,12 @@ async def payload_size_guard(request, call_next):
         if request.url.path.startswith("/auth/") and size > settings.auth_max_payload_bytes:
             return fastapi.responses.JSONResponse(
                 status_code=fastapi.status.HTTP_413_CONTENT_TOO_LARGE,
-                content={"detail": "Auth payload too large"},
+                content={"detail": "That request is too large. Please shorten your input and try again."},
             )
         if request.url.path.startswith("/chat") and size > settings.chat_max_payload_bytes:
             return fastapi.responses.JSONResponse(
                 status_code=fastapi.status.HTTP_413_CONTENT_TOO_LARGE,
-                content={"detail": "Chat payload too large"},
+                content={"detail": "That message is too large. Try shortening it or using a smaller photo."},
             )
     return await call_next(request)
 

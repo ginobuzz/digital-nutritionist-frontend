@@ -276,49 +276,58 @@ def _openai_chat_create(
 def _raise_llm_http_exception(exc: Exception) -> None:
     # Normalize common OpenAI/provider failures into stable HTTP responses.
     if isinstance(exc, RateLimitError):
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="LLM rate limit exceeded. Try again.")
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="The AI coach is getting a lot of requests. Please try again in a moment.",
+        )
 
     if isinstance(exc, AuthenticationError):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="LLM authentication failed. Check OPENAI_API_KEY.",
+            detail="The AI coach isn’t available right now. Please try again later.",
         )
 
     if isinstance(exc, (APITimeoutError, APIConnectionError)):
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="LLM service unavailable. Try again.")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The AI coach isn’t available right now. Please try again in a moment.",
+        )
 
     if isinstance(exc, (BadRequestError, LengthFinishReasonError)) and _looks_like_output_token_limit_error(exc):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="AI response was too long. Please try again (or ask for a shorter answer).",
+            detail="That response would be too long. Try asking for a shorter answer.",
         )
 
     if isinstance(exc, BadRequestError) and _looks_like_context_limit_error(exc):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Chat context is too long for the model. Try shortening your message or starting a new chat.",
+            detail="This chat is getting long. Try a shorter message or start a new chat.",
         )
 
     if isinstance(exc, BadRequestError):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="LLM request was rejected. Please try again.",
+            detail="I couldn’t process that request. Please try again.",
         )
 
     if isinstance(exc, APIStatusError):
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"LLM service error (status {getattr(exc, 'status_code', 'unknown')}). Try again.",
+            detail="The AI coach is temporarily unavailable. Please try again.",
         )
 
-    raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="LLM request failed. Try again.")
+    raise HTTPException(
+        status_code=status.HTTP_502_BAD_GATEWAY,
+        detail="The AI coach is temporarily unavailable. Please try again.",
+    )
 
 
 def get_openai_client() -> OpenAI:
     if not settings.openai_api_key:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="OPENAI_API_KEY is not configured.",
+            detail="The AI coach isn’t available right now. Please try again later.",
         )
     return OpenAI(api_key=settings.openai_api_key)
 

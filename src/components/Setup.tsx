@@ -29,6 +29,7 @@ import { User } from '../types';
 import { apiService, convertUserToBackend, convertUserFromBackend, isUserNotFoundError } from '../services/api';
 import { authService } from '../services/auth';
 import { calculateDailyCalorieTarget, calculateDailyExpenditure } from '../utils/calculations';
+import { getUserFacingErrorMessage, isEmailInUseError } from '../utils/errors';
 
 interface SetupProps {
   onComplete: (user: User) => void;
@@ -92,23 +93,28 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
       }
       setEmailStatus('available');
       return true;
-    } catch (err) {
-      if (normalizeEmail(emailRef.current) !== requestedEmail) return false;
-      setEmailStatus('unknown');
-      setError(err instanceof Error ? err.message : 'Unable to verify email availability');
-      return false;
-    } finally {
-      setEmailCheckLoading(false);
-    }
-  };
+	    } catch (err) {
+	      if (normalizeEmail(emailRef.current) !== requestedEmail) return false;
+	      setEmailStatus('unknown');
+	      setError(
+	        getUserFacingErrorMessage(err, {
+	          action: 'check that email',
+	          fallback: 'We couldn’t check that email right now. Please try again.',
+	        })
+	      );
+	      return false;
+	    } finally {
+	      setEmailCheckLoading(false);
+	    }
+	  };
 
   const handleNext = async () => {
-    if (activeStep === 0) {
-      const normalized = normalizeEmail(email);
-      const nextEmailError = !normalized
-        ? 'Email is required.'
-        : (!isValidEmail(normalized) ? 'Enter a valid email address.' : null);
-      const nextPasswordError = !password ? 'Password is required.' : null;
+	    if (activeStep === 0) {
+	      const normalized = normalizeEmail(email);
+	      const nextEmailError = !normalized
+	        ? 'Please enter your email.'
+	        : (!isValidEmail(normalized) ? 'Please enter a valid email address.' : null);
+	      const nextPasswordError = !password ? 'Please create a password.' : null;
 
       setEmailError(nextEmailError);
       setPasswordError(nextPasswordError);
@@ -188,32 +194,36 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
 
         // Resolve user id from auth response first, falling back to token
         const idFromAuth = loginResult.user?.id ?? signupResult.id;
-        const id = (idFromAuth !== undefined && idFromAuth !== null)
-          ? idFromAuth
-          : authService.getUserIdFromToken(loginResult.access_token);
-        if (id === null || id === undefined) throw new Error('Unable to resolve user from token');
-        const createdUser = await apiService.getUser(String(id));
-        
-        // Convert back to frontend format
-        const frontendUser = convertUserFromBackend(createdUser);
-        onComplete(frontendUser);
-      } catch (err) {
-        if (isUserNotFoundError(err)) {
-          return;
-        }
-        const message = err instanceof Error ? err.message : 'Failed to create user profile';
-      if (/email already registered/i.test(message)) {
-        setActiveStep(0);
-        setEmailStatus('taken');
-        setEmailError(null);
-        setError(null);
-        return;
-      }
-      setError(message);
-      console.error('Error creating user:', err);
-      } finally {
-        setLoading(false);
-      }
+	        const id = (idFromAuth !== undefined && idFromAuth !== null)
+	          ? idFromAuth
+	          : authService.getUserIdFromToken(loginResult.access_token);
+	        if (id === null || id === undefined) throw new Error('We couldn’t finish creating your account. Please try again.');
+	        const createdUser = await apiService.getUser(String(id));
+	        
+	        // Convert back to frontend format
+	        const frontendUser = convertUserFromBackend(createdUser);
+	        onComplete(frontendUser);
+	      } catch (err) {
+	        if (isUserNotFoundError(err)) {
+	          return;
+	        }
+	        if (isEmailInUseError(err)) {
+	          setActiveStep(0);
+	          setEmailStatus('taken');
+	          setEmailError(null);
+	          setError(null);
+	          return;
+	        }
+	        setError(
+	          getUserFacingErrorMessage(err, {
+	            action: 'create your account',
+	            fallback: 'We couldn’t create your account. Please try again.',
+	          })
+	        );
+	        console.error('Error creating user:', err);
+	      } finally {
+	        setLoading(false);
+	      }
     } else {
       setActiveStep((prevStep) => prevStep + 1);
     }

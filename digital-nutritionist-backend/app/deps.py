@@ -17,24 +17,23 @@ def get_current_user(
     session: Session = Depends(get_session),
 ) -> User:
     if not credentials or not credentials.credentials:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Please sign in to continue.")
     if (credentials.scheme or "").lower() != "bearer":
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication scheme")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Please sign in again to continue.")
 
     token = credentials.credentials
     try:
         payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
     except ExpiredSignatureError as exc:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired") from exc
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired. Please sign in again.") from exc
     except JWTError as exc:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from exc
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Please sign in again to continue.") from exc
 
     subject = payload.get("sub")
     if not subject:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Please sign in again to continue.")
 
     user = session.get(User, str(subject))
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Please sign in again to continue.")
     return user
-

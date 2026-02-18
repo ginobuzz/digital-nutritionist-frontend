@@ -42,6 +42,7 @@ import { format } from 'date-fns';
 import { User, WeightLog } from '../types';
 import { calculateDailyExpenditure, calculateWeightLossTimeline, calculateProgressPercentage } from '../utils/calculations';
 import { apiService, convertUserToBackend, convertUserFromBackend, convertWeightLogFromBackend, isUserNotFoundError } from '../services/api';
+import { getUserFacingErrorMessage } from '../utils/errors';
 
 interface ProfileProps {
   user: User;
@@ -175,7 +176,12 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate, onSignOut }) => {
       if (isUserNotFoundError(err)) {
         return;
       }
-      setSaveError(err instanceof Error ? err.message : 'Failed to update user profile');
+      setSaveError(
+        getUserFacingErrorMessage(err, {
+          action: 'save your profile changes',
+          fallback: 'We couldn’t save your profile changes. Please try again.',
+        })
+      );
       console.error('Error updating user:', err);
     } finally {
       setSaveLoading(false);
@@ -267,7 +273,12 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate, onSignOut }) => {
       if (isUserNotFoundError(err)) {
         return;
       }
-      setCheckInError(err instanceof Error ? err.message : 'Failed to save weight check-in.');
+      setCheckInError(
+        getUserFacingErrorMessage(err, {
+          action: 'save your check-in',
+          fallback: 'We couldn’t save your check-in. Please try again.',
+        })
+      );
     } finally {
       setCheckInLoading(false);
     }

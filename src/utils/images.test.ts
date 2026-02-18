@@ -3,7 +3,7 @@ import { blobToDataUrl, imageFileToDataUrl } from './images';
 describe('images', () => {
   test('imageFileToDataUrl rejects non-image files', async () => {
     const file = new File(['hello'], 'hello.txt', { type: 'text/plain' });
-    await expect(imageFileToDataUrl(file)).rejects.toThrow(/not an image/i);
+    await expect(imageFileToDataUrl(file)).rejects.toThrow(/look like an image|choose a photo/i);
   });
 
   test('blobToDataUrl resolves a data url', async () => {
@@ -26,4 +26,3 @@ describe('images', () => {
     global.FileReader = originalFileReader;
   });
 });
-

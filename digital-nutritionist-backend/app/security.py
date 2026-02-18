@@ -10,7 +10,7 @@ from .config import settings
 def _ensure_password_bytes(password: str) -> bytes:
     password_bytes = password.encode("utf-8")
     if len(password_bytes) > 72:
-        msg = "Passwords must be 72 bytes or fewer when encoded as UTF-8."
+        msg = "Password is too long. Please use a shorter password and try again."
         raise ValueError(msg)
     return password_bytes
 

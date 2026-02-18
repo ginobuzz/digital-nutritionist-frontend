@@ -30,6 +30,7 @@ import { ChatMessage, User } from '../types';
 import { apiService, ChatTurn, isUserNotFoundError } from '../services/api';
 import { imageFileToDataUrl } from '../utils/images';
 import { useSpeechToText } from '../hooks/useSpeechToText';
+import { formatVoiceInputError, getUserFacingErrorMessage } from '../utils/errors';
 
 interface ChatProps {
   user?: User;
@@ -94,13 +95,6 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
       type: 'reminder',
     };
   }, [user?.name]);
-
-  const toUserFacingErrorMessage = useCallback((raw: string) => {
-    if (!raw.startsWith('API request failed:')) return raw;
-    const splitIndex = raw.indexOf(' - ');
-    if (splitIndex === -1) return 'Sorry — something went wrong.';
-    return raw.slice(splitIndex + 3).trim() || 'Sorry — something went wrong.';
-  }, []);
 
   const getMarkdownText = (message: ChatMessage) => {
     if (message.sender !== 'ai') return message.text;
@@ -203,8 +197,10 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
       if (isUserNotFoundError(error)) {
         return;
       }
-      const rawMessage = error instanceof Error ? error.message : 'Sorry — something went wrong.';
-      const message = toUserFacingErrorMessage(rawMessage);
+      const message = getUserFacingErrorMessage(error, {
+        action: 'get a reply',
+        fallback: 'I couldn’t get a reply right now. Please try again.',
+      });
       const aiResponse: ChatMessage = {
         id: (Date.now() + 1).toString(),
         text: message,
@@ -249,39 +245,14 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
 
   useEffect(() => {
     if (!voiceRawError) return;
-
-    if (voiceRawError === 'unsupported') {
-      setVoiceError('Voice input isn’t supported in this browser.');
-      return;
-    }
-
-    switch (voiceRawError) {
-      case 'not-allowed':
-      case 'service-not-allowed':
-        setVoiceError('Microphone permission blocked. Enable it in your browser settings.');
-        return;
-      case 'no-speech':
-        setVoiceError('No speech detected. Try again.');
-        return;
-      case 'audio-capture':
-        setVoiceError('No microphone detected.');
-        return;
-      case 'network':
-        setVoiceError('Network error while using voice input.');
-        return;
-      case 'language-not-supported':
-        setVoiceError('Language not supported for voice input.');
-        return;
-      default:
-        setVoiceError(`Voice input error: ${voiceRawError}`);
-    }
+    setVoiceError(formatVoiceInputError(voiceRawError));
   }, [voiceRawError]);
 
   const handleToggleVoice = () => {
     setVoiceError(null);
 
     if (!voiceSupported) {
-      setVoiceError('Voice input isn’t supported in this browser.');
+      setVoiceError(formatVoiceInputError('unsupported'));
       return;
     }
 

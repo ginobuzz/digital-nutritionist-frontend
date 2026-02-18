@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Box, Button, Card, CardContent, CircularProgress, Link, TextField, Typography } from '@mui/material';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import { authService } from '../services/auth';
+import { getUserFacingErrorMessage } from '../utils/errors';
 
 const isLikelyEmail = (value: string) => {
   const trimmed = value.trim();
@@ -34,7 +35,12 @@ const ForgotPassword: React.FC = () => {
       await authService.requestPasswordReset(email.trim());
       setSent(true);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Unable to send reset link');
+      setErr(
+        getUserFacingErrorMessage(e, {
+          action: 'send the reset link',
+          fallback: 'We couldn’t send the reset link. Please try again.',
+        })
+      );
     } finally {
       setLoading(false);
     }
@@ -112,4 +118,3 @@ const ForgotPassword: React.FC = () => {
 };
 
 export default ForgotPassword;
-

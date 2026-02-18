@@ -74,11 +74,11 @@ describe('authService', () => {
     fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
 
     await expect(authService.login('u1@example.com', 'pw')).rejects.toThrow(
-      /network or cors error/i
+      /reach the server|internet connection/i
     );
   });
 
-  test('signup throws on non-2xx responses with status and body', async () => {
+  test('signup uses a friendly message when email is already registered', async () => {
     const fetchMock = global.fetch as unknown as jest.Mock;
     fetchMock.mockResolvedValueOnce(
       mockFetchResponse({
@@ -90,7 +90,7 @@ describe('authService', () => {
     );
 
     await expect(authService.signup({ email: 'x', password: 'y' })).rejects.toThrow(
-      /signup failed: 400 bad request/i
+      /email.*already.*use|try signing in/i
     );
   });
 
@@ -122,7 +122,7 @@ describe('authService', () => {
     );
 
     await expect(authService.checkEmailAvailability('u1@example.com')).rejects.toThrow(
-      /email availability check failed: 500/i
+      /couldn’t check that email|try again/i
     );
   });
 

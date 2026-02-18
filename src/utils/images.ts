@@ -13,11 +13,11 @@ const DEFAULT_OPTIONS: Required<ImageDataUrlOptions> = {
 export const blobToDataUrl = (blob: Blob): Promise<string> =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onerror = () => reject(new Error('Unable to read file.'));
+    reader.onerror = () => reject(new Error('We couldn’t read that file. Try a different one.'));
     reader.onload = () => {
       const result = reader.result;
       if (typeof result === 'string' && result) resolve(result);
-      else reject(new Error('Unable to read file.'));
+      else reject(new Error('We couldn’t read that file. Try a different one.'));
     };
     reader.readAsDataURL(blob);
   });
@@ -29,7 +29,7 @@ const loadImageElement = (file: File): Promise<{ img: HTMLImageElement; objectUr
     img.onload = () => resolve({ img, objectUrl });
     img.onerror = () => {
       URL.revokeObjectURL(objectUrl);
-      reject(new Error('Unable to decode image.'));
+      reject(new Error('We couldn’t open that image. Try a different one.'));
     };
     img.src = objectUrl;
   });
@@ -38,7 +38,7 @@ export const imageFileToDataUrl = async (file: File, options?: ImageDataUrlOptio
   const { maxDimension, mimeType, quality } = { ...DEFAULT_OPTIONS, ...(options ?? {}) };
 
   if (!file.type.startsWith('image/')) {
-    throw new Error('Selected file is not an image.');
+    throw new Error('That file doesn’t look like an image. Please choose a photo and try again.');
   }
 
   try {

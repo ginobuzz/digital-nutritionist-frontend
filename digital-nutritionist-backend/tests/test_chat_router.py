@@ -69,7 +69,7 @@ def test_chat_returns_500_when_model_reply_is_missing(monkeypatch, client):
 
     res = client.post("/chat", json={"message": "hi", "user_id": user_id}, headers=headers)
     assert res.status_code == 500
-    assert res.json()["detail"] == "No reply received from model"
+    assert "couldn’t get a reply" in res.json()["detail"].lower()
 
 
 def test_chat_rejects_oversized_image_data_url(client, monkeypatch):
@@ -120,4 +120,4 @@ def test_chat_payload_cap_returns_413(client, monkeypatch):
     _, headers = _create_user(client, email="chat-payload-cap@example.com")
     res = client.post("/chat", json={"message": "x" * 500}, headers=headers)
     assert res.status_code == 413
-    assert res.json()["detail"] == "Chat payload too large"
+    assert "message is too large" in res.json()["detail"].lower()
