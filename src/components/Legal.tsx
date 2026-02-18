@@ -109,10 +109,6 @@ const Legal: React.FC = () => {
             </CardContent>
           </Card>
 
-          <Typography variant="caption" sx={{ color: 'text.disabled' }}>
-            Need this later? Find it anytime from sign-in, setup, profile, or about pages.
-          </Typography>
-
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25}>
             <Button variant="contained" fullWidth startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate(-1)}>
               Go back

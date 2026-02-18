@@ -732,9 +732,6 @@ const Setup: React.FC<SetupProps> = ({ onComplete }) => {
               Want to learn more?{' '}
               <Link component={RouterLink} to="/about">About Sunday Mornings</Link>
             </Typography>
-            <Typography variant="caption" align="center" sx={{ mt: 0.5, color: 'text.secondary', display: 'block' }}>
-              Legal on demand: <Link component={RouterLink} to="/legal">Privacy, terms & consent</Link>
-            </Typography>
           </Box>
 
           {isMobile ? (

@@ -107,9 +107,6 @@ const SignIn: React.FC<SignInProps> = ({ onSignedIn }) => {
             Want to learn more?{' '}
             <Link component={RouterLink} to="/about">About Sunday Mornings</Link>
           </Typography>
-          <Typography variant="body2" sx={{ mt: 0.5 }}>
-            Need legal details? <Link component={RouterLink} to="/legal">Privacy, terms & consent</Link>
-          </Typography>
         </CardContent>
         </Card>
       </Box>
