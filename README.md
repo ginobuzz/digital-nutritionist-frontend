@@ -90,6 +90,16 @@ python -m pytest
 npm run test:api
 ```
 
+### Full workflow smoke test (requires backend running)
+Covers: signup/login, profile update, meal/planned/activity/weight CRUD, chat meal logging, logout + re-login.
+```bash
+npm run test:smoke
+```
+Notes:
+- Override API base URL with `REACT_APP_API_BASE_URL`.
+- Skip chat (if `OPENAI_API_KEY` isn’t set) with `DN_SMOKE_REQUIRE_CHAT=0`.
+- Skip cleanup with `DN_SMOKE_KEEP_DATA=1`.
+
 ## 🏗️ Project Structure
 
 ```

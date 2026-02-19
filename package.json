@@ -36,6 +36,7 @@
     "test:staged": "cross-env CI=true craco test --findRelatedTests --passWithNoTests",
     "test:coverage": "cross-env CI=true craco test --watchAll=false --coverage",
     "test:api": "node scripts/test-api-connection.js",
+    "test:smoke": "node scripts/smoke-test.js",
     "eject": "react-scripts eject",
     "prepare": "husky install",
     "predeploy": "npm run build",
