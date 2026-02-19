@@ -1,3 +1,6 @@
+import os
+from urllib.parse import urlparse
+
 from pydantic import Field, computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -55,3 +58,90 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+_HOSTED_ENVS = {"production", "prod", "staging", "stage", "beta"}
+_RENDER_ENV_VARS = ("RENDER", "RENDER_SERVICE_ID", "RENDER_EXTERNAL_URL")
+
+
+def is_hosted_env() -> bool:
+    env = (settings.app_env or "").strip().lower()
+    if env in _HOSTED_ENVS:
+        return True
+    return any(bool(os.getenv(name)) for name in _RENDER_ENV_VARS)
+
+
+def _is_placeholder_secret(value: str) -> bool:
+    normalized = (value or "").strip().lower()
+    return normalized in {"change-me", "dev-secret-change-me"}
+
+
+def jwt_secret_key_is_configured() -> bool:
+    raw = (settings.jwt_secret_key or "").strip()
+    if not raw:
+        return False
+    if _is_placeholder_secret(raw):
+        return False
+    return len(raw) >= 32
+
+
+def _looks_like_origin(value: str) -> bool:
+    try:
+        parsed = urlparse(value)
+    except ValueError:
+        return False
+    if parsed.scheme not in {"http", "https"}:
+        return False
+    if not parsed.netloc:
+        return False
+    # Origins must not include a path/query/fragment.
+    if parsed.path not in {"", "/"}:
+        return False
+    if parsed.query or parsed.fragment:
+        return False
+    return True
+
+
+def validate_hosted_settings() -> None:
+    """
+    Fail fast on hosted deployments if required env vars are missing or unsafe.
+    Local development keeps permissive defaults.
+    """
+    if not is_hosted_env():
+        return
+
+    problems: list[str] = []
+
+    if not settings.database_url:
+        problems.append("DATABASE_URL is not set")
+
+    if not settings.openai_api_key:
+        problems.append("OPENAI_API_KEY is not set")
+
+    if not (settings.openai_model or "").strip():
+        problems.append("OPENAI_MODEL is not set")
+
+    if not (settings.jwt_secret_key or "").strip():
+        problems.append("JWT_SECRET_KEY is not set")
+    elif _is_placeholder_secret(settings.jwt_secret_key):
+        problems.append("JWT_SECRET_KEY is still set to a placeholder value")
+    elif not jwt_secret_key_is_configured():
+        problems.append("JWT_SECRET_KEY must be at least 32 characters")
+
+    if not settings.allowed_origins_list:
+        problems.append("ALLOWED_ORIGINS is not set")
+    else:
+        invalid = [origin for origin in settings.allowed_origins_list if not _looks_like_origin(origin)]
+        if invalid:
+            problems.append(f"ALLOWED_ORIGINS contains invalid origin(s): {', '.join(invalid)}")
+        non_local = [
+            origin
+            for origin in settings.allowed_origins_list
+            if all(host not in origin for host in ("localhost", "127.0.0.1", "::1"))
+        ]
+        if not non_local:
+            problems.append("ALLOWED_ORIGINS must include at least one non-localhost origin on hosted deployments")
+
+    if problems:
+        details = "\n".join(f"- {problem}" for problem in problems)
+        raise RuntimeError(f"Invalid hosted environment configuration:\n{details}")

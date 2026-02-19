@@ -40,14 +40,17 @@ A FastAPI backend that mirrors the REST interface expected by the digital nutrit
 - Build command: `pip install -r requirements.txt`
 - Start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
 - Env vars:
-  - `APP_ENV=beta` (or `production`)
-  - `OPENAI_API_KEY`
-  - `JWT_SECRET_KEY`
+  - `APP_ENV=beta` (or `staging` / `production`)
+  - `OPENAI_API_KEY` (required on hosted envs)
+  - `OPENAI_MODEL` (defaults to `gpt-5.1`)
+  - `JWT_SECRET_KEY` (required; use a long random value)
   - `JWT_EXP_MINUTES` (e.g. `43200` for 30 days)
   - `ALLOWED_ORIGINS` (include your deployed frontend origin, e.g. `https://glockstock.github.io`)
   - `DATABASE_URL` (Neon/Postgres; include `?sslmode=require`)
 
 This backend will refuse to start on hosted environments if `DATABASE_URL` is SQLite, to avoid losing data on ephemeral disks.
+
+After deploying, you can verify config presence (no secrets) via `GET /health/config`.
 
 ## Neon (Persistent DB)
 1. Create a Neon project and database (use a dedicated branch/db for beta).
