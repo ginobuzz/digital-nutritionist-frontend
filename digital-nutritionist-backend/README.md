@@ -45,7 +45,7 @@ A FastAPI backend that mirrors the REST interface expected by the digital nutrit
   - `OPENAI_MODEL` (defaults to `gpt-5.1`)
   - `JWT_SECRET_KEY` (required; use a long random value)
   - `JWT_EXP_MINUTES` (e.g. `43200` for 30 days)
-  - `ALLOWED_ORIGINS` (include your deployed frontend origin, e.g. `https://glockstock.github.io`)
+  - `ALLOWED_ORIGINS` (include your deployed frontend origin, e.g. `https://glockstock.github.io`; for the Capacitor iOS app also include `capacitor://localhost`)
   - `DATABASE_URL` (Neon/Postgres; include `?sslmode=require`)
 
 This backend will refuse to start on hosted environments if `DATABASE_URL` is SQLite, to avoid losing data on ephemeral disks.
