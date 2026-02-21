@@ -90,7 +90,7 @@ def _looks_like_origin(value: str) -> bool:
         parsed = urlparse(value)
     except ValueError:
         return False
-    if parsed.scheme not in {"http", "https"}:
+    if parsed.scheme not in {"http", "https", "capacitor", "ionic"}:
         return False
     if not parsed.netloc:
         return False

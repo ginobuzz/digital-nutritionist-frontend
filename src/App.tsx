@@ -21,6 +21,30 @@ import { apiService } from './services/api';
 import { authService } from './services/auth';
 import { createAppTheme, THEME_PREFERENCE_STORAGE_KEY, type ThemePreference } from './theme';
 
+const getRouterBasename = (): string | undefined => {
+  if (typeof window !== 'undefined' && window.location?.protocol === 'capacitor:') return undefined;
+
+  const raw = (process.env.PUBLIC_URL || '').trim();
+  if (!raw) return undefined;
+
+  // CRA uses "." / "./" when building for relative hosting (e.g., Capacitor).
+  if (raw === '.' || raw === './' || raw === '/.' || raw === '/./') return undefined;
+
+  let basename = raw;
+  if (/^https?:\/\//i.test(basename)) {
+    try {
+      basename = new URL(basename).pathname;
+    } catch {
+      // ignore
+    }
+  }
+
+  if (!basename.startsWith('/')) basename = `/${basename}`;
+  basename = basename.replace(/\/+$/, '');
+
+  return basename === '/' ? undefined : basename;
+};
+
 function SignInRedirect() {
   const location = useLocation();
   const params = new URLSearchParams(location.search);
@@ -32,6 +56,7 @@ function SignInRedirect() {
 }
 
 function App() {
+  const routerBasename = getRouterBasename();
   const [user, setUser] = useState<User | null>(null);
   const [setupComplete, setSetupComplete] = useState(false);
   const [themePreference, setThemePreference] = useState<ThemePreference>(() => {
@@ -114,7 +139,7 @@ function App() {
     return (
       <ThemeProvider theme={theme}>
         <CssBaseline enableColorScheme />
-        <Router basename={process.env.PUBLIC_URL}>
+        <Router basename={routerBasename}>
           <Routes>
             <Route
               path="/signin"
@@ -143,7 +168,7 @@ function App() {
     return (
       <ThemeProvider theme={theme}>
         <CssBaseline enableColorScheme />
-        <Router basename={process.env.PUBLIC_URL}>
+        <Router basename={routerBasename}>
           <Routes>
             <Route path="/setup" element={<Setup onComplete={handleSetupComplete} />} />
             <Route path="/about" element={<About />} />
@@ -158,7 +183,7 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline enableColorScheme />
-      <Router basename={process.env.PUBLIC_URL}>
+      <Router basename={routerBasename}>
         <Layout
           user={user!}
           themePreference={themePreference}

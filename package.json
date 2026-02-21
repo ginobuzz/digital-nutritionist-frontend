@@ -4,6 +4,7 @@
   "private": true,
   "homepage": "https://glockstock.github.io/digital-nutritionist-frontend",
   "dependencies": {
+    "@capacitor/core": "^8.1.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^7.2.0",
@@ -31,6 +32,7 @@
   "scripts": {
     "start": "craco start",
     "build": "craco build",
+    "build:cap": "cross-env PUBLIC_URL=. craco build",
     "test": "craco test",
     "test:ci": "cross-env CI=true craco test --watchAll=false",
     "test:staged": "cross-env CI=true craco test --findRelatedTests --passWithNoTests",
@@ -39,6 +41,10 @@
     "test:smoke": "node scripts/smoke-test.js",
     "eject": "react-scripts eject",
     "prepare": "husky install",
+    "cap:sync": "npx cap sync",
+    "cap:sync:ios": "npx cap sync ios",
+    "cap:open:ios": "npx cap open ios",
+    "ios": "npm run build:cap && npm run cap:sync:ios && npm run cap:open:ios",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d build"
   },
@@ -73,6 +79,9 @@
     ]
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.1.0",
+    "@capacitor/ios": "^8.1.0",
     "@craco/craco": "^7.1.0",
     "cross-env": "^7.0.3",
     "gh-pages": "^6.3.0",

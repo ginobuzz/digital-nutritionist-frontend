@@ -204,6 +204,36 @@ Currently using mock data. For production, you would need:
 npm run build
 ```
 
+### Native iOS app (Capacitor) — “Sunday Mornings”
+
+Prereqs:
+- macOS + Xcode
+- CocoaPods (optional; only needed if you add plugins that require it)
+- Apple ID (free works; installs expire after ~7 days)
+
+Build + open the iOS project:
+```bash
+npm install
+npm run ios
+```
+
+Sideload to your iPhone (via Xcode):
+1. Xcode opens `ios/App/App.xcworkspace`
+2. Select target **App** → **Signing & Capabilities** → pick your **Team**
+3. Plug in your phone, select it as the run destination, press **Run (▶)**
+
+Notes:
+- The bundle id is currently `com.sundaymornings.app` (change it in Xcode if you need a unique one).
+- Use `npm run build:cap` (not `npm run build`) for Capacitor builds so asset paths work correctly with the GitHub Pages `homepage` setting.
+- To point the iOS app at your hosted (Render) backend, set `REACT_APP_API_BASE_URL` to your Render service base URL (must be `https://...`) in `.env.production` (or `.env.production.local`), then run `npm run build:cap && npm run cap:sync:ios`.
+- Your hosted backend must allow the Capacitor WebView origin for CORS: include `capacitor://localhost` in `ALLOWED_ORIGINS` (alongside your web origin, e.g. `https://glockstock.github.io`).
+- The app icon is generated from `public/favicon.png` via `assets/icon.png`. To regenerate:
+  ```bash
+  sips -z 1024 1024 public/favicon.png --out assets/icon.png
+  npx capacitor-assets generate --ios --assetPath assets --iconBackgroundColor "#ffffff"
+  npm run cap:sync:ios
+  ```
+
 ### Free Deploy (GitHub Pages + Render)
 This repo is already set up to deploy the frontend to GitHub Pages via `gh-pages` and run the backend as a FastAPI service.
 
