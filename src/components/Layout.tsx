@@ -112,7 +112,13 @@ const Layout: React.FC<LayoutProps> = ({
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <AppBar position="sticky">
-        <Toolbar sx={{ px: 2 }}>
+        <Toolbar
+          sx={{
+            px: 2,
+            pt: 'env(safe-area-inset-top)',
+            minHeight: { xs: 'calc(60px + env(safe-area-inset-top))', sm: 60 },
+          }}
+        >
           <IconButton
             aria-label="Go to profile"
             onClick={handleLogoClick}
@@ -232,7 +238,17 @@ const Layout: React.FC<LayoutProps> = ({
       </Box>
       
       {/* Bottom Navigation */}
-      <Paper sx={{ position: 'fixed', bottom: 0, left: 0, right: 0 }} elevation={0} square={false}>
+      <Paper
+        sx={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          paddingBottom: 'env(safe-area-inset-bottom)',
+        }}
+        elevation={0}
+        square={false}
+      >
         <BottomNavigation
           showLabels
           value={activeIndex}
