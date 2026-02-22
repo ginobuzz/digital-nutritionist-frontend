@@ -217,6 +217,11 @@ npm install
 npm run ios
 ```
 
+Fast refresh of iOS web assets (without opening Xcode):
+```bash
+npm run ios:refresh
+```
+
 Sideload to your iPhone (via Xcode):
 1. Xcode opens `ios/App/App.xcworkspace`
 2. Select target **App** → **Signing & Capabilities** → pick your **Team**
@@ -226,6 +231,8 @@ Notes:
 - The bundle id is currently `com.sundaymornings.app` (change it in Xcode if you need a unique one).
 - Use `npm run build:cap` (not `npm run build`) for Capacitor builds so asset paths work correctly with the GitHub Pages `homepage` setting.
 - To point the iOS app at your hosted (Render) backend, set `REACT_APP_API_BASE_URL` to your Render service base URL (must be `https://...`) in `.env.production` (or `.env.production.local`), then run `npm run build:cap && npm run cap:sync:ios`.
+- If the browser has your latest FE changes but iOS does not, run `npm run ios:refresh` to rebuild, sync, and verify that `ios/App/App/public` matches your newest `build` bundle.
+- If it still looks stale in Xcode, use **Product → Clean Build Folder** and reinstall the app on device/simulator (WebView cache can hold older assets between installs).
 - Your hosted backend must allow the Capacitor WebView origin for CORS: include `capacitor://localhost` in `ALLOWED_ORIGINS` (alongside your web origin, e.g. `https://glockstock.github.io`).
 - The app icon is generated from `public/favicon.png` via `assets/icon.png`. To regenerate:
   ```bash
