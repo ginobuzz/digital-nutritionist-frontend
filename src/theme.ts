@@ -199,8 +199,7 @@ ${theme.palette.background.default}`,
       MuiBottomNavigation: {
         styleOverrides: {
           root: {
-            height: 72,
-            paddingBottom: 'env(safe-area-inset-bottom)',
+            minHeight: 72,
             paddingLeft: 'calc(12px + env(safe-area-inset-left))',
             paddingRight: 'calc(12px + env(safe-area-inset-right))',
             backgroundColor: alpha(theme.palette.background.paper, 0.72),
