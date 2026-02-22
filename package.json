@@ -46,7 +46,9 @@
     "cap:open:ios": "npx cap open ios",
     "ios": "npm run build:cap && npm run cap:sync:ios && npm run cap:open:ios",
     "predeploy": "npm run build",
-    "deploy": "gh-pages -d build"
+    "deploy": "gh-pages -d build",
+    "cap:verify:ios": "node scripts/verify-capacitor-sync.js",
+    "ios:refresh": "npm run build:cap && npm run cap:sync:ios && npm run cap:verify:ios"
   },
   "jest": {
     "moduleNameMapper": {
