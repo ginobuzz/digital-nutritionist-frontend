@@ -18,6 +18,7 @@ import {
   ListItemIcon,
   ListItemText,
   Tooltip,
+  Chip,
 } from '@mui/material';
 import {
   Home,
@@ -151,6 +152,18 @@ const Layout: React.FC<LayoutProps> = ({
               sx={{ width: 26, height: 26, flexShrink: 0 }}
             />
             Sunday Mornings
+            <Chip
+              label="Beta"
+              size="small"
+              color="secondary"
+              sx={{
+                height: 20,
+                fontSize: '0.65rem',
+                fontWeight: 700,
+                letterSpacing: '0.04em',
+                textTransform: 'uppercase',
+              }}
+            />
           </Typography>
           <Tooltip title={themeButtonLabel}>
             <IconButton
