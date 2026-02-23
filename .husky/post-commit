@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+
+# Refresh Capacitor iOS web assets after each commit so the native app stays in sync.
+npm run ios:refresh
