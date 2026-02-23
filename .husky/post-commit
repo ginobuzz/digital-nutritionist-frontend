@@ -1,4 +1,6 @@
 #!/usr/bin/env sh
 
-# Refresh Capacitor iOS web assets after each commit so the native app stays in sync.
-npm run ios:refresh
+# Refresh bundled Capacitor iOS web assets only when explicitly using bundled mode.
+if [ "$CAPACITOR_USE_BUNDLED_WEB" = "true" ]; then
+  npm run ios:refresh
+fi

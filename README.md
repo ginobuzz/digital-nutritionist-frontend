@@ -211,13 +211,18 @@ Prereqs:
 - CocoaPods (optional; only needed if you add plugins that require it)
 - Apple ID (free works; installs expire after ~7 days)
 
-Build + open the iOS project:
+Sync iOS to hosted-web mode + open the iOS project:
 ```bash
 npm install
 npm run ios
 ```
 
-Fast refresh of iOS web assets (without opening Xcode):
+Switch iOS back to bundled mode + open Xcode (optional fallback):
+```bash
+npm run ios:bundled
+```
+
+Fast refresh of bundled iOS web assets (without opening Xcode):
 ```bash
 npm run ios:refresh
 ```
@@ -229,11 +234,12 @@ Sideload to your iPhone (via Xcode):
 
 Notes:
 - The bundle id is currently `com.sundaymornings.app` (change it in Xcode if you need a unique one).
-- Use `npm run build:cap` (not `npm run build`) for Capacitor builds so asset paths work correctly with the GitHub Pages `homepage` setting.
-- To point the iOS app at your hosted (Render) backend, set `REACT_APP_API_BASE_URL` to your Render service base URL (must be `https://...`) in `.env.production` (or `.env.production.local`), then run `npm run build:cap && npm run cap:sync:ios`.
-- If the browser has your latest FE changes but iOS does not, run `npm run ios:refresh` to rebuild, sync, and verify that `ios/App/App/public` matches your newest `build` bundle.
-- If it still looks stale in Xcode, use **Product → Clean Build Folder** and reinstall the app on device/simulator (WebView cache can hold older assets between installs).
-- Your hosted backend must allow the Capacitor WebView origin for CORS: include `capacitor://localhost` in `ALLOWED_ORIGINS` (alongside your web origin, e.g. `https://glockstock.github.io`).
+- `npm run ios` now configures Capacitor iOS to load the hosted frontend URL (`https://glockstock.github.io/digital-nutritionist-frontend`) via `server.url`.
+- After the app is installed once from Xcode, FE-only changes no longer need an Xcode rebuild. Push to `initial-build`, wait for the GitHub Pages workflow to finish, then relaunch the app.
+- Use `npm run build:cap` + bundled sync (`npm run ios:refresh` or `npm run ios:bundled`) only if you want offline/local bundled assets.
+- To point the hosted frontend at your hosted backend, set `REACT_APP_API_BASE_URL` to your Render service base URL (must be `https://...`) in `.env.production` (or `.env.production.local`) and push to `initial-build`.
+- If iOS appears stale after deploy, fully close and reopen the app first. If needed, in Xcode use **Product → Clean Build Folder** and reinstall once.
+- Your backend should allow both origins for CORS when you use both modes: `https://glockstock.github.io` and `capacitor://localhost`.
 - The app icon is generated from `public/favicon.png` via `assets/icon.png`. To regenerate:
   ```bash
   sips -z 1024 1024 public/favicon.png --out assets/icon.png
@@ -257,9 +263,11 @@ This repo is already set up to deploy the frontend to GitHub Pages via `gh-pages
    - Edit `.env.production` and set `REACT_APP_API_BASE_URL` to your Render URL, e.g. `https://<your-service>.onrender.com`
 
 3. **Deploy the frontend (GitHub Pages)**
-   ```bash
-   npm run deploy
-   ```
+   - Automatic: every push to `initial-build` runs `.github/workflows/deploy.yml` and publishes the latest frontend.
+   - Manual fallback:
+     ```bash
+     npm run deploy
+     ```
 
 4. **Open on mobile**
    - Visit `https://glockstock.github.io/digital-nutritionist-frontend/` on your phone and “Add to Home Screen”.
