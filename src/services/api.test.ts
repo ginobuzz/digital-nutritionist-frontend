@@ -1,4 +1,4 @@
-import { apiService, convertUserToBackend, convertUserFromBackend } from './api';
+import { apiService, convertUserToBackend, convertUserFromBackend, convertUserProfileUpdateToBackend } from './api';
 import { User } from '../types';
 import { calculateDailyExpenditure } from '../utils/calculations';
 
@@ -65,6 +65,17 @@ describe('API Service', () => {
     expect(frontendUser.dailyCalorieTarget).toBe(testUser.dailyCalorieTarget);
     const expectedDeficit = Math.max(0, calculateDailyExpenditure(frontendUser) - frontendUser.dailyCalorieTarget);
     expect(frontendUser.dailyDeficitTarget).toBeCloseTo(expectedDeficit, 6);
+  });
+
+
+  test('convertUserProfileUpdateToBackend should omit auth-only fields for profile edits', () => {
+    const backendUser = convertUserProfileUpdateToBackend(testUser);
+
+    expect(backendUser.first_name).toBe('Test');
+    expect(backendUser.last_name).toBe('User');
+    expect(backendUser.daily_calorie_budget).toBe(Math.round(testUser.dailyCalorieTarget));
+    expect(backendUser).not.toHaveProperty('email');
+    expect(backendUser).not.toHaveProperty('password');
   });
 
   test('API service should have correct base URL', () => {
