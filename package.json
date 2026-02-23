@@ -31,8 +31,8 @@
   },
   "scripts": {
     "start": "craco start",
-    "build": "craco build",
-    "build:cap": "cross-env PUBLIC_URL=. craco build",
+    "build": "node scripts/build-with-metadata.js",
+    "build:cap": "cross-env PUBLIC_URL=. node scripts/build-with-metadata.js",
     "test": "craco test",
     "test:ci": "cross-env CI=true craco test --watchAll=false",
     "test:staged": "cross-env CI=true craco test --findRelatedTests --passWithNoTests",

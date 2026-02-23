@@ -18,6 +18,11 @@ import PersonAddRoundedIcon from '@mui/icons-material/PersonAddRounded';
 import LoginRoundedIcon from '@mui/icons-material/LoginRounded';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 
+const BUILD_VERSION = process.env.REACT_APP_BUILD_VERSION ?? '0 (beta)';
+const BUILD_DATETIME = process.env.REACT_APP_BUILD_DATETIME ?? 'unknown';
+const BUILD_NUMBER = process.env.REACT_APP_BUILD_NUMBER ?? 'unknown';
+const BUILD_COMMIT = process.env.REACT_APP_BUILD_COMMIT ?? 'unknown';
+
 const About: React.FC = () => {
   const theme = useTheme();
   const navigate = useNavigate();
@@ -145,10 +150,18 @@ const About: React.FC = () => {
             </>
           )}
         </Stack>
+
+        <Stack spacing={0.25} sx={{ mt: 3, textAlign: 'center' }}>
+          <Typography variant="caption" sx={{ display: 'block', color: 'text.disabled' }}>
+            Version {BUILD_VERSION}
+          </Typography>
+          <Typography variant="caption" sx={{ display: 'block', color: 'text.disabled' }}>
+            Build {BUILD_DATETIME} · #{BUILD_NUMBER} · {BUILD_COMMIT}
+          </Typography>
+        </Stack>
       </Container>
     </Box>
   );
 };
 
 export default About;
-
