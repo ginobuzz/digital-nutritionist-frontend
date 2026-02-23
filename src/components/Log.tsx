@@ -46,6 +46,7 @@ import { addDays, format, isAfter, isBefore, isValid, parseISO, startOfDay, star
 import Markdown from 'markdown-to-jsx';
 import { ActualMeal, PlannedMeal, User } from '../types';
 import { apiService, MealLogResponse, PlannedMealResponse, isUserNotFoundError } from '../services/api';
+import { triggerSubmitHaptic, triggerSuccessHaptic } from '../services/haptics';
 import { useSearchParams } from 'react-router-dom';
 import { imageFileToDataUrl } from '../utils/images';
 import { calculateDynamicWeeklyCalorieTargets, getMinimumHealthyDailyCalories } from '../utils/weeklyTargets';
@@ -434,6 +435,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
     try {
       setSavingQuickLog(true);
       setLogError(null);
+      void triggerSubmitHaptic();
       await apiService.createMealLog({
         user_id: user.id,
         date: selectedKey,
@@ -444,6 +446,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
         carbs_g: carbs,
         fat_g: fat,
       });
+      void triggerSuccessHaptic();
       setLogDialogOpen(false);
       setLogForm({
         description: '',
@@ -488,6 +491,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
       }
       const calories = Math.max(0, Math.min(5000, Math.round(caloriesValue)));
 
+      void triggerSubmitHaptic();
       await apiService.createPlannedMeal({
         user_id: user.id,
         date: selectedKey,
@@ -497,6 +501,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
         time: new Date(`${selectedKey}T${time}:00`).toISOString(),
         description: null,
       });
+      void triggerSuccessHaptic();
 
       setPlanDialogOpen(false);
       setPlanForm({

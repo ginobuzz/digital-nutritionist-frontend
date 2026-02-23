@@ -35,6 +35,7 @@ import { addDays, format, isBefore, isSameDay, startOfDay, startOfWeek } from 'd
 import Markdown from 'markdown-to-jsx';
 import { User } from '../types';
 import { apiService, isUserNotFoundError, MealLogResponse } from '../services/api';
+import { triggerSubmitHaptic, triggerSuccessHaptic } from '../services/haptics';
 import { imageFileToDataUrl } from '../utils/images';
 import { calculateDynamicWeeklyCalorieTargets, getMinimumHealthyDailyCalories } from '../utils/weeklyTargets';
 import { useSpeechToText } from '../hooks/useSpeechToText';
@@ -423,6 +424,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       setAddingRecentMealId(mealId);
       setRecentMealsError(null);
       const userId = getActiveUserId();
+      void triggerSubmitHaptic();
       await apiService.createMealLog({
         user_id: userId,
         date: selectedKey,
@@ -433,6 +435,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
         carbs_g: typeof meal.carbs_g === 'number' ? meal.carbs_g : null,
         fat_g: typeof meal.fat_g === 'number' ? meal.fat_g : null,
       });
+      void triggerSuccessHaptic();
       setRecentMealsLogs(null);
       setRecentMealsAnchorEl(null);
       await fetchData();
@@ -488,6 +491,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       setSavingQuickLog(true);
       setLogError(null);
       const userId = getActiveUserId();
+      void triggerSubmitHaptic();
       await apiService.createMealLog({
         user_id: userId,
         date: selectedKey,
@@ -498,6 +502,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
         carbs_g: carbs,
         fat_g: fat,
       });
+      void triggerSuccessHaptic();
       setLogForm({
         description: '',
         calories: '',
