@@ -151,12 +151,6 @@ const Layout: React.FC<LayoutProps> = ({
               letterSpacing: '-0.02em',
             }}
           >
-            <Box
-              component="img"
-              src={`${process.env.PUBLIC_URL}/favicon-32.png`}
-              alt=""
-              sx={{ width: 26, height: 26, flexShrink: 0 }}
-            />
             Sunday Mornings
             <Chip
               label="Beta"
