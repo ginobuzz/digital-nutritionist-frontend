@@ -218,6 +218,33 @@ export const convertUserToBackend = (user: User): CreateUserRequest => {
   };
 };
 
+export const convertUserProfileUpdateToBackend = (user: User): Partial<CreateUserRequest> => {
+  const nameParts = user.name.split(' ');
+  const firstName = nameParts[0] || '';
+  const lastName = nameParts.slice(1).join(' ') || '';
+
+  const activityLevelMap: Record<string, string> = {
+    extremely_active: 'extra_active',
+    moderately_active: 'moderately_active',
+    lightly_active: 'lightly_active',
+    sedentary: 'sedentary',
+    very_active: 'very_active',
+  };
+
+  return {
+    first_name: firstName,
+    last_name: lastName,
+    age: user.age,
+    gender: user.gender,
+    activity_level: activityLevelMap[user.activityLevel] as CreateUserRequest['activity_level'],
+    height_in: user.height.feet * 12 + user.height.inches,
+    starting_weight_lb: user.weight,
+    goal_weight_lb: user.targetWeight,
+    goal_weight_date: user.targetDate.toISOString().split('T')[0],
+    daily_calorie_budget: Math.round(user.dailyCalorieTarget),
+  };
+};
+
 export const convertUserFromBackend = (userResponse: UserResponse): User => {
   // Convert height from inches back to feet/inches
   const totalInches = userResponse.height_in || 0;

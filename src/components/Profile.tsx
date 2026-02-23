@@ -41,7 +41,7 @@ import {
 import { format } from 'date-fns';
 import { User, WeightLog } from '../types';
 import { calculateDailyExpenditure, calculateWeightLossTimeline, calculateProgressPercentage } from '../utils/calculations';
-import { apiService, convertUserToBackend, convertUserFromBackend, convertWeightLogFromBackend, isUserNotFoundError } from '../services/api';
+import { apiService, convertUserFromBackend, convertUserProfileUpdateToBackend, convertWeightLogFromBackend, isUserNotFoundError } from '../services/api';
 import { getUserFacingErrorMessage } from '../utils/errors';
 
 interface ProfileProps {
@@ -165,7 +165,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate, onSignOut }) => {
       };
 
       // Convert to backend format and update user
-      const backendUserData = convertUserToBackend(updatedUser);
+      const backendUserData = convertUserProfileUpdateToBackend(updatedUser);
       const updatedUserResponse = await apiService.updateUser(user.id, backendUserData);
       
       // Convert back to frontend format
