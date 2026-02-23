@@ -30,9 +30,9 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "craco start",
-    "build": "node scripts/build-with-metadata.js",
-    "build:cap": "cross-env PUBLIC_URL=. node scripts/build-with-metadata.js",
+    "start": "node scripts/build-with-metadata.js start",
+    "build": "node scripts/build-with-metadata.js build",
+    "build:cap": "cross-env PUBLIC_URL=. node scripts/build-with-metadata.js build",
     "test": "craco test",
     "test:ci": "cross-env CI=true craco test --watchAll=false",
     "test:staged": "cross-env CI=true craco test --findRelatedTests --passWithNoTests",

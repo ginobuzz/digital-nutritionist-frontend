@@ -24,7 +24,15 @@ console.log(
   `[build-meta] version=${env.REACT_APP_BUILD_VERSION} build=${env.REACT_APP_BUILD_DATETIME} number=${env.REACT_APP_BUILD_NUMBER} commit=${env.REACT_APP_BUILD_COMMIT}`
 );
 
-const buildProcess = spawnSync('npx', ['craco', 'build'], {
+const command = process.argv[2] || 'build';
+const supported = new Set(['build', 'start']);
+
+if (!supported.has(command)) {
+  console.error(`[build-meta] Unsupported command "${command}". Use "build" or "start".`);
+  process.exit(1);
+}
+
+const buildProcess = spawnSync('npx', ['craco', command], {
   env,
   stdio: 'inherit',
   shell: process.platform === 'win32',
