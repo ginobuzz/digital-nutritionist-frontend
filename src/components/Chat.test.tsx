@@ -4,10 +4,14 @@ import userEvent from '@testing-library/user-event';
 import Chat from './Chat';
 import { User } from '../types';
 import { apiService } from '../services/api';
+import * as hapticsService from '../services/haptics';
 
 const CHAT_HISTORY_STORAGE_PREFIX = 'dn.chat.history.v1';
 
 describe('Chat', () => {
+  let triggerMealSubmitHapticSpy: jest.SpyInstance<Promise<void>, []>;
+  let triggerMealLoggedSuccessHapticSpy: jest.SpyInstance<Promise<void>, []>;
+
   beforeAll(() => {
     // JSDOM doesn't implement this; Chat uses it to auto-scroll.
     Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
@@ -19,6 +23,12 @@ describe('Chat', () => {
   beforeEach(() => {
     localStorage.clear();
     jest.restoreAllMocks();
+    triggerMealSubmitHapticSpy = jest
+      .spyOn(hapticsService, 'triggerMealSubmitHaptic')
+      .mockResolvedValue(undefined);
+    triggerMealLoggedSuccessHapticSpy = jest
+      .spyOn(hapticsService, 'triggerMealLoggedSuccessHaptic')
+      .mockResolvedValue(undefined);
   });
 
   test('loads persisted conversation when returning to chat view', () => {
@@ -131,8 +141,50 @@ describe('Chat', () => {
         history: expect.any(Array),
       })
     );
+    expect(triggerMealSubmitHapticSpy).toHaveBeenCalledTimes(1);
+    expect(triggerMealLoggedSuccessHapticSpy).not.toHaveBeenCalled();
 
     expect(await screen.findByText('All set!')).toBeInTheDocument();
+  });
+
+  test('fires success haptic when a meal log is created', async () => {
+    const user = {
+      id: 'u1',
+      name: 'Alice Smith',
+      age: 30,
+      height: { feet: 5, inches: 7 },
+      weight: 150,
+      gender: 'female',
+      activityLevel: 'lightly_active',
+      targetWeight: 140,
+      targetDate: new Date('2030-01-01'),
+      dailyCalorieTarget: 2000,
+      dailyDeficitTarget: 500,
+    } satisfies User;
+
+    localStorage.setItem('user', JSON.stringify({ id: user.id }));
+    jest.spyOn(apiService, 'chat').mockResolvedValueOnce({
+      reply: 'Nice work logging that meal.',
+      created_meal_logs: [
+        {
+          id: 'm1',
+          user_id: user.id,
+          date: '2026-02-23',
+          user_description: 'I had oatmeal',
+        },
+      ],
+      created_planned_meals: [],
+    } as any);
+
+    render(<Chat user={user} />);
+
+    const input = screen.getByPlaceholderText(/log what you ate/i);
+    await userEvent.type(input, 'I had oatmeal');
+    await userEvent.click(screen.getByRole('button', { name: /send message/i }));
+
+    expect(await screen.findByText(/nice work logging that meal/i)).toBeInTheDocument();
+    expect(triggerMealSubmitHapticSpy).toHaveBeenCalledTimes(1);
+    expect(triggerMealLoggedSuccessHapticSpy).toHaveBeenCalledTimes(1);
   });
 
   test('renders an error reply when API call fails', async () => {
