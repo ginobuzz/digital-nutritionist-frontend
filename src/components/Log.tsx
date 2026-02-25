@@ -734,19 +734,24 @@ const Log: React.FC<LogProps> = ({ user }) => {
         };
 
         if (mealFormData.isPlanned) {
-          const payload = {
-            user_id: user.id,
-            date: isoDate,
-            name: mealFormData.name,
-            calories,
-            meal_type: mealFormData.type,
-            description: mealFormData.description || null,
-            time: time.toISOString(),
-          };
           if (editingMeal && editingMeal.isPlanned) {
-            await apiService.updatePlannedMeal(editingMeal.id, payload);
+            await apiService.updatePlannedMeal(editingMeal.id, {
+              name: mealFormData.name,
+              calories,
+              meal_type: mealFormData.type,
+              description: mealFormData.description || null,
+              time: time.toISOString(),
+            });
           } else {
-            await apiService.createPlannedMeal(payload);
+            await apiService.createPlannedMeal({
+              user_id: user.id,
+              date: isoDate,
+              name: mealFormData.name,
+              calories,
+              meal_type: mealFormData.type,
+              description: mealFormData.description || null,
+              time: time.toISOString(),
+            });
           }
         } else {
           const baseDescription = mealFormData.description
@@ -756,28 +761,46 @@ const Log: React.FC<LogProps> = ({ user }) => {
           const protein = parseOptionalMacroGrams(mealFormData.protein);
           const carbs = parseOptionalMacroGrams(mealFormData.carbs);
           const fat = parseOptionalMacroGrams(mealFormData.fat);
-          const payload = {
-            user_id: user.id,
-            date: isoDate,
-            user_description: userDescription,
-            meal_type: mealFormData.type,
-            estimated_calories: calories,
-            protein_g: protein,
-            carbs_g: carbs,
-            fat_g: fat,
-            time: time.toISOString(),
-          };
           if (editingMeal && !editingMeal.isPlanned) {
-            await apiService.updateMealLog(editingMeal.id, payload);
+            await apiService.updateMealLog(editingMeal.id, {
+              user_description: userDescription,
+              meal_type: mealFormData.type,
+              estimated_calories: calories,
+              protein_g: protein,
+              carbs_g: carbs,
+              fat_g: fat,
+              time: time.toISOString(),
+            });
           } else {
-            await apiService.createMealLog(payload);
+            await apiService.createMealLog({
+              user_id: user.id,
+              date: isoDate,
+              user_description: userDescription,
+              meal_type: mealFormData.type,
+              estimated_calories: calories,
+              protein_g: protein,
+              carbs_g: carbs,
+              fat_g: fat,
+              time: time.toISOString(),
+            });
           }
         }
 
         setMealDialogOpen(false);
         await fetchLogData();
       } catch (error) {
+        if (isUserNotFoundError(error)) {
+          return;
+        }
         console.error('Error saving meal:', error);
+        setDeleteToast({
+          message: getUserFacingErrorMessage(error, {
+            action: 'save that meal',
+            fallback: 'We couldn’t save that meal. Please try again.',
+          }),
+          severity: 'error',
+        });
+        setDeleteToastOpen(true);
       }
     })();
   };
