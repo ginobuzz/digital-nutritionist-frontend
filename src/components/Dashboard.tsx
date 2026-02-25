@@ -17,7 +17,7 @@ import {
   Radio,
   RadioGroup,
   IconButton,
-  Tooltip,
+  Popover,
   useTheme,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
@@ -134,6 +134,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   const [recentMealsLoading, setRecentMealsLoading] = useState(false);
   const [recentMealsError, setRecentMealsError] = useState<string | null>(null);
   const [addingRecentMealId, setAddingRecentMealId] = useState<string | null>(null);
+  const [weekInfoAnchorEl, setWeekInfoAnchorEl] = useState<HTMLElement | null>(null);
   const [describeDictationBaseText, setDescribeDictationBaseText] = useState('');
   const [describeVoiceError, setDescribeVoiceError] = useState<string | null>(null);
 
@@ -403,6 +404,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   const hasUnloggedPastDays = dayEntries.some((entry) => entry.kind === 'past' && entry.actualCalories <= 0);
 
   const isRecentMealsOpen = Boolean(recentMealsAnchorEl);
+  const isWeekInfoOpen = Boolean(weekInfoAnchorEl);
 
   const handleOpenRecentMeals = (event: React.MouseEvent<HTMLButtonElement>) => {
     if (describeVoiceListening) stopDescribeVoice();
@@ -1135,25 +1137,36 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
           <Typography variant="h6" sx={{ color: 'text.secondary' }}>
             This Week
           </Typography>
-          <Tooltip
-            arrow
-            placement="top"
-            title={
-              <Box sx={{ maxWidth: 320 }}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
-                  Why a fixed week?
-                </Typography>
-                <Typography variant="body2">
-                  We always show a full Sunday–Saturday week so you can plan at a glance.
-                  If one day runs higher or lower, the remaining days’ calorie targets automatically rebalance so you still hit your weekly goal.
-                </Typography>
-              </Box>
-            }
+          <IconButton
+            size="small"
+            aria-label="About this week view"
+            aria-describedby={isWeekInfoOpen ? 'week-info-popover' : undefined}
+            onClick={(event) => {
+              setWeekInfoAnchorEl((current) => (current ? null : event.currentTarget));
+            }}
+            sx={{ color: 'text.secondary' }}
           >
-            <IconButton size="small" aria-label="About this week view" sx={{ color: 'text.secondary' }}>
-              <InfoOutlinedIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
+            <InfoOutlinedIcon fontSize="small" />
+          </IconButton>
+          <Popover
+            id="week-info-popover"
+            open={isWeekInfoOpen}
+            anchorEl={weekInfoAnchorEl}
+            onClose={() => setWeekInfoAnchorEl(null)}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+            disableScrollLock
+          >
+            <Box sx={{ maxWidth: 320, p: 1.5 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+                Why a fixed week?
+              </Typography>
+              <Typography variant="body2">
+                We always show a full Sunday-Saturday week so you can plan at a glance.
+                If one day runs higher or lower, the remaining days&apos; calorie targets automatically rebalance so you still hit your weekly goal.
+              </Typography>
+            </Box>
+          </Popover>
         </Box>
         {hasUnloggedPastDays && (
           <Typography variant="caption" sx={{ color: 'text.secondary', px: 0.5, mt: -0.75 }}>
