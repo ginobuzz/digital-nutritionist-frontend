@@ -244,6 +244,7 @@ Notes:
   ```bash
   sips -z 1024 1024 public/favicon.png --out assets/icon.png
   npx capacitor-assets generate --ios --assetPath assets --iconBackgroundColor "#ffffff"
+  npm run ios:icons
   npm run cap:sync:ios
   ```
 

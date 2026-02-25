@@ -47,6 +47,7 @@
     "cap:sync:ios:remote": "cross-env CAPACITOR_USE_BUNDLED_WEB=false npx cap sync ios",
     "cap:sync:ios:bundled": "cross-env CAPACITOR_USE_BUNDLED_WEB=true npx cap sync ios",
     "cap:open:ios": "npx cap open ios",
+    "ios:icons": "node scripts/generate-ios-icon-variants.js",
     "ios": "npm run cap:sync:ios:remote && npm run cap:open:ios",
     "ios:bundled": "npm run build:cap && npm run cap:sync:ios:bundled && npm run cap:open:ios",
     "predeploy": "npm run build",
