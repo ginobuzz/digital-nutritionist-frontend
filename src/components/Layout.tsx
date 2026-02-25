@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   AppBar,
@@ -54,6 +54,50 @@ const Layout: React.FC<LayoutProps> = ({
   const navigate = useNavigate();
   const location = useLocation();
   const [themeMenuAnchorEl, setThemeMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const safeAreaTopInset = 'max(env(safe-area-inset-top), var(--dn-ios-safe-area-top-fallback, 0px))';
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const { navigator } = window;
+    const isIPad = /iPad/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isIOS = /iPhone|iPod/.test(navigator.userAgent) || isIPad;
+
+    if (!isIOS) return;
+
+    const rootStyle = document.documentElement.style;
+    const visualViewport = window.visualViewport;
+
+    const updateSafeAreaFallback = () => {
+      if (window.matchMedia('(orientation: landscape)').matches) {
+        rootStyle.setProperty('--dn-ios-safe-area-top-fallback', '0px');
+        return;
+      }
+
+      const viewportTop = Math.round(visualViewport?.offsetTop ?? 0);
+      if (viewportTop > 0) {
+        rootStyle.setProperty('--dn-ios-safe-area-top-fallback', `${viewportTop}px`);
+        return;
+      }
+
+      const longestScreenSide = Math.max(window.screen.width, window.screen.height);
+      const fallbackTop = isIPad ? 24 : longestScreenSide >= 852 ? 54 : longestScreenSide >= 812 ? 47 : 20;
+      rootStyle.setProperty('--dn-ios-safe-area-top-fallback', `${fallbackTop}px`);
+    };
+
+    updateSafeAreaFallback();
+    window.addEventListener('resize', updateSafeAreaFallback);
+    window.addEventListener('orientationchange', updateSafeAreaFallback);
+    visualViewport?.addEventListener('resize', updateSafeAreaFallback);
+    visualViewport?.addEventListener('scroll', updateSafeAreaFallback);
+
+    return () => {
+      window.removeEventListener('resize', updateSafeAreaFallback);
+      window.removeEventListener('orientationchange', updateSafeAreaFallback);
+      visualViewport?.removeEventListener('resize', updateSafeAreaFallback);
+      visualViewport?.removeEventListener('scroll', updateSafeAreaFallback);
+    };
+  }, []);
 
   const themeMenuOpen = Boolean(themeMenuAnchorEl);
   const handleThemeMenuOpen = (event: React.MouseEvent<HTMLElement>) => setThemeMenuAnchorEl(event.currentTarget);
@@ -111,12 +155,16 @@ const Layout: React.FC<LayoutProps> = ({
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <AppBar position="sticky">
+      <AppBar
+        position="sticky"
+        sx={{
+          pt: safeAreaTopInset,
+        }}
+      >
         <Toolbar
           sx={{
             px: 2,
-            pt: 'env(safe-area-inset-top)',
-            minHeight: { xs: 'calc(60px + env(safe-area-inset-top))', sm: 60 },
+            minHeight: 60,
           }}
         >
           <IconButton
