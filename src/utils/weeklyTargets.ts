@@ -80,9 +80,9 @@ export const getMinimumHealthyDailyCalories = (gender: 'male' | 'female' | null 
  *   `max(actual, planned)` (planned is a fallback if you didn't log). If neither
  *   exists for a past day, we assume you used the base daily target (prevents
  *   "free" rollover just because a day wasn't logged/planned).
- * - For days from `anchorDate` onward with no planned/logged calories, we assume
- *   you'll hit your daily budget exactly and exclude those days from rebalancing.
- * - From `anchorDate` through end-of-week, targets are adjusted to fit the
+ * - From `anchorDate` through end-of-week, all remaining days are rebalanced
+ *   against the remaining weekly budget (including days with no entries yet).
+ * - Targets for entered days are adjusted to fit the
  *   remaining weekly budget while never dropping below `max(actual, planned)`
  *   for any given day.
  */
@@ -109,7 +109,7 @@ export const calculateDynamicWeeklyCalorieTargets = (
   const hasEntries = actuals.map((a, idx) => a > 0 || planned[idx] > 0);
   const minTargets = actuals.map((a, idx) => {
     if (idx < anchorIndex) return Math.max(a, planned[idx]);
-    if (!hasEntries[idx]) return defaultFutureTarget;
+    if (!hasEntries[idx]) return minDailyTarget;
     return Math.max(a, planned[idx], minDailyTarget);
   });
 
@@ -120,17 +120,12 @@ export const calculateDynamicWeeklyCalorieTargets = (
 
   const targets = weekKeys.map((_, idx) => {
     if (idx < anchorIndex) return baseTarget;
-    if (!hasEntries[idx]) return defaultFutureTarget;
     return Math.max(defaultFutureTarget, minTargets[idx]);
   });
 
-  const futureIndices = Array.from({ length: WEEK_LENGTH_DAYS - anchorIndex }, (_, i) => i + anchorIndex);
-  const fixedFutureSum = futureIndices.reduce((sum, idx) => sum + (hasEntries[idx] ? 0 : targets[idx]), 0);
-  const adjustableIndices = futureIndices.filter((idx) => hasEntries[idx]);
+  const adjustableIndices = Array.from({ length: WEEK_LENGTH_DAYS - anchorIndex }, (_, i) => i + anchorIndex);
   const adjustableSum = adjustableIndices.reduce((sum, idx) => sum + targets[idx], 0);
-  const adjustableBudget = remainingBudget - fixedFutureSum;
-
-  const delta = adjustableBudget - adjustableSum;
+  const delta = remainingBudget - adjustableSum;
 
   let overBudgetBy = 0;
   if (delta > 0) {
@@ -139,6 +134,10 @@ export const calculateDynamicWeeklyCalorieTargets = (
     const reductionNeeded = -delta;
     const remainingReduction = reduceToMeetBudget(targets, minTargets, adjustableIndices, reductionNeeded);
     overBudgetBy = remainingReduction;
+  }
+
+  if (adjustableIndices.length === 0 && remainingBudget < 0) {
+    overBudgetBy = Math.max(overBudgetBy, -remainingBudget);
   }
 
   const targetsByDate = weekKeys.reduce<Record<string, number>>((acc, key, idx) => {
