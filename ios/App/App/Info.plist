@@ -24,6 +24,14 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Sunday Mornings uses your camera so you can attach meal photos.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Sunday Mornings uses your microphone for voice meal logging.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Sunday Mornings uses speech recognition to convert your voice into text.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Sunday Mornings lets you select meal photos from your photo library.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
