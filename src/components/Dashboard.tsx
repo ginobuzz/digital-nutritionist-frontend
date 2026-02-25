@@ -1165,6 +1165,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
           const color = getDayColor(entry, targetCalories);
           const isSelected = isSameDay(entry.date, selectedDay);
           const hasLogged = entry.actualCalories > 0;
+          const isOverBudget = entry.actualCalories > targetCalories;
+          const showCalorieProgress =
+            entry.kind !== 'future' && hasLogged && !isOverBudget && targetCalories > 0;
+          const calorieProgressPercent = showCalorieProgress
+            ? Math.min((entry.actualCalories / targetCalories) * 100, 100)
+            : 0;
           const calories = entry.actualCalories > 0 ? entry.actualCalories : entry.plannedCalories;
           const caloriesLabel =
             entry.actualCalories > 0
@@ -1196,22 +1202,42 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
               sx={{
                 cursor: 'pointer',
                 position: 'relative',
+                isolation: 'isolate',
                 overflow: 'hidden',
                 borderColor: alpha(color, isSelected ? 0.82 : 0.35),
                 borderWidth: isSelected ? 3 : 1,
-                backgroundColor: alpha(color, isSelected ? 0.16 : 0.06),
+                backgroundColor: showCalorieProgress
+                  ? alpha(theme.palette.text.primary, isSelected ? 0.08 : 0.04)
+                  : alpha(color, isSelected ? 0.16 : 0.06),
                 boxShadow: isSelected ? `0 14px 40px ${alpha(color, 0.24)}` : 'none',
                 transform: isSelected ? 'translateY(-2px) scale(1.01)' : 'none',
                 transition: 'border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease, transform 180ms ease',
                 '&:hover': {
                   borderColor: alpha(color, isSelected ? 0.9 : 0.55),
-                  backgroundColor: alpha(color, isSelected ? 0.18 : 0.09),
+                  backgroundColor: showCalorieProgress
+                    ? alpha(theme.palette.text.primary, isSelected ? 0.1 : 0.06)
+                    : alpha(color, isSelected ? 0.18 : 0.09),
                 },
-                '&::before': isSelected
+                '&::before': showCalorieProgress
+                  ? {
+                      content: '""',
+                      position: 'absolute',
+                      top: 0,
+                      bottom: 0,
+                      left: 0,
+                      width: `${calorieProgressPercent}%`,
+                      zIndex: 0,
+                      pointerEvents: 'none',
+                      backgroundColor: alpha(theme.palette.success.main, isSelected ? 0.28 : 0.16),
+                      transition: 'width 220ms ease',
+                    }
+                  : undefined,
+                '&::after': isSelected
                   ? {
                       content: '""',
                       position: 'absolute',
                       inset: 0,
+                      zIndex: 0,
                       borderRadius: 'inherit',
                       pointerEvents: 'none',
                       background: `linear-gradient(90deg, ${alpha(color, 0.22)} 0%, ${alpha(color, 0)} 55%)`,
@@ -1222,7 +1248,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                 navigate(`/log?date=${entry.key}`);
               }}
             >
-              <CardContent sx={{ p: 1.75, '&:last-child': { pb: 1.75 } }}>
+              <CardContent sx={{ p: 1.75, position: 'relative', zIndex: 1, '&:last-child': { pb: 1.75 } }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
                   <Box sx={{ minWidth: 0 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
