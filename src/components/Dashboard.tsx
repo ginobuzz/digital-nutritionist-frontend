@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
-  Box, 
+  Box,  
   Typography,
   LinearProgress,
   Card,
