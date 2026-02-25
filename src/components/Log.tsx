@@ -535,6 +535,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
       setSendingDescribeLog(true);
       setLogError(null);
       setDescribeReply(null);
+      void triggerSubmitHaptic();
       const prompt = [
         `Please log what I consumed on ${selectedKey}.`,
         describeImageDataUrl ? `A meal photo is attached. Use it to identify foods and portions.` : null,
@@ -552,6 +553,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
         image_data_url: describeImageDataUrl ?? undefined,
       });
 
+      void triggerSuccessHaptic();
       setDescribeReply(response.reply || 'OK.');
       setDescribeImageDataUrl(null);
       await fetchLogData();
@@ -597,6 +599,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
       setSendingDescribePlan(true);
       setPlanError(null);
       setPlanDescribeReply(null);
+      void triggerSubmitHaptic();
 
       const calorieTarget = weeklyTargetsByDate[selectedKey] ?? Number(user.dailyCalorieTarget || 0);
       const prompt = [
@@ -617,6 +620,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
         client_time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       });
 
+      void triggerSuccessHaptic();
       lastReply = response.reply || '';
       const drafts = parsePlannedMealDraftsFromReply(lastReply);
       if (drafts.length === 0) {

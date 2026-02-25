@@ -539,6 +539,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       setLogError(null);
       setDescribeReply(null);
       const userId = getActiveUserId();
+      void triggerSubmitHaptic();
       const prompt = [
         `Please log what I consumed on ${selectedKey}.`,
         ...(mealType ? [`Meal type: ${mealType}.`] : []),
@@ -557,6 +558,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
         image_data_url: describeImageDataUrl ?? undefined,
       });
 
+      void triggerSuccessHaptic();
       setDescribeReply(response.reply || 'OK.');
       setDescribeInput('');
       setDescribeImageDataUrl(null);

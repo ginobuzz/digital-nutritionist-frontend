@@ -28,7 +28,7 @@ import { format } from 'date-fns';
 import { alpha } from '@mui/material/styles';
 import { ChatMessage, User } from '../types';
 import { apiService, ChatTurn, isUserNotFoundError } from '../services/api';
-import { triggerMealLoggedSuccessHaptic, triggerMealSubmitHaptic } from '../services/haptics';
+import { triggerSubmitHaptic, triggerSuccessHaptic } from '../services/haptics';
 import { imageFileToDataUrl } from '../utils/images';
 import { useSpeechToText } from '../hooks/useSpeechToText';
 import { formatVoiceInputError, getUserFacingErrorMessage } from '../utils/errors';
@@ -171,7 +171,7 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
     setInputMessage('');
     setAttachedImageDataUrl(null);
     setLoading(true);
-    void triggerMealSubmitHaptic();
+    void triggerSubmitHaptic();
 
     try {
       const client_time_zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -195,9 +195,7 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
         type: createdLogsCount > 0 ? 'encouragement' : createdPlannedCount > 0 ? 'planning' : 'general',
       };
       setMessages(prev => [...prev, aiResponse]);
-      if (createdLogsCount > 0) {
-        void triggerMealLoggedSuccessHaptic();
-      }
+      void triggerSuccessHaptic();
     } catch (error) {
       if (isUserNotFoundError(error)) {
         return;

@@ -9,8 +9,8 @@ import * as hapticsService from '../services/haptics';
 const CHAT_HISTORY_STORAGE_PREFIX = 'dn.chat.history.v1';
 
 describe('Chat', () => {
-  let triggerMealSubmitHapticSpy: jest.SpyInstance<Promise<void>, []>;
-  let triggerMealLoggedSuccessHapticSpy: jest.SpyInstance<Promise<void>, []>;
+  let triggerSubmitHapticSpy: jest.SpyInstance<Promise<void>, []>;
+  let triggerSuccessHapticSpy: jest.SpyInstance<Promise<void>, []>;
 
   beforeAll(() => {
     // JSDOM doesn't implement this; Chat uses it to auto-scroll.
@@ -23,11 +23,11 @@ describe('Chat', () => {
   beforeEach(() => {
     localStorage.clear();
     jest.restoreAllMocks();
-    triggerMealSubmitHapticSpy = jest
-      .spyOn(hapticsService, 'triggerMealSubmitHaptic')
+    triggerSubmitHapticSpy = jest
+      .spyOn(hapticsService, 'triggerSubmitHaptic')
       .mockResolvedValue(undefined);
-    triggerMealLoggedSuccessHapticSpy = jest
-      .spyOn(hapticsService, 'triggerMealLoggedSuccessHaptic')
+    triggerSuccessHapticSpy = jest
+      .spyOn(hapticsService, 'triggerSuccessHaptic')
       .mockResolvedValue(undefined);
   });
 
@@ -141,10 +141,9 @@ describe('Chat', () => {
         history: expect.any(Array),
       })
     );
-    expect(triggerMealSubmitHapticSpy).toHaveBeenCalledTimes(1);
-    expect(triggerMealLoggedSuccessHapticSpy).not.toHaveBeenCalled();
-
     expect(await screen.findByText('All set!')).toBeInTheDocument();
+    expect(triggerSubmitHapticSpy).toHaveBeenCalledTimes(1);
+    expect(triggerSuccessHapticSpy).toHaveBeenCalledTimes(1);
   });
 
   test('fires success haptic when a meal log is created', async () => {
@@ -183,8 +182,8 @@ describe('Chat', () => {
     await userEvent.click(screen.getByRole('button', { name: /send message/i }));
 
     expect(await screen.findByText(/nice work logging that meal/i)).toBeInTheDocument();
-    expect(triggerMealSubmitHapticSpy).toHaveBeenCalledTimes(1);
-    expect(triggerMealLoggedSuccessHapticSpy).toHaveBeenCalledTimes(1);
+    expect(triggerSubmitHapticSpy).toHaveBeenCalledTimes(1);
+    expect(triggerSuccessHapticSpy).toHaveBeenCalledTimes(1);
   });
 
   test('renders an error reply when API call fails', async () => {
@@ -212,5 +211,7 @@ describe('Chat', () => {
     await userEvent.click(screen.getByRole('button', { name: /send message/i }));
 
     expect(await screen.findByText(/couldn’t get a reply right now/i)).toBeInTheDocument();
+    expect(triggerSubmitHapticSpy).toHaveBeenCalledTimes(1);
+    expect(triggerSuccessHapticSpy).not.toHaveBeenCalled();
   });
 });
