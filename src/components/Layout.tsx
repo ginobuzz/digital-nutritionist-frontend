@@ -149,6 +149,7 @@ const Layout: React.FC<LayoutProps> = ({
     { label: 'Chat', icon: <Chat />, path: '/chat' },
     { label: 'Profile', icon: <Person />, path: '/profile' },
   ];
+  const isChatRoute = location.pathname === '/chat';
 
   const activeIndexRaw = navigationItems.findIndex(item => item.path === location.pathname);
   const activeIndex = activeIndexRaw >= 0 ? activeIndexRaw : 0;
@@ -267,13 +268,19 @@ const Layout: React.FC<LayoutProps> = ({
           component="main"
           sx={{
             flexGrow: 1,
-            px: { xs: 2, sm: 3 },
-            pt: { xs: 2, sm: 3 },
+            px: isChatRoute ? 0 : { xs: 2, sm: 3 },
+            pt: isChatRoute ? 0 : { xs: 2, sm: 3 },
             pb: 'calc(88px + env(safe-area-inset-bottom))',
             minHeight: 'calc(100vh - 60px)',
+            display: 'flex',
+            flexDirection: 'column',
           }}
         >
-          <Container maxWidth={isMobile ? 'sm' : 'md'} disableGutters sx={{ px: 0 }}>
+          <Container
+            maxWidth={isChatRoute ? false : isMobile ? 'sm' : 'md'}
+            disableGutters
+            sx={{ px: 0, flexGrow: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
+          >
             {children}
           </Container>
         </Box>

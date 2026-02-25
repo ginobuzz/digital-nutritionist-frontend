@@ -1,8 +1,6 @@
 import React, { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import {
   Box,
-  Card,
-  CardContent,
   Typography,
   TextField,
   IconButton,
@@ -12,7 +10,7 @@ import {
   ListItemAvatar,
   Paper,
   Chip,
-  Divider
+  Divider,
 } from '@mui/material';
 import {
   Send,
@@ -285,258 +283,260 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
   };
 
   return (
-    <Box sx={{ height: 'calc(100vh - 200px)', display: 'flex', flexDirection: 'column' }}>
-      <Typography variant="h4" gutterBottom>
-        Chat with Your AI Coach 💬
-      </Typography>
-      
-      <Card sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-        <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', p: 0 }}>
-          {/* Messages Area */}
-          <Box sx={{ flexGrow: 1, overflow: 'auto', p: 2, maxHeight: 'calc(100vh - 300px)' }}>
-            <List>
-              {messages.map((message) => (
-                <ListItem
-                  key={message.id}
+    <Box
+      sx={{
+        height: '100%',
+        minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        backgroundColor: 'background.default',
+      }}
+    >
+      <Box sx={{ flexGrow: 1, minHeight: 0, overflow: 'auto', px: { xs: 1.25, sm: 2 }, py: { xs: 1.5, sm: 2 } }}>
+        <List disablePadding>
+          {messages.map((message) => (
+            <ListItem
+              key={message.id}
+              sx={{
+                flexDirection: message.sender === 'user' ? 'row-reverse' : 'row',
+                alignItems: 'flex-start',
+                mb: 1,
+              }}
+            >
+              <ListItemAvatar>
+                <Avatar
                   sx={{
-                    flexDirection: message.sender === 'user' ? 'row-reverse' : 'row',
-                    alignItems: 'flex-start',
-                    mb: 1
+                    bgcolor: message.sender === 'ai' ? 'primary.main' : 'secondary.main',
+                    width: 40,
+                    height: 40,
                   }}
                 >
-                  <ListItemAvatar>
-                    <Avatar sx={{ 
-                      bgcolor: message.sender === 'ai' ? 'primary.main' : 'secondary.main',
-                      width: 40,
-                      height: 40
-                    }}>
-                      {message.sender === 'ai' ? <SmartToy /> : <Person />}
-                    </Avatar>
-                  </ListItemAvatar>
-                  
-                  <Box sx={{ 
-                    maxWidth: '70%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: message.sender === 'user' ? 'flex-end' : 'flex-start'
-                  }}>
-                    <Paper
-                      elevation={1}
-                      sx={{
-                        p: 2,
-                        backgroundColor: (theme) => {
-                          if (message.sender === 'user') {
-                            return theme.palette.mode === 'dark'
-                              ? alpha(theme.palette.primary.main, 0.26)
-                              : theme.palette.primary.dark;
-                          }
-                          return theme.palette.mode === 'dark'
-                            ? alpha(theme.palette.common.white, 0.06)
-                            : theme.palette.grey[100];
-                        },
-                        color: (theme) =>
-                          message.sender === 'user'
-                            ? theme.palette.primary.contrastText
-                            : theme.palette.text.primary,
-                        borderRadius: 2,
-                        wordBreak: 'break-word',
-                        border: (theme) =>
-                          message.sender === 'user'
-                            ? `1px solid ${alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.28 : 0.18)}`
-                            : `1px solid ${theme.palette.divider}`,
-                      }}
-                    >
-                      <Box
-                        sx={{
-                          '& p': { m: 0 },
-                          '& ul, & ol': { m: 0, pl: 3 },
-                          '& li': { mb: 0.5 },
-                          '& li:last-child': { mb: 0 },
-                          '& a': { color: 'inherit' },
-                          '& code': {
-                            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-                            fontSize: '0.9em',
-                          },
-                          '& pre': {
-                            overflowX: 'auto',
-                            p: 1,
-                            borderRadius: 1,
-                            backgroundColor: (theme) => {
-                              if (message.sender === 'user') return alpha(theme.palette.common.white, 0.18);
-                              return theme.palette.mode === 'dark'
-                                ? alpha(theme.palette.common.black, 0.35)
-                                : alpha(theme.palette.common.black, 0.06);
-                            },
-                          },
-                          '& pre code': { fontSize: '0.85em' },
-                        }}
-                      >
-                        {message.imageDataUrl && (
-                          <Box
-                            component="img"
-                            src={message.imageDataUrl}
-                            alt="Meal"
-                            sx={{
-                              display: 'block',
-                              width: '100%',
-                              maxWidth: 360,
-                              borderRadius: 1.5,
-                              mb: 1.25,
-                              border: (theme) => `1px solid ${theme.palette.divider}`,
-                            }}
-                          />
-                        )}
-                        <Markdown
-                          options={{
-                            disableParsingRawHTML: true,
-                            forceBlock: true,
-                          }}
-                        >
-                          {getMarkdownText(message)}
-                        </Markdown>
-                      </Box>
-                    </Paper>
-                    
-                    <Box sx={{ mt: 1, display: 'flex', gap: 1, alignItems: 'center' }}>
-                      <Chip
-                        label={message.type.replace('_', ' ')}
-                        size="small"
-                        color={getMessageTypeColor(message.type) as any}
-                        variant="outlined"
-                      />
-                      <Typography variant="caption" color="text.secondary">
-                        {new Date(message.timestamp).toLocaleTimeString()}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </ListItem>
-              ))}
-              
-              {loading && (
-                <ListItem sx={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-                  <ListItemAvatar>
-                    <Avatar sx={{ bgcolor: 'primary.main', width: 40, height: 40 }}>
-                      <SmartToy />
-                    </Avatar>
-                  </ListItemAvatar>
-                  <Paper
-                    elevation={1}
+                  {message.sender === 'ai' ? <SmartToy /> : <Person />}
+                </Avatar>
+              </ListItemAvatar>
+
+              <Box
+                sx={{
+                  maxWidth: { xs: '82%', sm: '72%' },
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: message.sender === 'user' ? 'flex-end' : 'flex-start',
+                }}
+              >
+                <Paper
+                  elevation={1}
+                  sx={{
+                    p: 2,
+                    backgroundColor: (theme) => {
+                      if (message.sender === 'user') {
+                        return theme.palette.mode === 'dark'
+                          ? alpha(theme.palette.primary.main, 0.26)
+                          : theme.palette.primary.dark;
+                      }
+                      return theme.palette.mode === 'dark'
+                        ? alpha(theme.palette.common.white, 0.06)
+                        : theme.palette.grey[100];
+                    },
+                    color: (theme) =>
+                      message.sender === 'user'
+                        ? theme.palette.primary.contrastText
+                        : theme.palette.text.primary,
+                    borderRadius: 2,
+                    wordBreak: 'break-word',
+                    border: (theme) =>
+                      message.sender === 'user'
+                        ? `1px solid ${alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.28 : 0.18)}`
+                        : `1px solid ${theme.palette.divider}`,
+                  }}
+                >
+                  <Box
                     sx={{
-                      p: 2,
-                      backgroundColor: (theme) =>
-                        theme.palette.mode === 'dark' ? alpha(theme.palette.common.white, 0.06) : theme.palette.grey[100],
-                      color: (theme) => theme.palette.text.primary,
-                      borderRadius: 2,
-                      border: (theme) => `1px solid ${theme.palette.divider}`,
+                      '& p': { m: 0 },
+                      '& ul, & ol': { m: 0, pl: 3 },
+                      '& li': { mb: 0.5 },
+                      '& li:last-child': { mb: 0 },
+                      '& a': { color: 'inherit' },
+                      '& code': {
+                        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                        fontSize: '0.9em',
+                      },
+                      '& pre': {
+                        overflowX: 'auto',
+                        p: 1,
+                        borderRadius: 1,
+                        backgroundColor: (theme) => {
+                          if (message.sender === 'user') return alpha(theme.palette.common.white, 0.18);
+                          return theme.palette.mode === 'dark'
+                            ? alpha(theme.palette.common.black, 0.35)
+                            : alpha(theme.palette.common.black, 0.06);
+                        },
+                      },
+                      '& pre code': { fontSize: '0.85em' },
                     }}
                   >
-                    <Typography variant="body1">
-                      Typing...
-                    </Typography>
-                  </Paper>
-                </ListItem>
-              )}
-              
-              <div ref={messagesEndRef} />
-            </List>
-          </Box>
-          
-          <Divider />
-          
-          {/* Input Area */}
-          <Box sx={{ p: 2 }}>
-            {attachedImageDataUrl && (
-              <Box sx={{ mb: 1.25, display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                <Box
-                  component="img"
-                  src={attachedImageDataUrl}
-                  alt="Selected meal"
-                  sx={{
-                    width: 88,
-                    height: 88,
-                    objectFit: 'cover',
-                    borderRadius: 1.5,
-                    border: (theme) => `1px solid ${theme.palette.divider}`,
-                  }}
-                />
-                <IconButton
-                  size="small"
-                  onClick={() => setAttachedImageDataUrl(null)}
-                  disabled={loading}
-                  aria-label="Remove image"
-                >
-                  <Close fontSize="small" />
-                </IconButton>
+                    {message.imageDataUrl && (
+                      <Box
+                        component="img"
+                        src={message.imageDataUrl}
+                        alt="Meal"
+                        sx={{
+                          display: 'block',
+                          width: '100%',
+                          maxWidth: 360,
+                          borderRadius: 1.5,
+                          mb: 1.25,
+                          border: (theme) => `1px solid ${theme.palette.divider}`,
+                        }}
+                      />
+                    )}
+                    <Markdown
+                      options={{
+                        disableParsingRawHTML: true,
+                        forceBlock: true,
+                      }}
+                    >
+                      {getMarkdownText(message)}
+                    </Markdown>
+                  </Box>
+                </Paper>
+
+                <Box sx={{ mt: 1, display: 'flex', gap: 1, alignItems: 'center' }}>
+                  <Chip
+                    label={message.type.replace('_', ' ')}
+                    size="small"
+                    color={getMessageTypeColor(message.type) as any}
+                    variant="outlined"
+                  />
+                  <Typography variant="caption" color="text.secondary">
+                    {new Date(message.timestamp).toLocaleTimeString()}
+                  </Typography>
+                </Box>
               </Box>
-            )}
+            </ListItem>
+          ))}
 
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
-              <IconButton
-                component="label"
-                disabled={loading || voiceListening}
-                color={attachedImageDataUrl ? 'primary' : 'default'}
-                aria-label="Attach meal photo"
-                sx={{ alignSelf: 'flex-end' }}
+          {loading && (
+            <ListItem sx={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+              <ListItemAvatar>
+                <Avatar sx={{ bgcolor: 'primary.main', width: 40, height: 40 }}>
+                  <SmartToy />
+                </Avatar>
+              </ListItemAvatar>
+              <Paper
+                elevation={1}
+                sx={{
+                  p: 2,
+                  backgroundColor: (theme) =>
+                    theme.palette.mode === 'dark' ? alpha(theme.palette.common.white, 0.06) : theme.palette.grey[100],
+                  color: (theme) => theme.palette.text.primary,
+                  borderRadius: 2,
+                  border: (theme) => `1px solid ${theme.palette.divider}`,
+                }}
               >
-                <PhotoCamera />
-                <input
-                  type="file"
-                  hidden
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handleAttachImage}
-                />
-              </IconButton>
-              <IconButton
-                onClick={handleToggleVoice}
-                disabled={loading}
-                color={voiceListening ? 'error' : 'default'}
-                aria-label={voiceListening ? 'Stop voice input' : 'Start voice input'}
-                sx={{ alignSelf: 'flex-end' }}
-              >
-                {voiceListening ? <StopCircle /> : <Mic />}
-              </IconButton>
-              <TextField
-                fullWidth
-                multiline
-                maxRows={4}
-                value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Log what you ate/drank, plan meals, or ask nutrition questions..."
-                variant="outlined"
-                size="small"
-                disabled={loading || voiceListening}
-              />
-              <IconButton
-                onClick={handleSendMessage}
-                disabled={(!(inputMessage.trim() || attachedImageDataUrl) || loading || voiceListening)}
-                color="primary"
-                aria-label="Send message"
-                sx={{ alignSelf: 'flex-end' }}
-              >
-                <Send />
-              </IconButton>
-            </Box>
+                <Typography variant="body1">
+                  Typing...
+                </Typography>
+              </Paper>
+            </ListItem>
+          )}
 
-            {voiceListening && (
-              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                Listening… tap the mic to stop.
-              </Typography>
-            )}
+          <div ref={messagesEndRef} />
+        </List>
+      </Box>
 
-            {voiceError && (
-              <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
-                {voiceError}
-              </Typography>
-            )}
-            
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-              Try: "I had oatmeal for breakfast" • "Help me plan dinners for the week" • "What's a good high-protein snack?"
-            </Typography>
+      <Divider />
+
+      <Box sx={{ p: { xs: 1.25, sm: 2 }, backgroundColor: 'background.paper' }}>
+        {attachedImageDataUrl && (
+          <Box sx={{ mb: 1.25, display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+            <Box
+              component="img"
+              src={attachedImageDataUrl}
+              alt="Selected meal"
+              sx={{
+                width: 88,
+                height: 88,
+                objectFit: 'cover',
+                borderRadius: 1.5,
+                border: (theme) => `1px solid ${theme.palette.divider}`,
+              }}
+            />
+            <IconButton
+              size="small"
+              onClick={() => setAttachedImageDataUrl(null)}
+              disabled={loading}
+              aria-label="Remove image"
+            >
+              <Close fontSize="small" />
+            </IconButton>
           </Box>
-        </CardContent>
-      </Card>
+        )}
+
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
+          <IconButton
+            component="label"
+            disabled={loading || voiceListening}
+            color={attachedImageDataUrl ? 'primary' : 'default'}
+            aria-label="Attach meal photo"
+            sx={{ alignSelf: 'flex-end' }}
+          >
+            <PhotoCamera />
+            <input
+              type="file"
+              hidden
+              accept="image/*"
+              capture="environment"
+              onChange={handleAttachImage}
+            />
+          </IconButton>
+          <IconButton
+            onClick={handleToggleVoice}
+            disabled={loading}
+            color={voiceListening ? 'error' : 'default'}
+            aria-label={voiceListening ? 'Stop voice input' : 'Start voice input'}
+            sx={{ alignSelf: 'flex-end' }}
+          >
+            {voiceListening ? <StopCircle /> : <Mic />}
+          </IconButton>
+          <TextField
+            fullWidth
+            multiline
+            maxRows={4}
+            value={inputMessage}
+            onChange={(e) => setInputMessage(e.target.value)}
+            onKeyPress={handleKeyPress}
+            placeholder="Log what you ate/drank, plan meals, or ask nutrition questions..."
+            variant="outlined"
+            size="small"
+            disabled={loading || voiceListening}
+          />
+          <IconButton
+            onClick={handleSendMessage}
+            disabled={(!(inputMessage.trim() || attachedImageDataUrl) || loading || voiceListening)}
+            color="primary"
+            aria-label="Send message"
+            sx={{ alignSelf: 'flex-end' }}
+          >
+            <Send />
+          </IconButton>
+        </Box>
+
+        {voiceListening && (
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+            Listening… tap the mic to stop.
+          </Typography>
+        )}
+
+        {voiceError && (
+          <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
+            {voiceError}
+          </Typography>
+        )}
+
+        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+          Try: "I had oatmeal for breakfast" • "Help me plan dinners for the week" • "What's a good high-protein snack?"
+        </Typography>
+      </Box>
     </Box>
   );
 };
