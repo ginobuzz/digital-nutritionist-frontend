@@ -287,7 +287,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate, onSignOut }) => {
   return (
     <Box>
       <Typography variant="h4" gutterBottom>
-        My Profile 👤
+        My Profile
       </Typography>
 
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -305,7 +305,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate, onSignOut }) => {
                       {user.name}
                     </Typography>
                     <Typography variant="body1" color="text.secondary">
-                      {user.age} years old • {getGenderLabel(user.gender)}
+                      {user.age} • {getGenderLabel(user.gender)}
                     </Typography>
                   </Box>
                 </Box>
@@ -314,6 +314,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate, onSignOut }) => {
                     variant="outlined"
                     startIcon={<Edit />}
                     onClick={handleEditProfile}
+                    sx={{ width: 170, justifyContent: 'center' }}
                   >
                     Edit Profile
                   </Button>
@@ -322,6 +323,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate, onSignOut }) => {
                     color="error"
                     startIcon={<Logout />}
                     onClick={() => setSignOutDialogOpen(true)}
+                    sx={{ width: 170, justifyContent: 'center' }}
                   >
                     Sign Out
                   </Button>
