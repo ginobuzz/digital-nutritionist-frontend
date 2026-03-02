@@ -37,7 +37,7 @@ describe('Profile weight check-in', () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByText(/my profile/i)).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: user.name })).toBeInTheDocument();
     expect(screen.getByText('0.0%')).toBeInTheDocument();
 
     const weightInput = screen.getByLabelText(/today.*weight/i);
