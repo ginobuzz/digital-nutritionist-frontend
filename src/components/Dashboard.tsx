@@ -40,6 +40,7 @@ import { resolveLockedTodayTarget } from '../utils/dailyTargetLock';
 import { useSpeechToText } from '../hooks/useSpeechToText';
 import { formatVoiceInputError, getUserFacingErrorMessage } from '../utils/errors';
 import { syncWidgetDailyProgress } from '../services/widgetBridge';
+import { autoLogDuePlannedMeals } from '../utils/autoLogPlannedMeals';
 
 interface DashboardProps {
   user: User;
@@ -194,10 +195,20 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       const weekStart = startOfWeek(today, { weekStartsOn: 0 }); // Sunday
       const weekEnd = addDays(weekStart, WEEK_LENGTH_DAYS - 1);
 
-      const [logs, plannedMeals] = await Promise.all([
+      const [fetchedLogs, fetchedPlannedMeals] = await Promise.all([
         apiService.getMealLogs({ userId, start: weekStart, end: weekEnd }),
         apiService.getPlannedMeals({ userId: String(userId), start: weekStart, end: weekEnd }),
       ]);
+      const { logs, plannedMeals } = await autoLogDuePlannedMeals({
+        api: apiService,
+        userId,
+        today,
+        logs: fetchedLogs,
+        plannedMeals: fetchedPlannedMeals,
+        onError: (error, context) => {
+          console.error(`Error auto-logging planned meal (${context.action}):`, error);
+        },
+      });
 
       const nextActualByDate: Record<string, number> = {};
       const nextMacrosByDate: Record<

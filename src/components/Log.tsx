@@ -54,6 +54,7 @@ import { calculateDynamicWeeklyCalorieTargets, getMinimumHealthyDailyCalories } 
 import { resolveLockedTodayTarget } from '../utils/dailyTargetLock';
 import { useSpeechToText } from '../hooks/useSpeechToText';
 import { formatVoiceInputError, getUserFacingErrorMessage } from '../utils/errors';
+import { autoLogDuePlannedMeals } from '../utils/autoLogPlannedMeals';
 import {
   parsePlannedMealDraftsFromReply,
 } from '../utils/plannedMeals';
@@ -275,10 +276,20 @@ const Log: React.FC<LogProps> = ({ user }) => {
           ? addDays(weekEnd, 1)
           : addDays(today, 1);
 
-      const [plannedWeek, actualWeek] = await Promise.all([
+      const [fetchedPlannedWeek, fetchedActualWeek] = await Promise.all([
         apiService.getPlannedMeals({ userId: user.id, start: weekStart, end: weekEnd }),
         apiService.getMealLogs({ userId: user.id, start: weekStart, end: weekEnd }),
       ]);
+      const { logs: actualWeek, plannedMeals: plannedWeek } = await autoLogDuePlannedMeals({
+        api: apiService,
+        userId: user.id,
+        today,
+        logs: fetchedActualWeek,
+        plannedMeals: fetchedPlannedWeek,
+        onError: (error, context) => {
+          console.error(`Error auto-logging planned meal (${context.action}):`, error);
+        },
+      });
 
       setPlannedMeals(plannedWeek.filter((meal) => meal.date === selectedKey).map(mapPlannedMealResponse));
       setActualMeals(actualWeek.filter((log) => log.date === selectedKey).map(mapMealLogToActualMeal));
