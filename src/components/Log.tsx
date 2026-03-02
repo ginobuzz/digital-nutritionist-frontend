@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Card,
@@ -57,6 +57,14 @@ import {
   normalizePlanMealType,
   parsePlannedMealDraftsFromReply,
 } from '../utils/plannedMeals';
+import {
+  normalizeWidgetLogAction,
+  syncWidgetDailyProgress,
+  WIDGET_DEEP_LINK_ACTION_QUERY_KEY,
+  WIDGET_DEEP_LINK_DATE_QUERY_KEY,
+  WIDGET_DEEP_LINK_SOURCE_QUERY_KEY,
+  WIDGET_DEEP_LINK_SOURCE_VALUE,
+} from '../services/widgetBridge';
 
 const toIsoDate = (d: Date) => format(d, 'yyyy-MM-dd');
 
@@ -108,6 +116,10 @@ interface LogProps {
 const Log: React.FC<LogProps> = ({ user }) => {
   const theme = useTheme();
   const [searchParams, setSearchParams] = useSearchParams();
+  const quickDescriptionFieldRef = useRef<HTMLInputElement | null>(null);
+  const describeFieldRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+  const describePhotoInputRef = useRef<HTMLInputElement | null>(null);
+  const handledWidgetActionRef = useRef<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [plannedMeals, setPlannedMeals] = useState<PlannedMeal[]>([]);
   const [actualMeals, setActualMeals] = useState<ActualMeal[]>([]);
@@ -215,7 +227,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
     setPlanVoiceError(formatVoiceInputError(planVoiceRawError));
   }, [planVoiceRawError]);
 
-  const handleToggleLogVoice = () => {
+  const handleToggleLogVoice = useCallback(() => {
     setLogVoiceError(null);
 
     if (!logVoiceSupported) {
@@ -233,7 +245,16 @@ const Log: React.FC<LogProps> = ({ user }) => {
     if (describeReply) setDescribeReply(null);
     if (logError) setLogError(null);
     startLogVoice();
-  };
+  }, [
+    describeInput,
+    describeReply,
+    logError,
+    logVoiceListening,
+    logVoiceSupported,
+    resetLogVoice,
+    startLogVoice,
+    stopLogVoice,
+  ]);
 
   const handleTogglePlanVoice = () => {
     setPlanVoiceError(null);
@@ -302,6 +323,16 @@ const Log: React.FC<LogProps> = ({ user }) => {
 
       setWeeklyTargetsByDate(dynamicWeek.targetsByDate);
       setWeeklyOverBudgetBy(Math.round(dynamicWeek.overBudgetBy));
+
+      if (!isBefore(today, weekStart) && !isAfter(today, weekEnd)) {
+        const todayKey = toIsoDate(today);
+        const consumedCalories = Math.round(actualCaloriesByDate[todayKey] || 0);
+        const targetCalories = Math.max(
+          0,
+          Math.round(dynamicWeek.targetsByDate[todayKey] ?? Number(user.dailyCalorieTarget || 0))
+        );
+        void syncWidgetDailyProgress({ consumedCalories, targetCalories, dateKey: todayKey });
+      }
     } catch (error) {
       console.error('Error fetching log data:', error);
     } finally {
@@ -333,8 +364,12 @@ const Log: React.FC<LogProps> = ({ user }) => {
   const planDialogBusy = savingQuickPlan || sendingDescribePlan;
   const selectedKey = toIsoDate(selectedDate);
 
-  const openLogDialog = () => {
-    if (toIsoDate(selectedDate) > toIsoDate(new Date())) return;
+  const openLogDialog = useCallback((targetDate?: Date) => {
+    const activeDate = targetDate ?? selectedDate;
+    if (toIsoDate(activeDate) > toIsoDate(new Date())) return;
+    if (targetDate && toIsoDate(targetDate) !== toIsoDate(selectedDate)) {
+      setSelectedDate(targetDate);
+    }
     stopLogVoice();
     resetLogVoice();
     setLogDictationBaseText('');
@@ -353,7 +388,54 @@ const Log: React.FC<LogProps> = ({ user }) => {
     });
     setDescribeInput('');
     setLogDialogOpen(true);
-  };
+  }, [resetLogVoice, selectedDate, stopLogVoice]);
+
+  useEffect(() => {
+    const source = searchParams.get(WIDGET_DEEP_LINK_SOURCE_QUERY_KEY);
+    if (source !== WIDGET_DEEP_LINK_SOURCE_VALUE) return;
+
+    const action = normalizeWidgetLogAction(searchParams.get(WIDGET_DEEP_LINK_ACTION_QUERY_KEY));
+    if (!action) return;
+
+    const dateParam = searchParams.get(WIDGET_DEEP_LINK_DATE_QUERY_KEY);
+    const parsed = dateParam ? parseISO(dateParam) : new Date();
+    const requestedDate = isValid(parsed) ? startOfDay(parsed) : startOfDay(new Date());
+    const today = startOfDay(new Date());
+    const safeDate = isAfter(requestedDate, today) ? today : requestedDate;
+    const actionKey = `${action}:${toIsoDate(safeDate)}`;
+
+    if (handledWidgetActionRef.current === actionKey) return;
+    handledWidgetActionRef.current = actionKey;
+
+    openLogDialog(safeDate);
+
+    if (action === 'voice') {
+      setLogMode('describe');
+      window.setTimeout(() => {
+        handleToggleLogVoice();
+      }, 180);
+    } else if (action === 'camera') {
+      setLogMode('describe');
+      window.setTimeout(() => {
+        try {
+          describePhotoInputRef.current?.click();
+        } catch {
+          setLogError('Tap Add photo to open the camera.');
+        }
+      }, 180);
+    } else {
+      // Text should open Describe / photo mode, not quick add.
+      setLogMode('describe');
+      window.setTimeout(() => {
+        describeFieldRef.current?.focus();
+      }, 120);
+    }
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete(WIDGET_DEEP_LINK_SOURCE_QUERY_KEY);
+    nextParams.delete(WIDGET_DEEP_LINK_ACTION_QUERY_KEY);
+    setSearchParams(nextParams, { replace: true });
+  }, [handleToggleLogVoice, openLogDialog, searchParams, setSearchParams]);
 
   const openPlanDialog = () => {
     if (toIsoDate(selectedDate) <= toIsoDate(new Date())) return;
@@ -932,7 +1014,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
                 <Button
                   variant="contained"
                   color={isFuture ? 'info' : 'primary'}
-                  onClick={isFuture ? openPlanDialog : openLogDialog}
+                  onClick={isFuture ? openPlanDialog : () => openLogDialog()}
                   startIcon={<Add />}
                   sx={{ flexShrink: 0 }}
                 >
@@ -1052,7 +1134,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
                     <Button
                       variant="contained"
                       startIcon={<Add />}
-                      onClick={openLogDialog}
+                      onClick={() => openLogDialog()}
                       sx={{ width: { xs: '100%', sm: 'auto' } }}
                     >
                       Log Meal
@@ -1562,6 +1644,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
                   value={logForm.description}
                   onChange={(event) => handleLogInputChange('description', event.target.value)}
                   disabled={dialogBusy}
+                  inputRef={quickDescriptionFieldRef}
                 />
                 <TextField
                   fullWidth
@@ -1653,6 +1736,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
                     shrink: true,
                     sx: { whiteSpace: 'nowrap', backgroundColor: 'background.paper', px: 0.5 },
                   }}
+                  inputRef={describeFieldRef}
                 />
 
                 {logVoiceListening && (
@@ -1677,6 +1761,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
                   >
                     {describeImageDataUrl ? 'Replace photo' : 'Add photo'}
                     <input
+                      ref={describePhotoInputRef}
                       hidden
                       type="file"
                       accept="image/*"

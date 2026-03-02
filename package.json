@@ -4,6 +4,7 @@
   "private": true,
   "homepage": "https://glockstock.github.io/digital-nutritionist-frontend",
   "dependencies": {
+    "@capacitor/app": "^8.0.1",
     "@capacitor/core": "^8.1.0",
     "@capacitor/haptics": "^8.0.0",
     "@emotion/react": "^11.14.0",

@@ -1,5 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
+import { App as CapacitorApp, type URLOpenListenerEvent } from '@capacitor/app';
 import { useMediaQuery } from '@mui/material';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -20,6 +22,7 @@ import { calculateDailyCalorieTarget, calculateDailyExpenditure } from './utils/
 import { apiService } from './services/api';
 import { authService } from './services/auth';
 import { createAppTheme, THEME_PREFERENCE_STORAGE_KEY, type ThemePreference } from './theme';
+import { consumePendingWidgetDeepLink, WIDGET_APP_SCHEME } from './services/widgetBridge';
 
 const getRouterBasename = (): string | undefined => {
   if (typeof window !== 'undefined' && window.location?.protocol === 'capacitor:') return undefined;
@@ -44,6 +47,109 @@ const getRouterBasename = (): string | undefined => {
 
   return basename === '/' ? undefined : basename;
 };
+
+const normalizeDeepLinkPath = (rawUrl: string): string | null => {
+  try {
+    const url = new URL(rawUrl);
+    const protocol = url.protocol.replace(':', '').toLowerCase();
+    let path = url.pathname || '';
+
+    if ((!path || path === '/') && url.host && url.host !== 'localhost') {
+      path = `/${url.host}`;
+    }
+
+    if (/^https?$/.test(protocol)) {
+      path = path.replace(/^\/digital-nutritionist-frontend(?=\/|$)/, '') || '/';
+    }
+
+    if (!path.startsWith('/')) path = `/${path}`;
+    if (path.startsWith('//')) return null;
+
+    const search = url.search || '';
+    const hash = url.hash || '';
+    return `${path}${search}${hash}`;
+  } catch {
+    return null;
+  }
+};
+
+function NativeDeepLinkHandler() {
+  const navigate = useNavigate();
+  const lastHandledPendingUrlRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const isIOSNative = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';
+    if (!isIOSNative) return;
+
+    const readProtocol = (url: string): string | null => {
+      try {
+        return new URL(url).protocol.replace(':', '').toLowerCase();
+      } catch {
+        return null;
+      }
+    };
+
+    const openInternalPath = (url: string) => {
+      const parsed = normalizeDeepLinkPath(url);
+      if (!parsed) return;
+      navigate(parsed);
+    };
+
+    const syncPendingDeepLink = () => {
+      void consumePendingWidgetDeepLink().then((pendingUrl) => {
+        if (!pendingUrl) return;
+        if (lastHandledPendingUrlRef.current === pendingUrl) return;
+        lastHandledPendingUrlRef.current = pendingUrl;
+        openInternalPath(pendingUrl);
+      });
+    };
+
+    let mounted = true;
+    let cleanup: (() => Promise<void>) | null = null;
+
+    void CapacitorApp.getLaunchUrl()
+      .then((launchData) => {
+        if (!mounted || !launchData?.url) return;
+        const launchProtocol = readProtocol(launchData.url);
+        if (!launchProtocol) return;
+        if (launchProtocol === WIDGET_APP_SCHEME || launchProtocol === 'capacitor' || /^https?$/.test(launchProtocol)) {
+          openInternalPath(launchData.url);
+        }
+      })
+      .catch(() => {
+        // no-op
+      });
+    syncPendingDeepLink();
+
+    void CapacitorApp.addListener('appUrlOpen', (event: URLOpenListenerEvent) => {
+      const protocol = readProtocol(event.url);
+      if (!protocol) return;
+      if (protocol === WIDGET_APP_SCHEME || protocol === 'capacitor' || /^https?$/.test(protocol)) {
+        lastHandledPendingUrlRef.current = event.url;
+        openInternalPath(event.url);
+      }
+    }).then((listener) => {
+      cleanup = () => listener.remove();
+    });
+
+    let appStateCleanup: (() => Promise<void>) | null = null;
+    void CapacitorApp.addListener('appStateChange', (state) => {
+      if (state.isActive) {
+        syncPendingDeepLink();
+      }
+    }).then((listener) => {
+      appStateCleanup = () => listener.remove();
+    });
+
+    return () => {
+      mounted = false;
+      if (appStateCleanup) void appStateCleanup();
+      if (cleanup) void cleanup();
+    };
+  }, [navigate]);
+
+  return null;
+}
 
 function SignInRedirect() {
   const location = useLocation();
@@ -140,6 +246,7 @@ function App() {
       <ThemeProvider theme={theme}>
         <CssBaseline enableColorScheme />
         <Router basename={routerBasename}>
+          <NativeDeepLinkHandler />
           <Routes>
             <Route
               path="/signin"
@@ -169,6 +276,7 @@ function App() {
       <ThemeProvider theme={theme}>
         <CssBaseline enableColorScheme />
         <Router basename={routerBasename}>
+          <NativeDeepLinkHandler />
           <Routes>
             <Route path="/setup" element={<Setup onComplete={handleSetupComplete} />} />
             <Route path="/about" element={<About />} />
@@ -184,6 +292,7 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline enableColorScheme />
       <Router basename={routerBasename}>
+        <NativeDeepLinkHandler />
         <Layout
           user={user!}
           themePreference={themePreference}

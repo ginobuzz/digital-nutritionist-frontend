@@ -40,6 +40,7 @@ import { imageFileToDataUrl } from '../utils/images';
 import { calculateDynamicWeeklyCalorieTargets, getMinimumHealthyDailyCalories } from '../utils/weeklyTargets';
 import { useSpeechToText } from '../hooks/useSpeechToText';
 import { formatVoiceInputError, getUserFacingErrorMessage } from '../utils/errors';
+import { syncWidgetDailyProgress } from '../services/widgetBridge';
 
 interface DashboardProps {
   user: User;
@@ -264,6 +265,23 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       setPlannedCaloriesByDate(nextPlannedByDate);
       setMacroTotalsByDate(nextMacrosByDate);
       setDayEntries(entries);
+
+      // Push today's data to WidgetKit immediately after a successful fetch.
+      const dynamicWeekForSync = calculateDynamicWeeklyCalorieTargets({
+        weekStart,
+        dailyTarget: Math.round(user.dailyCalorieTarget || 0),
+        minDailyTarget: getMinimumHealthyDailyCalories(user.gender),
+        anchorDate: addDays(today, 1),
+        actualCaloriesByDate: nextActualByDate,
+        plannedCaloriesByDate: nextPlannedByDate,
+      });
+      const todayKey = toIsoDate(today);
+      const consumedCalories = Math.round(nextActualByDate[todayKey] || 0);
+      const targetCalories = Math.max(
+        0,
+        Math.round(dynamicWeekForSync.targetsByDate[todayKey] ?? Math.round(user.dailyCalorieTarget || 0))
+      );
+      void syncWidgetDailyProgress({ consumedCalories, targetCalories, dateKey: todayKey });
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
@@ -271,7 +289,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
         setLoading(false);
       }
     }
-  }, [getActiveUserId]);
+  }, [getActiveUserId, user.dailyCalorieTarget, user.gender]);
 
   useEffect(() => {
     fetchData(true);
@@ -317,6 +335,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
     });
   }, [baseDailyTarget, dayEntries, dynamicTargetsByDate]);
   const showRebalanceNotice = hasFutureAdjustments || dynamicWeek.overBudgetBy > 0;
+
+  useEffect(() => {
+    const todayKey = toIsoDate(startOfDay(new Date()));
+    const consumedCalories = Math.round(actualCaloriesByDate[todayKey] || 0);
+    const targetCalories = Math.max(0, Math.round(dynamicTargetsByDate[todayKey] ?? baseDailyTarget));
+    void syncWidgetDailyProgress({ consumedCalories, targetCalories, dateKey: todayKey });
+  }, [actualCaloriesByDate, baseDailyTarget, dynamicTargetsByDate]);
 
   const recentMeals = useMemo(() => {
     const logs = recentMealsLogs ?? [];

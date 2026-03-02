@@ -233,7 +233,7 @@ Sideload to your iPhone (via Xcode):
 3. Plug in your phone, select it as the run destination, press **Run (▶)**
 
 Notes:
-- The bundle id is currently `com.sundaymornings.app` (change it in Xcode if you need a unique one).
+- The iOS target bundle id is currently `com.sundaymorningsios.app` (change it in Xcode if you need a unique one).
 - `npm run ios` now configures Capacitor iOS to load the hosted frontend URL (`https://glockstock.github.io/digital-nutritionist-frontend`) via `server.url`.
 - After the app is installed once from Xcode, FE-only changes no longer need an Xcode rebuild. Push to `initial-build`, wait for the GitHub Pages workflow to finish, then relaunch the app.
 - Use `npm run build:cap` + bundled sync (`npm run ios:refresh` or `npm run ios:bundled`) only if you want offline/local bundled assets.
@@ -247,6 +247,33 @@ Notes:
   npm run ios:icons
   npm run cap:sync:ios
   ```
+
+### iOS Home Screen Widget (Calories + Quick Log)
+
+The iOS project includes a `DailyCaloriesWidget` extension that shows today's calorie progress and quick actions for:
+- `Voice` log
+- `Camera` log
+- `Text` log
+
+Setup in Xcode (required once per signing profile):
+1. Open `ios/App/App.xcodeproj` (or workspace) in Xcode.
+2. Select target **App** → **Signing & Capabilities**:
+   - Ensure your Team is selected.
+   - Add capability **App Groups** and include `group.com.sundaymorningsios.app.shared`.
+3. Select target **DailyCaloriesWidget** → **Signing & Capabilities**:
+   - Ensure the same Team is selected.
+   - Add capability **App Groups** and include `group.com.sundaymorningsios.app.shared`.
+4. Build/run once on device.
+5. Long-press the home screen, add widget **Calories Widget**, choose size, and place it.
+
+Important for testing:
+- If your iOS app is in hosted-web mode (`npm run ios`), widget deep-link behavior and widget-data sync depend on whatever frontend is currently deployed to GitHub Pages.
+- For immediate local verification of widget changes, use bundled mode instead: `npm run ios:bundled`.
+
+How it works:
+- The app syncs today's `consumedCalories` and `targetCalories` into a shared app-group store.
+- The widget reads from that store and refreshes timelines.
+- Widget actions deep-link into `/log` with mode-specific launch params.
 
 ### Free Deploy (GitHub Pages + Render)
 This repo is already set up to deploy the frontend to GitHub Pages via `gh-pages` and run the backend as a FastAPI service.

@@ -5,9 +5,13 @@ import Capacitor
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
     var window: UIWindow?
+    private let pendingDeepLinkKey = "dn_pending_deep_link_url"
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
+        if let launchUrl = launchOptions?[.url] as? URL {
+            UserDefaults.standard.set(launchUrl.absoluteString, forKey: pendingDeepLinkKey)
+        }
         return true
     }
 
@@ -36,6 +40,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
         // Called when the app was launched with a url. Feel free to add additional processing here,
         // but if you want the App API to support tracking app url opens, make sure to keep this call
+        UserDefaults.standard.set(url.absoluteString, forKey: pendingDeepLinkKey)
         return ApplicationDelegateProxy.shared.application(app, open: url, options: options)
     }
 
@@ -43,6 +48,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Called when the app was launched with an activity, including Universal Links.
         // Feel free to add additional processing here, but if you want the App API to support
         // tracking app url opens, make sure to keep this call
+        if let webpageUrl = userActivity.webpageURL {
+            UserDefaults.standard.set(webpageUrl.absoluteString, forKey: pendingDeepLinkKey)
+        }
         return ApplicationDelegateProxy.shared.application(application, continue: userActivity, restorationHandler: restorationHandler)
     }
 
