@@ -953,7 +953,14 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                           startIcon={<AddRoundedIcon fontSize="small" />}
                           onClick={() => void handleAddRecentMeal(meal)}
                           disabled={logBusy}
-                          sx={{ whiteSpace: 'nowrap', mt: 0.15 }}
+                          sx={{
+                            width: 116,
+                            minWidth: 116,
+                            flexShrink: 0,
+                            whiteSpace: 'nowrap',
+                            justifyContent: 'center',
+                            mt: 0.15,
+                          }}
                         >
                           {addingRecentMealId === String(meal.id) ? 'Adding…' : 'Add'}
                         </Button>
