@@ -286,10 +286,6 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate, onSignOut }) => {
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>
-        My Profile
-      </Typography>
-
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         {/* Profile Overview and Progress */}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>

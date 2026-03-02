@@ -823,16 +823,13 @@ const Log: React.FC<LogProps> = ({ user }) => {
         <Box
           sx={{
             display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: { xs: 'flex-start', sm: 'center' },
+            justifyContent: 'flex-end',
+            alignItems: 'center',
             flexWrap: 'wrap',
             gap: 2,
             mb: 3,
           }}
         >
-          <Typography variant="h4" sx={{ typography: { xs: 'h5', sm: 'h4' } }}>
-            My Log 📝
-          </Typography>
           <Box
             sx={{
               display: 'flex',
