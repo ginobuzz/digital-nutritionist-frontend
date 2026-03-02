@@ -58,6 +58,7 @@ import { autoLogDuePlannedMeals } from '../utils/autoLogPlannedMeals';
 import {
   parsePlannedMealDraftsFromReply,
 } from '../utils/plannedMeals';
+import { constrainPlannedMealDraftsToInput } from '../utils/plannedMealSelection';
 import {
   normalizeWidgetLogAction,
   syncWidgetDailyProgress,
@@ -132,6 +133,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
   const [planDialogOpen, setPlanDialogOpen] = useState(false);
   const [describeInput, setDescribeInput] = useState('');
   const [mealType, setMealType] = useState<MealType>('');
+  const [planMealType, setPlanMealType] = useState<MealType>('');
   const [describeReply, setDescribeReply] = useState<string | null>(null);
   const [describeImageDataUrl, setDescribeImageDataUrl] = useState<string | null>(null);
   const [logError, setLogError] = useState<string | null>(null);
@@ -449,6 +451,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
     setPlanError(null);
     setPlanDescribeReply(null);
     setPlanDescribeInput('');
+    setPlanMealType('');
     setPlanDialogOpen(true);
   };
 
@@ -467,6 +470,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
       setPlanDialogOpen(false);
       setPlanError(null);
       setPlanVoiceError(null);
+      setPlanMealType('');
     }
   };
 
@@ -549,12 +553,15 @@ const Log: React.FC<LogProps> = ({ user }) => {
 
       const calorieTarget = weeklyTargetsByDate[selectedKey] ?? Number(user.dailyCalorieTarget || 0);
       const prompt = [
-        `Create a meal plan for ${selectedKey}.`,
+        `Extract planned meals for ${selectedKey} from the user text.`,
         `Return ONLY a JSON array (no markdown, no commentary).`,
         `Each item must have: name (string), calories (integer), meal_type ("breakfast"|"lunch"|"dinner"|"snack"), time ("HH:MM" 24h), description (string|null).`,
+        ...(planMealType ? [`Meal type: ${planMealType}.`] : []),
+        `Only include meals that are explicitly described in the user text.`,
+        `Do not invent extra meals to fill the day or hit a calorie target.`,
         calorieTarget > 0
-          ? `Aim for a reasonable total around ${Math.round(calorieTarget)} calories (does not need to be exact).`
-          : `Use reasonable calorie estimates.`,
+          ? `Estimate calories for each included meal using a reasonable range around the user's details (daily target is ${Math.round(calorieTarget)} for context only).`
+          : `Use reasonable calorie estimates for each included meal.`,
         ``,
         planDescribeInput.trim(),
       ].join('\n');
@@ -568,7 +575,10 @@ const Log: React.FC<LogProps> = ({ user }) => {
 
       void triggerSuccessHaptic();
       lastReply = response.reply || '';
-      const drafts = parsePlannedMealDraftsFromReply(lastReply);
+      const drafts = constrainPlannedMealDraftsToInput(
+        parsePlannedMealDraftsFromReply(lastReply),
+        planMealType ? `${planDescribeInput} ${planMealType}` : planDescribeInput
+      );
       if (drafts.length === 0) {
         setPlanDescribeReply(lastReply || 'No response.');
         throw new Error('I couldn’t make a meal plan from that. Try adding a little more detail and try again.');
@@ -858,7 +868,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
         <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, mb: 3 }}>
           <Card sx={{ flex: 1 }}>
             <CardContent sx={{ p: 2.5 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, mb: 1.5 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1.5 }}>
                 <Box sx={{ minWidth: 0 }}>
                   <Typography variant="overline" sx={{ color: 'text.secondary', lineHeight: 1 }}>
                     {isFuture ? 'Planned' : 'Consumed'}
@@ -868,22 +878,12 @@ const Log: React.FC<LogProps> = ({ user }) => {
                   </Typography>
                   <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
                     {isFuture
-                      ? `${Math.max(0, Math.round(caloriesRemaining))} kcal available to plan`
+                    ? `${Math.max(0, Math.round(caloriesRemaining))} kcal available to plan`
                       : caloriesOver > 0
                         ? `Over by ${Math.round(caloriesOver)} kcal`
                         : `${Math.max(0, Math.round(caloriesRemaining))} kcal left`}
                   </Typography>
                 </Box>
-
-                <Button
-                  variant="contained"
-                  color={isFuture ? 'info' : 'primary'}
-                  onClick={isFuture ? openPlanDialog : () => openLogDialog()}
-                  startIcon={<Add />}
-                  sx={{ flexShrink: 0 }}
-                >
-                  {isFuture ? 'Plan' : 'Log'}
-                </Button>
               </Box>
 
               <LinearProgress
@@ -959,21 +959,6 @@ const Log: React.FC<LogProps> = ({ user }) => {
             </Card>
           )}
           
-          {isFuture && (
-            <Card sx={{ flex: 1 }}>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Meals Planned
-                </Typography>
-                <Typography variant="h4" color="info.main">
-                  {plannedMeals.length}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  meals planned
-                </Typography>
-              </CardContent>
-            </Card>
-          )}
         </Box>
 
         {/* Meals */}
@@ -1335,7 +1320,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
                 fullWidth
                 margin="dense"
                 label="Describe what you want to eat"
-                placeholder="Example: High protein day with a salad lunch and pasta dinner"
+                placeholder="Example: Scrambled eggs with toast and an apple at 8:00 AM"
                 value={planDescribeInput}
                 onChange={(event) => setPlanDescribeInput(event.target.value)}
                 multiline
@@ -1346,6 +1331,66 @@ const Log: React.FC<LogProps> = ({ user }) => {
                   sx: { whiteSpace: 'nowrap', backgroundColor: 'background.paper', px: 0.5 },
                 }}
               />
+            </Box>
+
+            <Box sx={{ mt: 1.25 }}>
+              <Typography
+                variant="caption"
+                sx={{ color: 'text.secondary', fontWeight: 800, display: 'block', mb: 0.75 }}
+              >
+                Meal (optional)
+              </Typography>
+              <RadioGroup
+                row
+                value={planMealType}
+                onChange={(event) => setPlanMealType(event.target.value as MealType)}
+                aria-label="Planned meal type"
+                name="plan-meal-type"
+                sx={{
+                  gap: { xs: 0.5, sm: 1 },
+                  flexWrap: 'nowrap',
+                  overflowX: 'hidden',
+                  pb: 0.25,
+                }}
+              >
+                {(
+                  [
+                    { value: 'breakfast', label: 'Breakfast' },
+                    { value: 'lunch', label: 'Lunch' },
+                    { value: 'dinner', label: 'Dinner' },
+                    { value: 'snack', label: 'Snack' },
+                  ] as const
+                ).map((option) => {
+                  const selected = planMealType === option.value;
+                  return (
+                    <FormControlLabel
+                      key={option.value}
+                      value={option.value}
+                      disabled={planDialogBusy || Boolean(planDescribeReply) || planVoiceListening}
+                      control={<Radio size="small" />}
+                      label={option.label}
+                      sx={{
+                        m: 0,
+                        pl: { xs: 0.55, sm: 1 },
+                        pr: { xs: 0.7, sm: 1.25 },
+                        py: { xs: 0.2, sm: 0.25 },
+                        borderRadius: 999,
+                        border: `1px solid ${alpha(
+                          selected ? theme.palette.primary.main : theme.palette.text.primary,
+                          selected ? 0.45 : 0.14
+                        )}`,
+                        bgcolor: alpha(
+                          selected ? theme.palette.primary.main : theme.palette.text.primary,
+                          selected ? 0.08 : 0.03
+                        ),
+                        '& .MuiRadio-root': { p: { xs: 0.25, sm: 0.5 } },
+                        '& .MuiSvgIcon-root': { fontSize: { xs: 17, sm: 20 } },
+                        '& .MuiTypography-root': { fontWeight: 800, fontSize: { xs: 11, sm: 13 } },
+                      }}
+                    />
+                  );
+                })}
+              </RadioGroup>
             </Box>
 
             {planVoiceListening && (
