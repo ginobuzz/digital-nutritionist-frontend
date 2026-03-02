@@ -16,6 +16,9 @@ import {
   DialogContent,
   DialogActions,
   TextField,
+  FormControlLabel,
+  Radio,
+  RadioGroup,
   FormControl,
   InputLabel,
   Select,
@@ -24,8 +27,6 @@ import {
   LinearProgress,
   Alert,
   Snackbar,
-  ToggleButton,
-  ToggleButtonGroup,
   useTheme,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
@@ -53,8 +54,6 @@ import { calculateDynamicWeeklyCalorieTargets, getMinimumHealthyDailyCalories } 
 import { useSpeechToText } from '../hooks/useSpeechToText';
 import { formatVoiceInputError, getUserFacingErrorMessage } from '../utils/errors';
 import {
-  defaultTimeForMealType,
-  normalizePlanMealType,
   parsePlannedMealDraftsFromReply,
 } from '../utils/plannedMeals';
 import {
@@ -67,6 +66,7 @@ import {
 } from '../services/widgetBridge';
 
 const toIsoDate = (d: Date) => format(d, 'yyyy-MM-dd');
+type MealType = '' | 'breakfast' | 'lunch' | 'dinner' | 'snack';
 
 const normalizeMealType = (value: string | null | undefined): ActualMeal['type'] => {
   const v = (value || '').toLowerCase();
@@ -116,7 +116,6 @@ interface LogProps {
 const Log: React.FC<LogProps> = ({ user }) => {
   const theme = useTheme();
   const [searchParams, setSearchParams] = useSearchParams();
-  const quickDescriptionFieldRef = useRef<HTMLInputElement | null>(null);
   const describeFieldRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
   const describePhotoInputRef = useRef<HTMLInputElement | null>(null);
   const handledWidgetActionRef = useRef<string | null>(null);
@@ -129,35 +128,19 @@ const Log: React.FC<LogProps> = ({ user }) => {
   const [mealDialogOpen, setMealDialogOpen] = useState(false);
   const [logDialogOpen, setLogDialogOpen] = useState(false);
   const [planDialogOpen, setPlanDialogOpen] = useState(false);
-  const [logMode, setLogMode] = useState<'quick' | 'describe'>('describe');
-  const [logForm, setLogForm] = useState({
-    description: '',
-    calories: '',
-    mealType: 'lunch',
-    protein: '',
-    carbs: '',
-    fat: '',
-  });
   const [describeInput, setDescribeInput] = useState('');
+  const [mealType, setMealType] = useState<MealType>('');
   const [describeReply, setDescribeReply] = useState<string | null>(null);
   const [describeImageDataUrl, setDescribeImageDataUrl] = useState<string | null>(null);
   const [logError, setLogError] = useState<string | null>(null);
-  const [savingQuickLog, setSavingQuickLog] = useState(false);
   const [sendingDescribeLog, setSendingDescribeLog] = useState(false);
   const [logDictationBaseText, setLogDictationBaseText] = useState('');
   const [logVoiceError, setLogVoiceError] = useState<string | null>(null);
-  const [planMode, setPlanMode] = useState<'quick' | 'describe'>('describe');
-  const [planForm, setPlanForm] = useState({
-    description: '',
-    calories: '',
-    mealType: 'lunch',
-  });
   const [planDescribeInput, setPlanDescribeInput] = useState('');
   const [planDescribeReply, setPlanDescribeReply] = useState<string | null>(null);
   const [planDictationBaseText, setPlanDictationBaseText] = useState('');
   const [planVoiceError, setPlanVoiceError] = useState<string | null>(null);
   const [planError, setPlanError] = useState<string | null>(null);
-  const [savingQuickPlan, setSavingQuickPlan] = useState(false);
   const [sendingDescribePlan, setSendingDescribePlan] = useState(false);
   const [editingMeal, setEditingMeal] = useState<PlannedMeal | ActualMeal | null>(null);
   const [isEditingPlanned, setIsEditingPlanned] = useState(false);
@@ -360,8 +343,8 @@ const Log: React.FC<LogProps> = ({ user }) => {
     }
   };
 
-  const dialogBusy = savingQuickLog || sendingDescribeLog;
-  const planDialogBusy = savingQuickPlan || sendingDescribePlan;
+  const dialogBusy = sendingDescribeLog;
+  const planDialogBusy = sendingDescribePlan;
   const selectedKey = toIsoDate(selectedDate);
 
   const openLogDialog = useCallback((targetDate?: Date) => {
@@ -374,19 +357,11 @@ const Log: React.FC<LogProps> = ({ user }) => {
     resetLogVoice();
     setLogDictationBaseText('');
     setLogVoiceError(null);
-    setLogMode('describe');
     setLogError(null);
     setDescribeReply(null);
     setDescribeImageDataUrl(null);
-    setLogForm({
-      description: '',
-      calories: '',
-      mealType: 'lunch',
-      protein: '',
-      carbs: '',
-      fat: '',
-    });
     setDescribeInput('');
+    setMealType('');
     setLogDialogOpen(true);
   }, [resetLogVoice, selectedDate, stopLogVoice]);
 
@@ -410,12 +385,10 @@ const Log: React.FC<LogProps> = ({ user }) => {
     openLogDialog(safeDate);
 
     if (action === 'voice') {
-      setLogMode('describe');
       window.setTimeout(() => {
         handleToggleLogVoice();
       }, 180);
     } else if (action === 'camera') {
-      setLogMode('describe');
       window.setTimeout(() => {
         try {
           describePhotoInputRef.current?.click();
@@ -424,8 +397,6 @@ const Log: React.FC<LogProps> = ({ user }) => {
         }
       }, 180);
     } else {
-      // Text should open Describe / photo mode, not quick add.
-      setLogMode('describe');
       window.setTimeout(() => {
         describeFieldRef.current?.focus();
       }, 120);
@@ -443,14 +414,8 @@ const Log: React.FC<LogProps> = ({ user }) => {
     resetPlanVoice();
     setPlanDictationBaseText('');
     setPlanVoiceError(null);
-    setPlanMode('describe');
     setPlanError(null);
     setPlanDescribeReply(null);
-    setPlanForm({
-      description: '',
-      calories: '',
-      mealType: 'lunch',
-    });
     setPlanDescribeInput('');
     setPlanDialogOpen(true);
   };
@@ -473,140 +438,6 @@ const Log: React.FC<LogProps> = ({ user }) => {
     }
   };
 
-  const handleLogInputChange = (field: 'description' | 'calories' | 'mealType' | 'protein' | 'carbs' | 'fat', value: string) => {
-    setLogForm(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handlePlanInputChange = (field: 'description' | 'calories' | 'mealType', value: string) => {
-    setPlanForm(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleSaveMealLog = async () => {
-    if (!logForm.description.trim() || !logForm.calories.trim()) {
-      setLogError('Add a short description and calories to log this meal.');
-      return;
-    }
-
-    const parseOptionalMacroGrams = (raw: string, label: string): number | null => {
-      const trimmed = raw.trim();
-      if (!trimmed) return null;
-      const value = Number(trimmed);
-      if (!Number.isFinite(value)) throw new Error(`Enter a number for ${label}.`);
-      return Math.max(0, Math.min(500, value));
-    };
-
-    const caloriesValue = Number(logForm.calories.trim());
-    if (!Number.isFinite(caloriesValue)) {
-      setLogError('Enter calories as a number.');
-      return;
-    }
-    const calories = Math.round(caloriesValue);
-
-    let protein: number | null;
-    let carbs: number | null;
-    let fat: number | null;
-    try {
-      protein = parseOptionalMacroGrams(logForm.protein, 'Protein');
-      carbs = parseOptionalMacroGrams(logForm.carbs, 'Carbs');
-      fat = parseOptionalMacroGrams(logForm.fat, 'Fat');
-    } catch (error) {
-      setLogError(getUserFacingErrorMessage(error, { fallback: 'Please check the macro numbers and try again.' }));
-      return;
-    }
-
-    try {
-      setSavingQuickLog(true);
-      setLogError(null);
-      void triggerSubmitHaptic();
-      await apiService.createMealLog({
-        user_id: user.id,
-        date: selectedKey,
-        user_description: logForm.description.trim(),
-        meal_type: logForm.mealType || null,
-        estimated_calories: calories,
-        protein_g: protein,
-        carbs_g: carbs,
-        fat_g: fat,
-      });
-      void triggerSuccessHaptic();
-      setLogDialogOpen(false);
-      setLogForm({
-        description: '',
-        calories: '',
-        mealType: 'lunch',
-        protein: '',
-        carbs: '',
-        fat: '',
-      });
-      await fetchLogData();
-    } catch (error) {
-      if (isUserNotFoundError(error)) {
-        return;
-      }
-      setLogError(
-        getUserFacingErrorMessage(error, {
-          action: 'log that meal',
-          fallback: 'We couldn’t log that meal. Please try again.',
-        })
-      );
-    } finally {
-      setSavingQuickLog(false);
-    }
-  };
-
-  const handleSaveMealPlan = async () => {
-    if (!planForm.description.trim() || !planForm.calories.trim()) {
-      setPlanError('Add a short description and calories to plan this meal.');
-      return;
-    }
-
-    try {
-      setSavingQuickPlan(true);
-      setPlanError(null);
-
-      const mealType = normalizePlanMealType(planForm.mealType);
-      const time = defaultTimeForMealType(mealType);
-      const caloriesValue = Number(planForm.calories);
-      if (!Number.isFinite(caloriesValue)) {
-        setPlanError('Enter calories as a number.');
-        return;
-      }
-      const calories = Math.max(0, Math.min(5000, Math.round(caloriesValue)));
-
-      void triggerSubmitHaptic();
-      await apiService.createPlannedMeal({
-        user_id: user.id,
-        date: selectedKey,
-        name: planForm.description.trim(),
-        calories,
-        meal_type: mealType,
-        time: new Date(`${selectedKey}T${time}:00`).toISOString(),
-        description: null,
-      });
-      void triggerSuccessHaptic();
-
-      setPlanDialogOpen(false);
-      setPlanForm({
-        description: '',
-        calories: '',
-        mealType: 'lunch',
-      });
-      await fetchLogData();
-    } catch (error) {
-      if (isUserNotFoundError(error)) {
-        return;
-      }
-      setPlanError(
-        getUserFacingErrorMessage(error, {
-          action: 'save that plan',
-          fallback: 'We couldn’t save that plan. Please try again.',
-        })
-      );
-    } finally {
-      setSavingQuickPlan(false);
-    }
-  };
-
   const handleDescribeMealLog = async () => {
     if (!describeInput.trim() && !describeImageDataUrl) {
       setLogError('Add a description or meal photo to log it.');
@@ -620,6 +451,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
       void triggerSubmitHaptic();
       const prompt = [
         `Please log what I consumed on ${selectedKey}.`,
+        ...(mealType ? [`Meal type: ${mealType}.`] : []),
         describeImageDataUrl ? `A meal photo is attached. Use it to identify foods and portions.` : null,
         `If details are missing, make reasonable assumptions and estimate calories (integer) rather than asking follow-up questions.`,
         `Also estimate macros in grams (protein, carbs, fat).`,
@@ -1457,157 +1289,92 @@ const Log: React.FC<LogProps> = ({ user }) => {
                 {planError}
               </Alert>
             )}
-            <ToggleButtonGroup
-              value={planMode}
-              exclusive
-              fullWidth
-              size="small"
-              disabled={planDialogBusy}
-              sx={{ mb: 1.5 }}
-              onChange={(_, value) => {
-                if (!value) return;
-                if (value !== 'describe' && planVoiceListening) stopPlanVoice();
-                setPlanMode(value);
-                setPlanError(null);
-                setPlanDescribeReply(null);
-              }}
-            >
-              <ToggleButton value="describe">Describe it</ToggleButton>
-              <ToggleButton value="quick">Quick add</ToggleButton>
-            </ToggleButtonGroup>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
+              <IconButton
+                onClick={handleTogglePlanVoice}
+                disabled={planDialogBusy || Boolean(planDescribeReply)}
+                color={planVoiceListening ? 'error' : 'default'}
+                aria-label={planVoiceListening ? 'Stop voice input' : 'Start voice input'}
+                sx={{ alignSelf: 'flex-end' }}
+              >
+                {planVoiceListening ? <StopCircle /> : <Mic />}
+              </IconButton>
+              <TextField
+                fullWidth
+                margin="dense"
+                label="Describe what you want to eat"
+                placeholder="Example: High protein day with a salad lunch and pasta dinner"
+                value={planDescribeInput}
+                onChange={(event) => setPlanDescribeInput(event.target.value)}
+                multiline
+                minRows={3}
+                disabled={planDialogBusy || Boolean(planDescribeReply) || planVoiceListening}
+                InputLabelProps={{
+                  shrink: true,
+                  sx: { whiteSpace: 'nowrap', backgroundColor: 'background.paper', px: 0.5 },
+                }}
+              />
+            </Box>
 
-            {planMode === 'quick' ? (
-              <>
-                <TextField
-                  fullWidth
-                  margin="dense"
-                  label="What do you plan to eat?"
-                  value={planForm.description}
-                  onChange={(event) => handlePlanInputChange('description', event.target.value)}
-                  disabled={planDialogBusy}
-                />
-                <TextField
-                  fullWidth
-                  margin="dense"
-                  label="Calories"
-                  type="number"
-                  inputProps={{ min: 0 }}
-                  value={planForm.calories}
-                  onChange={(event) => handlePlanInputChange('calories', event.target.value)}
-                  disabled={planDialogBusy}
-                />
-                <TextField
-                  select
-                  fullWidth
-                  margin="dense"
-                  label="Meal Type"
-                  value={planForm.mealType}
-                  onChange={(event) => handlePlanInputChange('mealType', event.target.value)}
-                  disabled={planDialogBusy}
-                >
-                  {['breakfast', 'lunch', 'dinner', 'snack', 'other'].map((option) => (
-                    <MenuItem key={option} value={option}>
-                      {option.charAt(0).toUpperCase() + option.slice(1)}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </>
-            ) : (
-              <>
-                <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
-                  <IconButton
-                    onClick={handleTogglePlanVoice}
-                    disabled={planDialogBusy || Boolean(planDescribeReply)}
-                    color={planVoiceListening ? 'error' : 'default'}
-                    aria-label={planVoiceListening ? 'Stop voice input' : 'Start voice input'}
-                    sx={{ alignSelf: 'flex-end' }}
-                  >
-                    {planVoiceListening ? <StopCircle /> : <Mic />}
-                  </IconButton>
-                  <TextField
-                    fullWidth
-                    margin="dense"
-                    label="Describe what you want to eat"
-                    placeholder="Example: High protein day with a salad lunch and pasta dinner"
-                    value={planDescribeInput}
-                    onChange={(event) => setPlanDescribeInput(event.target.value)}
-                    multiline
-                    minRows={3}
-                    disabled={planDialogBusy || Boolean(planDescribeReply) || planVoiceListening}
-                    InputLabelProps={{
-                      shrink: true,
-                      sx: { whiteSpace: 'nowrap', backgroundColor: 'background.paper', px: 0.5 },
-                    }}
-                  />
-                </Box>
+            {planVoiceListening && (
+              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.75 }}>
+                Listening… tap the mic to stop.
+              </Typography>
+            )}
 
-                {planVoiceListening && (
-                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.75 }}>
-                    Listening… tap the mic to stop.
-                  </Typography>
-                )}
+            {planVoiceError && (
+              <Typography variant="caption" color="error" sx={{ display: 'block', mt: 0.75 }}>
+                {planVoiceError}
+              </Typography>
+            )}
 
-                {planVoiceError && (
-                  <Typography variant="caption" color="error" sx={{ display: 'block', mt: 0.75 }}>
-                    {planVoiceError}
-                  </Typography>
-                )}
-
-                {planDescribeReply && (
-                  <Box
-                    sx={{
-                      mt: 2,
-                      p: 1.5,
-                      borderRadius: 2,
-                      bgcolor: alpha(theme.palette.info.main, 0.06),
-                      border: `1px solid ${alpha(theme.palette.info.main, 0.2)}`,
-                      '& p': { m: 0 },
-                      '& ul, & ol': { m: 0, pl: 3 },
-                      '& li': { mb: 0.5 },
-                      '& li:last-child': { mb: 0 },
-                      '& a': { color: 'inherit' },
-                      '& code': {
-                        fontFamily:
-                          'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-                        fontSize: '0.9em',
-                      },
-                      '& pre': {
-                        overflowX: 'auto',
-                        p: 1,
-                        borderRadius: 1,
-                        backgroundColor: 'rgba(0,0,0,0.06)',
-                      },
-                      '& pre code': { fontSize: '0.85em' },
-                    }}
-                  >
-                    <Markdown>{planDescribeReply}</Markdown>
-                  </Box>
-                )}
-              </>
+            {planDescribeReply && (
+              <Box
+                sx={{
+                  mt: 2,
+                  p: 1.5,
+                  borderRadius: 2,
+                  bgcolor: alpha(theme.palette.info.main, 0.06),
+                  border: `1px solid ${alpha(theme.palette.info.main, 0.2)}`,
+                  '& p': { m: 0 },
+                  '& ul, & ol': { m: 0, pl: 3 },
+                  '& li': { mb: 0.5 },
+                  '& li:last-child': { mb: 0 },
+                  '& a': { color: 'inherit' },
+                  '& code': {
+                    fontFamily:
+                      'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                    fontSize: '0.9em',
+                  },
+                  '& pre': {
+                    overflowX: 'auto',
+                    p: 1,
+                    borderRadius: 1,
+                    backgroundColor: 'rgba(0,0,0,0.06)',
+                  },
+                  '& pre code': { fontSize: '0.85em' },
+                }}
+              >
+                <Markdown>{planDescribeReply}</Markdown>
+              </Box>
             )}
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
             <Button onClick={handleClosePlanDialog} disabled={planDialogBusy}>
-              {planMode === 'describe' && planDescribeReply ? 'Close' : 'Cancel'}
+              {planDescribeReply ? 'Close' : 'Cancel'}
             </Button>
-            {planMode === 'quick' ? (
-              <Button variant="contained" onClick={handleSaveMealPlan} disabled={planDialogBusy}>
-                {savingQuickPlan ? 'Saving...' : 'Plan Meal'}
-              </Button>
-            ) : (
-              <Button
-                variant="contained"
-                onClick={handleDescribeMealPlan}
-                disabled={planDialogBusy || planVoiceListening || Boolean(planDescribeReply)}
-              >
-                {sendingDescribePlan ? 'Sending...' : 'Send'}
-              </Button>
-            )}
+            <Button
+              variant="contained"
+              onClick={handleDescribeMealPlan}
+              disabled={planDialogBusy || planVoiceListening || Boolean(planDescribeReply)}
+            >
+              {sendingDescribePlan ? 'Sending...' : 'Send'}
+            </Button>
           </DialogActions>
         </Dialog>
 
         {/* Dashboard-style Log Dialog */}
-        <Dialog open={logDialogOpen} onClose={handleCloseLogDialog} maxWidth="xs" fullWidth>
+        <Dialog open={logDialogOpen} onClose={handleCloseLogDialog} maxWidth="sm" fullWidth>
           <DialogTitle>Log Food ({isToday ? 'Today' : format(selectedDate, 'EEE M/d')})</DialogTitle>
           <DialogContent sx={{ pt: 1 }}>
             {logError && (
@@ -1615,251 +1382,212 @@ const Log: React.FC<LogProps> = ({ user }) => {
                 {logError}
               </Alert>
             )}
-            <ToggleButtonGroup
-              value={logMode}
-              exclusive
+            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 0.5 }}>
+              Add a description, take/upload a photo, or use both.
+            </Typography>
+
+            <TextField
               fullWidth
-              size="small"
-              disabled={dialogBusy}
-              sx={{ mb: 1.5 }}
-              onChange={(_, value) => {
-                if (!value) return;
-                if (value !== 'describe' && logVoiceListening) stopLogVoice();
-                setLogMode(value);
-                setLogError(null);
-                setDescribeReply(null);
-                if (value === 'quick') setDescribeImageDataUrl(null);
+              margin="dense"
+              label={describeImageDataUrl ? 'Add a note (optional)' : 'Describe what you ate (or drank)'}
+              placeholder={
+                describeImageDataUrl
+                  ? 'Optional: any details the photo won’t show (portion, sauces, drinks, etc.)'
+                  : 'Example: chicken burrito bowl with rice, beans, guac and a Coke'
+              }
+              value={describeInput}
+              onChange={(event) => {
+                setDescribeInput(event.target.value);
+                if (describeReply) setDescribeReply(null);
+                if (logError) setLogError(null);
               }}
-            >
-              <ToggleButton value="describe">Describe / photo</ToggleButton>
-              <ToggleButton value="quick">Quick add</ToggleButton>
-            </ToggleButtonGroup>
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter' || event.shiftKey) return;
+                if (event.nativeEvent.isComposing) return;
+                event.preventDefault();
+                if (sendingDescribeLog || dialogBusy || logVoiceListening) return;
+                void handleDescribeMealLog();
+              }}
+              multiline
+              minRows={3}
+              disabled={dialogBusy || logVoiceListening}
+              InputLabelProps={{
+                shrink: true,
+                sx: { whiteSpace: 'nowrap', backgroundColor: 'background.paper', px: 0.5 },
+              }}
+              inputRef={describeFieldRef}
+            />
 
-            {logMode === 'quick' ? (
-              <>
-                <TextField
-                  fullWidth
-                  margin="dense"
-                  label="What did you eat?"
-                  value={logForm.description}
-                  onChange={(event) => handleLogInputChange('description', event.target.value)}
-                  disabled={dialogBusy}
-                  inputRef={quickDescriptionFieldRef}
-                />
-                <TextField
-                  fullWidth
-                  margin="dense"
-                  label="Calories"
-                  type="number"
-                  inputProps={{ min: 0 }}
-                  value={logForm.calories}
-                  onChange={(event) => handleLogInputChange('calories', event.target.value)}
-                  disabled={dialogBusy}
-                />
-                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
-                  <TextField
-                    margin="dense"
-                    label="Protein (g)"
-                    type="number"
-                    inputProps={{ min: 0, step: 1 }}
-                    value={logForm.protein}
-                    onChange={(event) => handleLogInputChange('protein', event.target.value)}
-                    disabled={dialogBusy}
-                  />
-                  <TextField
-                    margin="dense"
-                    label="Carbs (g)"
-                    type="number"
-                    inputProps={{ min: 0, step: 1 }}
-                    value={logForm.carbs}
-                    onChange={(event) => handleLogInputChange('carbs', event.target.value)}
-                    disabled={dialogBusy}
-                  />
-                  <TextField
-                    margin="dense"
-                    label="Fat (g)"
-                    type="number"
-                    inputProps={{ min: 0, step: 1 }}
-                    value={logForm.fat}
-                    onChange={(event) => handleLogInputChange('fat', event.target.value)}
-                    disabled={dialogBusy}
-                  />
-                </Box>
-                <TextField
-                  select
-                  fullWidth
-                  margin="dense"
-                  label="Meal Type"
-                  value={logForm.mealType}
-                  onChange={(event) => handleLogInputChange('mealType', event.target.value)}
-                  disabled={dialogBusy}
-                >
-                  {['breakfast', 'lunch', 'dinner', 'snack', 'other'].map((option) => (
-                    <MenuItem key={option} value={option}>
-                      {option.charAt(0).toUpperCase() + option.slice(1)}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </>
-            ) : (
-              <>
-                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 0.5 }}>
-                  Add a description, take/upload a photo, or use both.
-                </Typography>
-
-                <TextField
-                  fullWidth
-                  margin="dense"
-                  label={describeImageDataUrl ? 'Add a note (optional)' : 'Describe what you ate (or drank)'}
-                  placeholder={
-                    describeImageDataUrl
-                      ? 'Optional: any details the photo won’t show (portion, sauces, drinks, etc.)'
-                      : 'Example: chicken burrito bowl with rice, beans, guac and a Coke'
-                  }
-                  value={describeInput}
-                  onChange={(event) => {
-                    setDescribeInput(event.target.value);
-                    if (describeReply) setDescribeReply(null);
-                    if (logError) setLogError(null);
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key !== 'Enter' || event.shiftKey) return;
-                    if (event.nativeEvent.isComposing) return;
-                    event.preventDefault();
-                    if (sendingDescribeLog || dialogBusy || logVoiceListening) return;
-                    void handleDescribeMealLog();
-                  }}
-                  multiline
-                  minRows={3}
-                  disabled={dialogBusy || logVoiceListening}
-                  InputLabelProps={{
-                    shrink: true,
-                    sx: { whiteSpace: 'nowrap', backgroundColor: 'background.paper', px: 0.5 },
-                  }}
-                  inputRef={describeFieldRef}
-                />
-
-                {logVoiceListening && (
-                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.75 }}>
-                    Listening… tap the mic to stop.
-                  </Typography>
-                )}
-
-                {logVoiceError && (
-                  <Typography variant="caption" color="error" sx={{ display: 'block', mt: 0.75 }}>
-                    {logVoiceError}
-                  </Typography>
-                )}
-
-                <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                  <Button
-                    component="label"
-                    size="small"
-                    variant={describeImageDataUrl ? 'contained' : 'outlined'}
-                    startIcon={<PhotoCamera />}
-                    disabled={dialogBusy || logVoiceListening}
-                  >
-                    {describeImageDataUrl ? 'Replace photo' : 'Add photo'}
-                    <input
-                      ref={describePhotoInputRef}
-                      hidden
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      onChange={handleAttachDescribeImage}
+            <Box sx={{ mt: 1.25 }}>
+              <Typography
+                variant="caption"
+                sx={{ color: 'text.secondary', fontWeight: 800, display: 'block', mb: 0.75 }}
+              >
+                Meal (optional)
+              </Typography>
+              <RadioGroup
+                row
+                value={mealType}
+                onChange={(event) => setMealType(event.target.value as MealType)}
+                aria-label="Meal type"
+                name="meal-type"
+                sx={{
+                  gap: { xs: 0.5, sm: 1 },
+                  flexWrap: 'nowrap',
+                  overflowX: 'hidden',
+                  pb: 0.25,
+                }}
+              >
+                {(
+                  [
+                    { value: 'breakfast', label: 'Breakfast' },
+                    { value: 'lunch', label: 'Lunch' },
+                    { value: 'dinner', label: 'Dinner' },
+                    { value: 'snack', label: 'Snack' },
+                  ] as const
+                ).map((option) => {
+                  const selected = mealType === option.value;
+                  return (
+                    <FormControlLabel
+                      key={option.value}
+                      value={option.value}
+                      disabled={dialogBusy}
+                      control={<Radio size="small" />}
+                      label={option.label}
+                      sx={{
+                        m: 0,
+                        pl: { xs: 0.55, sm: 1 },
+                        pr: { xs: 0.7, sm: 1.25 },
+                        py: { xs: 0.2, sm: 0.25 },
+                        borderRadius: 999,
+                        border: `1px solid ${alpha(
+                          selected ? theme.palette.primary.main : theme.palette.text.primary,
+                          selected ? 0.45 : 0.14
+                        )}`,
+                        bgcolor: alpha(
+                          selected ? theme.palette.primary.main : theme.palette.text.primary,
+                          selected ? 0.08 : 0.03
+                        ),
+                        '& .MuiRadio-root': { p: { xs: 0.25, sm: 0.5 } },
+                        '& .MuiSvgIcon-root': { fontSize: { xs: 17, sm: 20 } },
+                        '& .MuiTypography-root': { fontWeight: 800, fontSize: { xs: 11, sm: 13 } },
+                      }}
                     />
-                  </Button>
-                  <Button
-                    size="small"
-                    variant={logVoiceListening ? 'contained' : 'outlined'}
-                    startIcon={logVoiceListening ? <StopCircle /> : <Mic />}
-                    onClick={handleToggleLogVoice}
-                    disabled={dialogBusy}
-                  >
-                    {logVoiceListening ? 'Stop' : 'Voice'}
-                  </Button>
-                  {describeImageDataUrl && (
-                    <Button
-                      size="small"
-                      variant="text"
-                      onClick={() => setDescribeImageDataUrl(null)}
-                      disabled={dialogBusy || logVoiceListening}
-                    >
-                      Remove
-                    </Button>
-                  )}
-                </Box>
+                  );
+                })}
+              </RadioGroup>
+            </Box>
 
-                {describeImageDataUrl && (
-                  <Box
-                    component="img"
-                    src={describeImageDataUrl}
-                    alt="Selected meal"
-                    sx={{
-                      mt: 1.25,
-                      width: '100%',
-                      maxWidth: 360,
-                      maxHeight: 280,
-                      objectFit: 'cover',
-                      borderRadius: 2,
-                      border: `1px solid ${alpha(theme.palette.text.primary, 0.12)}`,
-                    }}
-                  />
-                )}
+            {logVoiceListening && (
+              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.75 }}>
+                Listening… tap the mic to stop.
+              </Typography>
+            )}
 
-                {describeReply && (
-                  <Box
-                    sx={{
-                      mt: 2,
-                      p: 1.5,
-                      borderRadius: 2,
-                      bgcolor: alpha(theme.palette.info.main, 0.06),
-                      border: `1px solid ${alpha(theme.palette.info.main, 0.2)}`,
-                      '& p': { m: 0 },
-                      '& ul, & ol': { m: 0, pl: 3 },
-                      '& li': { mb: 0.5 },
-                      '& li:last-child': { mb: 0 },
-                      '& a': { color: 'inherit' },
-                      '& code': {
-                        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-                        fontSize: '0.9em',
-                      },
-                      '& pre': {
-                        overflowX: 'auto',
-                        p: 1,
-                        borderRadius: 1,
-                        backgroundColor: 'rgba(0,0,0,0.06)',
-                      },
-                      '& pre code': { fontSize: '0.85em' },
-                    }}
-                  >
-                    <Markdown>{describeReply}</Markdown>
-                  </Box>
-                )}
-              </>
+            {logVoiceError && (
+              <Typography variant="caption" color="error" sx={{ display: 'block', mt: 0.75 }}>
+                {logVoiceError}
+              </Typography>
+            )}
+
+            <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+              <Button
+                component="label"
+                size="small"
+                variant={describeImageDataUrl ? 'contained' : 'outlined'}
+                startIcon={<PhotoCamera />}
+                disabled={dialogBusy || logVoiceListening}
+              >
+                {describeImageDataUrl ? 'Replace photo' : 'Add photo'}
+                <input
+                  ref={describePhotoInputRef}
+                  hidden
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleAttachDescribeImage}
+                />
+              </Button>
+              <Button
+                size="small"
+                variant={logVoiceListening ? 'contained' : 'outlined'}
+                startIcon={logVoiceListening ? <StopCircle /> : <Mic />}
+                onClick={handleToggleLogVoice}
+                disabled={dialogBusy}
+              >
+                {logVoiceListening ? 'Stop' : 'Voice'}
+              </Button>
+              {describeImageDataUrl && (
+                <Button
+                  size="small"
+                  variant="text"
+                  onClick={() => setDescribeImageDataUrl(null)}
+                  disabled={dialogBusy || logVoiceListening}
+                >
+                  Remove
+                </Button>
+              )}
+            </Box>
+
+            {describeImageDataUrl && (
+              <Box
+                component="img"
+                src={describeImageDataUrl}
+                alt="Selected meal"
+                sx={{
+                  mt: 1.25,
+                  width: '100%',
+                  maxWidth: 360,
+                  maxHeight: 280,
+                  objectFit: 'cover',
+                  borderRadius: 2,
+                  border: `1px solid ${alpha(theme.palette.text.primary, 0.12)}`,
+                }}
+              />
+            )}
+
+            {describeReply && (
+              <Box
+                sx={{
+                  mt: 2,
+                  p: 1.5,
+                  borderRadius: 2,
+                  bgcolor: alpha(theme.palette.info.main, 0.06),
+                  border: `1px solid ${alpha(theme.palette.info.main, 0.2)}`,
+                  '& p': { m: 0 },
+                  '& ul, & ol': { m: 0, pl: 3 },
+                  '& li': { mb: 0.5 },
+                  '& li:last-child': { mb: 0 },
+                  '& a': { color: 'inherit' },
+                  '& code': {
+                    fontFamily:
+                      'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                    fontSize: '0.9em',
+                  },
+                  '& pre': {
+                    overflowX: 'auto',
+                    p: 1,
+                    borderRadius: 1,
+                    backgroundColor: 'rgba(0,0,0,0.06)',
+                  },
+                  '& pre code': { fontSize: '0.85em' },
+                }}
+              >
+                <Markdown>{describeReply}</Markdown>
+              </Box>
             )}
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
             <Button onClick={handleCloseLogDialog} disabled={dialogBusy}>
-              {logMode === 'describe' && describeReply ? 'Close' : 'Cancel'}
+              {describeReply ? 'Close' : 'Cancel'}
             </Button>
-            {logMode === 'quick' ? (
-              <Button
-                variant="contained"
-                onClick={handleSaveMealLog}
-                disabled={dialogBusy}
-              >
-                {savingQuickLog ? 'Saving...' : 'Log Meal'}
-              </Button>
-            ) : (
-              <Button
-                variant="contained"
-                onClick={handleDescribeMealLog}
-                disabled={dialogBusy || logVoiceListening || !(describeInput.trim() || describeImageDataUrl)}
-              >
-                {sendingDescribeLog ? 'Sending...' : 'Send'}
-              </Button>
-            )}
+            <Button
+              variant="contained"
+              onClick={handleDescribeMealLog}
+              disabled={dialogBusy || logVoiceListening || !(describeInput.trim() || describeImageDataUrl)}
+            >
+              {sendingDescribeLog ? 'Sending...' : 'Send'}
+            </Button>
           </DialogActions>
         </Dialog>
       </Box>
