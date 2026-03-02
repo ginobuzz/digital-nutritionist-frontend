@@ -36,6 +36,7 @@ import { apiService, isUserNotFoundError, MealLogResponse } from '../services/ap
 import { triggerSubmitHaptic, triggerSuccessHaptic } from '../services/haptics';
 import { imageFileToDataUrl } from '../utils/images';
 import { calculateDynamicWeeklyCalorieTargets, getMinimumHealthyDailyCalories } from '../utils/weeklyTargets';
+import { resolveLockedTodayTarget } from '../utils/dailyTargetLock';
 import { useSpeechToText } from '../hooks/useSpeechToText';
 import { formatVoiceInputError, getUserFacingErrorMessage } from '../utils/errors';
 import { syncWidgetDailyProgress } from '../services/widgetBridge';
@@ -111,6 +112,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       }
     >
   >({});
+  const [lockedTodayTarget, setLockedTodayTarget] = useState<{ dateKey: string; target: number } | null>(null);
   const [mealType, setMealType] = useState<MealType>('');
   const [describeInput, setDescribeInput] = useState('');
   const [describeReply, setDescribeReply] = useState<string | null>(null);
@@ -188,6 +190,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       const userId = getActiveUserId();
 
       const today = startOfDay(new Date());
+      const todayKey = toIsoDate(today);
       const weekStart = startOfWeek(today, { weekStartsOn: 0 }); // Sunday
       const weekEnd = addDays(weekStart, WEEK_LENGTH_DAYS - 1);
 
@@ -233,6 +236,18 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
         nextPlannedByDate[key] = (nextPlannedByDate[key] || 0) + cals;
       }
 
+      const baseDailyTarget = Math.round(user.dailyCalorieTarget || 0);
+      const minHealthyDailyTarget = getMinimumHealthyDailyCalories(user.gender);
+      const resolvedLockedTodayTarget = resolveLockedTodayTarget({
+        userId,
+        today,
+        weekStart,
+        dailyTarget: baseDailyTarget,
+        minDailyTarget: minHealthyDailyTarget,
+        actualCaloriesByDate: nextActualByDate,
+        plannedCaloriesByDate: nextPlannedByDate,
+      });
+
       const entries: DayEntry[] = Array.from({ length: WEEK_LENGTH_DAYS }, (_, idx) => {
         const date = addDays(weekStart, idx);
         const key = toIsoDate(date);
@@ -252,22 +267,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       setPlannedCaloriesByDate(nextPlannedByDate);
       setMacroTotalsByDate(nextMacrosByDate);
       setDayEntries(entries);
+      setLockedTodayTarget({ dateKey: todayKey, target: resolvedLockedTodayTarget });
 
       // Push today's data to WidgetKit immediately after a successful fetch.
-      const dynamicWeekForSync = calculateDynamicWeeklyCalorieTargets({
-        weekStart,
-        dailyTarget: Math.round(user.dailyCalorieTarget || 0),
-        minDailyTarget: getMinimumHealthyDailyCalories(user.gender),
-        anchorDate: addDays(today, 1),
-        actualCaloriesByDate: nextActualByDate,
-        plannedCaloriesByDate: nextPlannedByDate,
-      });
-      const todayKey = toIsoDate(today);
       const consumedCalories = Math.round(nextActualByDate[todayKey] || 0);
-      const targetCalories = Math.max(
-        0,
-        Math.round(dynamicWeekForSync.targetsByDate[todayKey] ?? Math.round(user.dailyCalorieTarget || 0))
-      );
+      const targetCalories = Math.max(0, Math.round(resolvedLockedTodayTarget));
       void syncWidgetDailyProgress({ consumedCalories, targetCalories, dateKey: todayKey });
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -301,6 +305,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
 
   const baseDailyTarget = Math.round(user.dailyCalorieTarget || 0);
   const minHealthyDailyTarget = getMinimumHealthyDailyCalories(user.gender);
+  const lockedTargetForSelectedDay = lockedTodayTarget?.dateKey === selectedKey ? lockedTodayTarget.target : null;
   const dynamicWeek = useMemo(() => {
     return calculateDynamicWeeklyCalorieTargets({
       weekStart,
@@ -312,7 +317,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
     });
   }, [actualCaloriesByDate, baseDailyTarget, minHealthyDailyTarget, plannedCaloriesByDate, today, weekStart]);
 
-  const dynamicTargetsByDate = dynamicWeek.targetsByDate;
+  const dynamicTargetsByDate = useMemo(() => {
+    if (lockedTargetForSelectedDay == null) return dynamicWeek.targetsByDate;
+    return {
+      ...dynamicWeek.targetsByDate,
+      [selectedKey]: lockedTargetForSelectedDay,
+    };
+  }, [dynamicWeek.targetsByDate, lockedTargetForSelectedDay, selectedKey]);
   const selectedTargetCalories = dynamicTargetsByDate[selectedKey] ?? baseDailyTarget;
   const hasFutureAdjustments = useMemo(() => {
     return dayEntries.some((entry) => {
@@ -326,9 +337,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   useEffect(() => {
     const todayKey = toIsoDate(startOfDay(new Date()));
     const consumedCalories = Math.round(actualCaloriesByDate[todayKey] || 0);
-    const targetCalories = Math.max(0, Math.round(dynamicTargetsByDate[todayKey] ?? baseDailyTarget));
+    const targetCalories = Math.max(
+      0,
+      Math.round(dynamicTargetsByDate[todayKey] ?? lockedTargetForSelectedDay ?? baseDailyTarget)
+    );
     void syncWidgetDailyProgress({ consumedCalories, targetCalories, dateKey: todayKey });
-  }, [actualCaloriesByDate, baseDailyTarget, dynamicTargetsByDate]);
+  }, [actualCaloriesByDate, baseDailyTarget, dynamicTargetsByDate, lockedTargetForSelectedDay]);
 
   const recentMeals = useMemo(() => {
     const logs = recentMealsLogs ?? [];

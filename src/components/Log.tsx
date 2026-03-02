@@ -51,6 +51,7 @@ import { triggerSubmitHaptic, triggerSuccessHaptic } from '../services/haptics';
 import { useSearchParams } from 'react-router-dom';
 import { imageFileToDataUrl } from '../utils/images';
 import { calculateDynamicWeeklyCalorieTargets, getMinimumHealthyDailyCalories } from '../utils/weeklyTargets';
+import { resolveLockedTodayTarget } from '../utils/dailyTargetLock';
 import { useSpeechToText } from '../hooks/useSpeechToText';
 import { formatVoiceInputError, getUserFacingErrorMessage } from '../utils/errors';
 import {
@@ -267,6 +268,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
       const weekStart = startOfWeek(selectedDay, { weekStartsOn: 0 }); // Sunday
       const weekEnd = addDays(weekStart, 6);
       const today = startOfDay(new Date());
+      const isCurrentWeek = !isBefore(today, weekStart) && !isAfter(today, weekEnd);
       const anchorDate = isBefore(today, weekStart)
         ? weekStart
         : isAfter(today, weekEnd)
@@ -295,24 +297,43 @@ const Log: React.FC<LogProps> = ({ user }) => {
         plannedCaloriesByDate[key] = (plannedCaloriesByDate[key] || 0) + cals;
       }
 
+      const minDailyTarget = getMinimumHealthyDailyCalories(user.gender);
+      let lockedTodayTarget: number | null = null;
+
+      if (isCurrentWeek) {
+        lockedTodayTarget = resolveLockedTodayTarget({
+          userId: user.id,
+          today,
+          weekStart,
+          dailyTarget: user.dailyCalorieTarget,
+          minDailyTarget,
+          actualCaloriesByDate,
+          plannedCaloriesByDate,
+        });
+      }
+
       const dynamicWeek = calculateDynamicWeeklyCalorieTargets({
         weekStart,
         dailyTarget: user.dailyCalorieTarget,
-        minDailyTarget: getMinimumHealthyDailyCalories(user.gender),
+        minDailyTarget,
         anchorDate,
         actualCaloriesByDate,
         plannedCaloriesByDate,
       });
 
-      setWeeklyTargetsByDate(dynamicWeek.targetsByDate);
+      const nextWeeklyTargetsByDate = isCurrentWeek && lockedTodayTarget != null
+        ? { ...dynamicWeek.targetsByDate, [toIsoDate(today)]: Math.round(lockedTodayTarget) }
+        : dynamicWeek.targetsByDate;
+
+      setWeeklyTargetsByDate(nextWeeklyTargetsByDate);
       setWeeklyOverBudgetBy(Math.round(dynamicWeek.overBudgetBy));
 
-      if (!isBefore(today, weekStart) && !isAfter(today, weekEnd)) {
+      if (isCurrentWeek) {
         const todayKey = toIsoDate(today);
         const consumedCalories = Math.round(actualCaloriesByDate[todayKey] || 0);
         const targetCalories = Math.max(
           0,
-          Math.round(dynamicWeek.targetsByDate[todayKey] ?? Number(user.dailyCalorieTarget || 0))
+          Math.round(nextWeeklyTargetsByDate[todayKey] ?? Number(user.dailyCalorieTarget || 0))
         );
         void syncWidgetDailyProgress({ consumedCalories, targetCalories, dateKey: todayKey });
       }
