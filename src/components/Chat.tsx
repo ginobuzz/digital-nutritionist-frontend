@@ -533,9 +533,6 @@ const Chat: React.FC<ChatProps> = ({ user }) => {
           </Typography>
         )}
 
-        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-          Try: "I had oatmeal for breakfast" • "Help me plan dinners for the week" • "What's a good high-protein snack?"
-        </Typography>
       </Box>
     </Box>
   );
