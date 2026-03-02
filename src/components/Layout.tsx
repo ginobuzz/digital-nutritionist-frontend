@@ -55,6 +55,7 @@ const Layout: React.FC<LayoutProps> = ({
   const location = useLocation();
   const [themeMenuAnchorEl, setThemeMenuAnchorEl] = useState<null | HTMLElement>(null);
   const safeAreaTopInset = 'max(env(safe-area-inset-top), var(--dn-ios-safe-area-top-fallback, 0px))';
+  const topNavHeight = `calc(${safeAreaTopInset} + 60px)`;
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -157,7 +158,7 @@ const Layout: React.FC<LayoutProps> = ({
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <AppBar
-        position="sticky"
+        position="fixed"
         sx={{
           pt: safeAreaTopInset,
         }}
@@ -270,8 +271,9 @@ const Layout: React.FC<LayoutProps> = ({
             flexGrow: 1,
             px: isChatRoute ? 0 : { xs: 2, sm: 3 },
             pt: isChatRoute ? 0 : { xs: 2, sm: 3 },
+            mt: topNavHeight,
             pb: 'calc(88px + env(safe-area-inset-bottom))',
-            minHeight: 'calc(100vh - 60px)',
+            minHeight: `calc(100vh - ${topNavHeight})`,
             display: 'flex',
             flexDirection: 'column',
           }}
