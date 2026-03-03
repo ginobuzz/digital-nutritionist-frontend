@@ -45,7 +45,7 @@ const TUTORIAL_STEPS = [
   },
 ] as const;
 
-const STEP_REVEAL_MS = 760;
+const STEP_REVEAL_MS = 1050;
 
 const SundayFreshStartDialog: React.FC<SundayFreshStartDialogProps> = ({
   open,
@@ -201,7 +201,7 @@ const SundayFreshStartDialog: React.FC<SundayFreshStartDialogProps> = ({
                     height: '100%',
                     borderRadius: 99,
                     background: `linear-gradient(90deg, ${theme.palette.warning.main} 0%, ${theme.palette.success.main} 100%)`,
-                    transition: 'width 420ms ease',
+                    transition: 'width 760ms ease',
                   }}
                 />
               </Box>

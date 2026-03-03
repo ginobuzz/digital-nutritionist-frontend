@@ -26,6 +26,9 @@ import { consumePendingWidgetDeepLink, WIDGET_APP_SCHEME } from './services/widg
 
 const SUNDAY_WELCOME_PREVIEW_QUERY_PARAM = 'previewSunday';
 const SUNDAY_WELCOME_PREVIEW_SESSION_KEY = 'dn.sunday_welcome.preview.once';
+const SIGNUP_WELCOME_PREVIEW_QUERY_PARAM = 'previewSignupWelcome';
+const SIGNUP_WELCOME_PREVIEW_SESSION_KEY = 'dn.signup_welcome.preview.once';
+const SIGNUP_WELCOME_POST_SIGNUP_SESSION_KEY = 'dn.signup_welcome.post_signup.once';
 
 const getRouterBasename = (): string | undefined => {
   if (typeof window !== 'undefined' && window.location?.protocol === 'capacitor:') return undefined;
@@ -167,17 +170,21 @@ function SignInRedirect() {
   const params = new URLSearchParams(location.search);
   const next = params.get('next');
   const previewSunday = params.get('previewSunday') === '1';
+  const previewSignupWelcome = params.get('previewSignupWelcome') === '1';
   const safeNext = next && next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/signin')
     ? next
     : null;
 
   const appendPreviewSunday = (target: string): string => {
-    if (!previewSunday) return target;
+    if (!previewSunday && !previewSignupWelcome) return target;
     const [pathPart, hashPart] = target.split('#');
     const [pathname, searchPart] = pathPart.split('?');
     const targetParams = new URLSearchParams(searchPart || '');
     if (targetParams.get('previewSunday') !== '1') {
-      targetParams.set('previewSunday', '1');
+      if (previewSunday) targetParams.set('previewSunday', '1');
+    }
+    if (targetParams.get('previewSignupWelcome') !== '1') {
+      if (previewSignupWelcome) targetParams.set('previewSignupWelcome', '1');
     }
     const nextSearch = targetParams.toString();
     const rebuilt = `${pathname}${nextSearch ? `?${nextSearch}` : ''}`;
@@ -191,7 +198,12 @@ function UnauthedSignInRedirect() {
   const location = useLocation();
   const params = new URLSearchParams(location.search);
   const previewSunday = params.get('previewSunday') === '1';
-  return <Navigate to={previewSunday ? '/signin?previewSunday=1' : '/signin'} replace />;
+  const previewSignupWelcome = params.get('previewSignupWelcome') === '1';
+  const redirectParams = new URLSearchParams();
+  if (previewSunday) redirectParams.set('previewSunday', '1');
+  if (previewSignupWelcome) redirectParams.set('previewSignupWelcome', '1');
+  const search = redirectParams.toString();
+  return <Navigate to={search ? `/signin?${search}` : '/signin'} replace />;
 }
 
 function App() {
@@ -217,6 +229,9 @@ function App() {
       const params = new URLSearchParams(window.location.search);
       if (params.get(SUNDAY_WELCOME_PREVIEW_QUERY_PARAM) === '1') {
         sessionStorage.setItem(SUNDAY_WELCOME_PREVIEW_SESSION_KEY, '1');
+      }
+      if (params.get(SIGNUP_WELCOME_PREVIEW_QUERY_PARAM) === '1') {
+        sessionStorage.setItem(SIGNUP_WELCOME_PREVIEW_SESSION_KEY, '1');
       }
     } catch {
       // no-op
@@ -291,6 +306,11 @@ function App() {
     // In a real app, you would save this to localStorage or send to API
     localStorage.setItem('user', JSON.stringify(completeUser));
     localStorage.setItem('setupComplete', 'true');
+    try {
+      sessionStorage.setItem(SIGNUP_WELCOME_POST_SIGNUP_SESSION_KEY, '1');
+    } catch {
+      // no-op
+    }
   };
 
   const handleSignOut = () => {

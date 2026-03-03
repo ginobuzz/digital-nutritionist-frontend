@@ -42,6 +42,7 @@ import { formatVoiceInputError, getUserFacingErrorMessage } from '../utils/error
 import { syncWidgetDailyProgress } from '../services/widgetBridge';
 import { autoLogDuePlannedMeals } from '../utils/autoLogPlannedMeals';
 import SundayFreshStartDialog from './SundayFreshStartDialog';
+import SignupWelcomeDialog from './SignupWelcomeDialog';
 
 interface DashboardProps {
   user: User;
@@ -68,6 +69,10 @@ const RECENT_MEALS_LOOKBACK_DAYS = 120;
 const SUNDAY_WELCOME_STORAGE_PREFIX = 'dn.sunday_welcome.week.';
 const SUNDAY_WELCOME_PREVIEW_QUERY_PARAM = 'previewSunday';
 const SUNDAY_WELCOME_PREVIEW_SESSION_KEY = 'dn.sunday_welcome.preview.once';
+const SIGNUP_WELCOME_STORAGE_PREFIX = 'dn.signup_welcome.seen.';
+const SIGNUP_WELCOME_PREVIEW_QUERY_PARAM = 'previewSignupWelcome';
+const SIGNUP_WELCOME_PREVIEW_SESSION_KEY = 'dn.signup_welcome.preview.once';
+const SIGNUP_WELCOME_POST_SIGNUP_SESSION_KEY = 'dn.signup_welcome.post_signup.once';
 
 const getCurrentWeekStart = (): Date => {
   return startOfWeek(startOfDay(new Date()), { weekStartsOn: 0 });
@@ -138,6 +143,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   const [describeDictationBaseText, setDescribeDictationBaseText] = useState('');
   const [describeVoiceError, setDescribeVoiceError] = useState<string | null>(null);
   const [showSundayWelcome, setShowSundayWelcome] = useState(false);
+  const [showSignupWelcome, setShowSignupWelcome] = useState(false);
 
   const {
     supported: describeVoiceSupported,
@@ -203,11 +209,31 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
     }
   }, [location.search]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get(SIGNUP_WELCOME_PREVIEW_QUERY_PARAM) !== '1') return;
+    try {
+      sessionStorage.setItem(SIGNUP_WELCOME_PREVIEW_SESSION_KEY, '1');
+    } catch {
+      // no-op
+    }
+  }, [location.search]);
+
   const sundayWelcomePreviewMode = useMemo(() => {
     const params = new URLSearchParams(location.search);
     if (params.get(SUNDAY_WELCOME_PREVIEW_QUERY_PARAM) === '1') return true;
     try {
       return sessionStorage.getItem(SUNDAY_WELCOME_PREVIEW_SESSION_KEY) === '1';
+    } catch {
+      return false;
+    }
+  }, [location.search]);
+
+  const signupWelcomePreviewMode = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get(SIGNUP_WELCOME_PREVIEW_QUERY_PARAM) === '1') return true;
+    try {
+      return sessionStorage.getItem(SIGNUP_WELCOME_PREVIEW_SESSION_KEY) === '1';
     } catch {
       return false;
     }
@@ -373,6 +399,55 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       setShowSundayWelcome(true);
     }
   }, [loading, sundayWelcomePreviewMode, user.id]);
+
+  useEffect(() => {
+    if (loading) return;
+
+    if (signupWelcomePreviewMode) {
+      setShowSignupWelcome(true);
+      return;
+    }
+
+    try {
+      const alreadySeen = localStorage.getItem(`${SIGNUP_WELCOME_STORAGE_PREFIX}${user.id}`) === '1';
+      const postSignupTrigger = sessionStorage.getItem(SIGNUP_WELCOME_POST_SIGNUP_SESSION_KEY) === '1';
+      if (postSignupTrigger && !alreadySeen) {
+        setShowSignupWelcome(true);
+      }
+    } catch {
+      // no-op
+    }
+  }, [loading, signupWelcomePreviewMode, user.id]);
+
+  const markSignupWelcomeSeen = useCallback(() => {
+    try {
+      sessionStorage.removeItem(SIGNUP_WELCOME_PREVIEW_SESSION_KEY);
+      sessionStorage.removeItem(SIGNUP_WELCOME_POST_SIGNUP_SESSION_KEY);
+    } catch {
+      // no-op
+    }
+    if (signupWelcomePreviewMode) return;
+    try {
+      localStorage.setItem(`${SIGNUP_WELCOME_STORAGE_PREFIX}${user.id}`, '1');
+    } catch {
+      // no-op
+    }
+  }, [signupWelcomePreviewMode, user.id]);
+
+  const handleSignupWelcomeStart = useCallback(() => {
+    markSignupWelcomeSeen();
+    setShowSignupWelcome(false);
+    void triggerSuccessHaptic();
+    navigate('/');
+  }, [markSignupWelcomeSeen, navigate]);
+
+  const handleSignupWelcomePulse = useCallback(() => {
+    void triggerSubmitHaptic();
+  }, []);
+
+  const handleSignupWelcomeStageReveal = useCallback(() => {
+    void triggerSubmitHaptic();
+  }, []);
 
   const handleCloseSundayWelcome = useCallback(() => {
     markSundayWelcomeSeen();
@@ -653,8 +728,15 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
 
   return (
     <>
+      <SignupWelcomeDialog
+        open={showSignupWelcome}
+        previewMode={signupWelcomePreviewMode}
+        onOpenPulse={handleSignupWelcomePulse}
+        onStageReveal={handleSignupWelcomeStageReveal}
+        onGetStarted={handleSignupWelcomeStart}
+      />
       <SundayFreshStartDialog
-        open={showSundayWelcome}
+        open={showSundayWelcome && !showSignupWelcome}
         weekLabel={sundayWelcomeWeekLabel}
         weeklyTargetCalories={sundayWelcomeWeeklyBudget}
         previewMode={sundayWelcomePreviewMode}
