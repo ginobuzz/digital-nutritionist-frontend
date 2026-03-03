@@ -42,6 +42,10 @@ import {
   Mic,
   StopCircle,
 } from '@mui/icons-material';
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
+import MicRoundedIcon from '@mui/icons-material/MicRounded';
+import PhotoCameraRoundedIcon from '@mui/icons-material/PhotoCameraRounded';
+import StopCircleRoundedIcon from '@mui/icons-material/StopCircleRounded';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { addDays, format, isAfter, isBefore, isValid, parseISO, startOfDay, startOfWeek } from 'date-fns';
 import Markdown from 'markdown-to-jsx';
@@ -141,6 +145,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
   const [logDictationBaseText, setLogDictationBaseText] = useState('');
   const [logVoiceError, setLogVoiceError] = useState<string | null>(null);
   const [planDescribeInput, setPlanDescribeInput] = useState('');
+  const [planDescribeImageDataUrl, setPlanDescribeImageDataUrl] = useState<string | null>(null);
   const [planDescribeReply, setPlanDescribeReply] = useState<string | null>(null);
   const [planDictationBaseText, setPlanDictationBaseText] = useState('');
   const [planVoiceError, setPlanVoiceError] = useState<string | null>(null);
@@ -451,6 +456,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
     setPlanError(null);
     setPlanDescribeReply(null);
     setPlanDescribeInput('');
+    setPlanDescribeImageDataUrl(null);
     setPlanMealType('');
     setPlanDialogOpen(true);
   };
@@ -471,6 +477,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
       setPlanError(null);
       setPlanVoiceError(null);
       setPlanMealType('');
+      setPlanDescribeImageDataUrl(null);
     }
   };
 
@@ -538,9 +545,25 @@ const Log: React.FC<LogProps> = ({ user }) => {
     }
   };
 
+  const handleAttachPlanImage = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    try {
+      const dataUrl = await imageFileToDataUrl(file);
+      setPlanDescribeImageDataUrl(dataUrl);
+      setPlanError(null);
+      if (planDescribeReply) setPlanDescribeReply(null);
+    } catch (error) {
+      console.error('Unable to attach image:', error);
+      setPlanError('We couldn’t read that photo. Try a different image.');
+    }
+  };
+
   const handleDescribeMealPlan = async () => {
-    if (!planDescribeInput.trim()) {
-      setPlanError('Describe what you’d like to eat so I can build a plan.');
+    if (!planDescribeInput.trim() && !planDescribeImageDataUrl) {
+      setPlanError('Describe what you’d like to eat or attach a meal photo so I can build a plan.');
       return;
     }
 
@@ -557,13 +580,14 @@ const Log: React.FC<LogProps> = ({ user }) => {
         `Return ONLY a JSON array (no markdown, no commentary).`,
         `Each item must have: name (string), calories (integer), meal_type ("breakfast"|"lunch"|"dinner"|"snack"), time ("HH:MM" 24h), description (string|null).`,
         ...(planMealType ? [`Meal type: ${planMealType}.`] : []),
+        planDescribeImageDataUrl ? `A meal photo is attached. Use it to identify foods and portions.` : null,
         `Only include meals that are explicitly described in the user text.`,
         `Do not invent extra meals to fill the day or hit a calorie target.`,
         calorieTarget > 0
           ? `Estimate calories for each included meal using a reasonable range around the user's details (daily target is ${Math.round(calorieTarget)} for context only).`
           : `Use reasonable calorie estimates for each included meal.`,
         ``,
-        planDescribeInput.trim(),
+        planDescribeInput.trim() || '(No additional text — use the meal photo.)',
       ].join('\n');
 
       const response = await apiService.chat({
@@ -571,6 +595,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
         user_id: user.id,
         client_local_date: toIsoDate(new Date()),
         client_time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        image_data_url: planDescribeImageDataUrl ?? undefined,
       });
 
       void triggerSuccessHaptic();
@@ -600,6 +625,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
 
       setPlanDialogOpen(false);
       setPlanDescribeInput('');
+      setPlanDescribeImageDataUrl(null);
       await fetchLogData();
     } catch (error) {
       if (isUserNotFoundError(error)) {
@@ -1303,16 +1329,57 @@ const Log: React.FC<LogProps> = ({ user }) => {
                 {planError}
               </Alert>
             )}
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
-              <IconButton
-                onClick={handleTogglePlanVoice}
-                disabled={planDialogBusy || Boolean(planDescribeReply)}
-                color={planVoiceListening ? 'error' : 'default'}
-                aria-label={planVoiceListening ? 'Stop voice input' : 'Start voice input'}
-                sx={{ alignSelf: 'flex-end' }}
-              >
-                {planVoiceListening ? <StopCircle /> : <Mic />}
-              </IconButton>
+            {planDescribeImageDataUrl && (
+              <Box sx={{ mb: 1.25, display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                <Box
+                  component="img"
+                  src={planDescribeImageDataUrl}
+                  alt="Selected meal"
+                  sx={{
+                    width: 88,
+                    height: 88,
+                    objectFit: 'cover',
+                    borderRadius: 1.5,
+                    border: `1px solid ${alpha(theme.palette.text.primary, 0.12)}`,
+                  }}
+                />
+                <IconButton
+                  size="small"
+                  onClick={() => setPlanDescribeImageDataUrl(null)}
+                  disabled={planDialogBusy || Boolean(planDescribeReply)}
+                  aria-label="Remove meal photo"
+                >
+                  <CloseRoundedIcon fontSize="small" />
+                </IconButton>
+              </Box>
+            )}
+
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignSelf: 'center' }}>
+                <IconButton
+                  component="label"
+                  disabled={planDialogBusy || Boolean(planDescribeReply) || planVoiceListening}
+                  color={planDescribeImageDataUrl ? 'primary' : 'default'}
+                  aria-label="Attach meal photo"
+                >
+                  <PhotoCameraRoundedIcon />
+                  <input
+                    hidden
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handleAttachPlanImage}
+                  />
+                </IconButton>
+                <IconButton
+                  onClick={handleTogglePlanVoice}
+                  disabled={planDialogBusy || Boolean(planDescribeReply)}
+                  color={planVoiceListening ? 'error' : 'default'}
+                  aria-label={planVoiceListening ? 'Stop voice input' : 'Start voice input'}
+                >
+                  {planVoiceListening ? <StopCircleRoundedIcon /> : <MicRoundedIcon />}
+                </IconButton>
+              </Box>
               <TextField
                 fullWidth
                 margin="dense"
