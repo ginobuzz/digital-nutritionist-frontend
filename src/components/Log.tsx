@@ -1325,7 +1325,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
                 disabled={planDialogBusy || Boolean(planDescribeReply) || planVoiceListening}
                 InputLabelProps={{
                   shrink: true,
-                  sx: { whiteSpace: 'nowrap', backgroundColor: 'background.paper', px: 0.5 },
+                  sx: { whiteSpace: 'nowrap' },
                 }}
               />
             </Box>
@@ -1487,7 +1487,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
               disabled={dialogBusy || logVoiceListening}
               InputLabelProps={{
                 shrink: true,
-                sx: { whiteSpace: 'nowrap', backgroundColor: 'background.paper', px: 0.5 },
+                sx: { whiteSpace: 'nowrap' },
               }}
               inputRef={describeFieldRef}
             />

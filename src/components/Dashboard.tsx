@@ -941,7 +941,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                 disabled={logBusy || describeVoiceListening}
                 InputLabelProps={{
                   shrink: true,
-                  sx: { whiteSpace: 'nowrap', backgroundColor: 'background.paper', px: 0.5 },
+                  sx: { whiteSpace: 'nowrap' },
                 }}
                 inputRef={describeFieldRef}
               />
