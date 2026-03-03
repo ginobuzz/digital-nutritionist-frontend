@@ -101,6 +101,9 @@ export interface PlannedMealResponse {
   name: string;
   calories: number;
   meal_type: string;
+  protein_g?: number | null;
+  carbs_g?: number | null;
+  fat_g?: number | null;
   time: string; // ISO datetime
   description?: string | null;
   created_at: string;
@@ -113,6 +116,9 @@ export interface CreatePlannedMealRequest {
   name: string;
   calories: number;
   meal_type: string;
+  protein_g?: number | null;
+  carbs_g?: number | null;
+  fat_g?: number | null;
   time: string; // ISO datetime
   description?: string | null;
 }

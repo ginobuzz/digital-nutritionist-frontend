@@ -10,6 +10,10 @@ const normalizeMealTypeForBackend = (value: string | null | undefined): string |
 
 const normalizeText = (value: string | null | undefined): string => (value || '').trim().toLowerCase().replace(/\s+/g, ' ');
 
+const normalizeOptionalMacro = (value: number | null | undefined): number | undefined => (
+  typeof value === 'number' && Number.isFinite(value) ? value : undefined
+);
+
 const buildPlannedMealDescription = (meal: PlannedMealResponse): string => {
   const description = (meal.description || '').trim();
   return description ? `${meal.name} - ${description}` : meal.name;
@@ -89,6 +93,9 @@ export const autoLogDuePlannedMeals = async (
         user_description: buildPlannedMealDescription(meal),
         meal_type: normalizeMealTypeForBackend(meal.meal_type),
         estimated_calories: Number(meal.calories || 0),
+        protein_g: normalizeOptionalMacro(meal.protein_g),
+        carbs_g: normalizeOptionalMacro(meal.carbs_g),
+        fat_g: normalizeOptionalMacro(meal.fat_g),
         time: meal.time,
       };
 

@@ -27,7 +27,11 @@ const makeMealLog = (overrides: Partial<MealLogResponse> = {}): MealLogResponse 
 
 describe('autoLogDuePlannedMeals', () => {
   test('creates meal logs for due planned meals and deletes planned entries', async () => {
-    const planned = makePlannedMeal();
+    const planned = makePlannedMeal({
+      protein_g: 45,
+      carbs_g: 52,
+      fat_g: 18,
+    });
     const createMealLog = jest.fn().mockResolvedValue(makeMealLog({ id: 'log-created' }));
     const deletePlannedMeal = jest.fn().mockResolvedValue(undefined);
 
@@ -40,6 +44,17 @@ describe('autoLogDuePlannedMeals', () => {
     });
 
     expect(createMealLog).toHaveBeenCalledTimes(1);
+    expect(createMealLog).toHaveBeenCalledWith({
+      user_id: 'user-1',
+      date: '2026-03-01',
+      user_description: 'Chicken bowl - extra veggies',
+      meal_type: 'lunch',
+      estimated_calories: 600,
+      protein_g: 45,
+      carbs_g: 52,
+      fat_g: 18,
+      time: '2026-03-01T12:30:00Z',
+    });
     expect(deletePlannedMeal).toHaveBeenCalledWith('planned-1');
     expect(result.logs).toHaveLength(1);
     expect(result.plannedMeals).toHaveLength(0);
