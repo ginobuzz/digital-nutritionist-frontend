@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp, type URLOpenListenerEvent } from '@capacitor/app';
-import { useMediaQuery } from '@mui/material';
+import { Box, CircularProgress, useMediaQuery } from '@mui/material';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 
@@ -24,8 +24,19 @@ import { authService } from './services/auth';
 import { createAppTheme, THEME_PREFERENCE_STORAGE_KEY, type ThemePreference } from './theme';
 import { consumePendingWidgetDeepLink, WIDGET_APP_SCHEME } from './services/widgetBridge';
 
+const SUNDAY_WELCOME_PREVIEW_QUERY_PARAM = 'previewSunday';
+const SUNDAY_WELCOME_PREVIEW_SESSION_KEY = 'dn.sunday_welcome.preview.once';
+
 const getRouterBasename = (): string | undefined => {
   if (typeof window !== 'undefined' && window.location?.protocol === 'capacitor:') return undefined;
+
+  if (typeof window !== 'undefined') {
+    const path = window.location?.pathname || '';
+    const repoBase = '/digital-nutritionist-frontend';
+    if (path === repoBase || path.startsWith(`${repoBase}/`)) {
+      return repoBase;
+    }
+  }
 
   const raw = (process.env.PUBLIC_URL || '').trim();
   if (!raw) return undefined;
@@ -155,16 +166,39 @@ function SignInRedirect() {
   const location = useLocation();
   const params = new URLSearchParams(location.search);
   const next = params.get('next');
+  const previewSunday = params.get('previewSunday') === '1';
   const safeNext = next && next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/signin')
     ? next
     : null;
-  return <Navigate to={safeNext || '/'} replace />;
+
+  const appendPreviewSunday = (target: string): string => {
+    if (!previewSunday) return target;
+    const [pathPart, hashPart] = target.split('#');
+    const [pathname, searchPart] = pathPart.split('?');
+    const targetParams = new URLSearchParams(searchPart || '');
+    if (targetParams.get('previewSunday') !== '1') {
+      targetParams.set('previewSunday', '1');
+    }
+    const nextSearch = targetParams.toString();
+    const rebuilt = `${pathname}${nextSearch ? `?${nextSearch}` : ''}`;
+    return hashPart ? `${rebuilt}#${hashPart}` : rebuilt;
+  };
+
+  return <Navigate to={appendPreviewSunday(safeNext || '/')} replace />;
+}
+
+function UnauthedSignInRedirect() {
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const previewSunday = params.get('previewSunday') === '1';
+  return <Navigate to={previewSunday ? '/signin?previewSunday=1' : '/signin'} replace />;
 }
 
 function App() {
   const routerBasename = getRouterBasename();
   const [user, setUser] = useState<User | null>(null);
   const [setupComplete, setSetupComplete] = useState(false);
+  const [authStateReady, setAuthStateReady] = useState(false);
   const [themePreference, setThemePreference] = useState<ThemePreference>(() => {
     const stored = localStorage.getItem(THEME_PREFERENCE_STORAGE_KEY);
     return stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system';
@@ -179,6 +213,15 @@ function App() {
   }, [themePreference]);
 
   useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get(SUNDAY_WELCOME_PREVIEW_QUERY_PARAM) === '1') {
+        sessionStorage.setItem(SUNDAY_WELCOME_PREVIEW_SESSION_KEY, '1');
+      }
+    } catch {
+      // no-op
+    }
+
     const token = localStorage.getItem('dn_access_token');
     const storedUser = localStorage.getItem('user');
     if (token) {
@@ -202,7 +245,26 @@ function App() {
     } else {
       setSetupComplete(false);
     }
+
+    setAuthStateReady(true);
   }, []);
+
+  if (!authStateReady) {
+    return (
+      <ThemeProvider theme={theme}>
+        <CssBaseline enableColorScheme />
+        <Box
+          sx={{
+            minHeight: '100vh',
+            display: 'grid',
+            placeItems: 'center',
+          }}
+        >
+          <CircularProgress size={28} />
+        </Box>
+      </ThemeProvider>
+    );
+  }
 
   const handleSetupComplete = (setupUser: User) => {
     // Calculate daily calorie target and deficit
@@ -262,8 +324,8 @@ function App() {
             <Route path="/about" element={<About />} />
             <Route path="/legal" element={<Legal />} />
             <Route path="/setup" element={<Setup onComplete={handleSetupComplete} />} />
-            <Route path="/" element={<Navigate to="/signin" replace />} />
-            <Route path="*" element={<Navigate to="/signin" replace />} />
+            <Route path="/" element={<UnauthedSignInRedirect />} />
+            <Route path="*" element={<UnauthedSignInRedirect />} />
           </Routes>
         </Router>
       </ThemeProvider>

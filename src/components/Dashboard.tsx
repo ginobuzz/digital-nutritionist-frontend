@@ -28,7 +28,7 @@ import TodayRoundedIcon from '@mui/icons-material/TodayRounded';
 import PhotoCameraRoundedIcon from '@mui/icons-material/PhotoCameraRounded';
 import MicRoundedIcon from '@mui/icons-material/MicRounded';
 import StopCircleRoundedIcon from '@mui/icons-material/StopCircleRounded';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { addDays, format, isBefore, isSameDay, startOfDay, startOfWeek } from 'date-fns';
 import Markdown from 'markdown-to-jsx';
 import { User } from '../types';
@@ -41,6 +41,7 @@ import { useSpeechToText } from '../hooks/useSpeechToText';
 import { formatVoiceInputError, getUserFacingErrorMessage } from '../utils/errors';
 import { syncWidgetDailyProgress } from '../services/widgetBridge';
 import { autoLogDuePlannedMeals } from '../utils/autoLogPlannedMeals';
+import SundayFreshStartDialog from './SundayFreshStartDialog';
 
 interface DashboardProps {
   user: User;
@@ -64,6 +65,13 @@ const WEEK_LENGTH_DAYS = 7;
 const toIsoDate = (d: Date) => format(d, 'yyyy-MM-dd');
 const RECENT_MEALS_LIMIT = 4;
 const RECENT_MEALS_LOOKBACK_DAYS = 120;
+const SUNDAY_WELCOME_STORAGE_PREFIX = 'dn.sunday_welcome.week.';
+const SUNDAY_WELCOME_PREVIEW_QUERY_PARAM = 'previewSunday';
+const SUNDAY_WELCOME_PREVIEW_SESSION_KEY = 'dn.sunday_welcome.preview.once';
+
+const getCurrentWeekStart = (): Date => {
+  return startOfWeek(startOfDay(new Date()), { weekStartsOn: 0 });
+};
 
 const normalizeMealType = (value: string | null | undefined): MealType => {
   const v = (value || '').trim().toLowerCase();
@@ -95,6 +103,7 @@ const getMealLogCreatedAt = (log: MealLogResponse): Date => {
 
 const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   const theme = useTheme();
+  const location = useLocation();
   const navigate = useNavigate();
   const describeFieldRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
   const [loading, setLoading] = useState(true);
@@ -128,6 +137,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   const [weekInfoAnchorEl, setWeekInfoAnchorEl] = useState<HTMLElement | null>(null);
   const [describeDictationBaseText, setDescribeDictationBaseText] = useState('');
   const [describeVoiceError, setDescribeVoiceError] = useState<string | null>(null);
+  const [showSundayWelcome, setShowSundayWelcome] = useState(false);
 
   const {
     supported: describeVoiceSupported,
@@ -182,6 +192,37 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       return user.id;
     }
   }, [user.id]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get(SUNDAY_WELCOME_PREVIEW_QUERY_PARAM) !== '1') return;
+    try {
+      sessionStorage.setItem(SUNDAY_WELCOME_PREVIEW_SESSION_KEY, '1');
+    } catch {
+      // no-op
+    }
+  }, [location.search]);
+
+  const sundayWelcomePreviewMode = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get(SUNDAY_WELCOME_PREVIEW_QUERY_PARAM) === '1') return true;
+    try {
+      return sessionStorage.getItem(SUNDAY_WELCOME_PREVIEW_SESSION_KEY) === '1';
+    } catch {
+      return false;
+    }
+  }, [location.search]);
+
+  const sundayWelcomeWeekLabel = useMemo(() => {
+    const weekStart = getCurrentWeekStart();
+    const weekEnd = addDays(weekStart, WEEK_LENGTH_DAYS - 1);
+    return `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d')}`;
+  }, []);
+
+  const sundayWelcomeWeeklyBudget = useMemo(() => {
+    const dailyTarget = Math.max(0, Math.round(user.dailyCalorieTarget || 0));
+    return dailyTarget * WEEK_LENGTH_DAYS;
+  }, [user.dailyCalorieTarget]);
 
   const fetchData = useCallback(async (showLoader = false) => {
     try {
@@ -296,6 +337,62 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   useEffect(() => {
     fetchData(true);
   }, [fetchData]);
+
+  const markSundayWelcomeSeen = useCallback(() => {
+    try {
+      sessionStorage.removeItem(SUNDAY_WELCOME_PREVIEW_SESSION_KEY);
+    } catch {
+      // no-op
+    }
+    if (sundayWelcomePreviewMode) return;
+    const weekKey = toIsoDate(getCurrentWeekStart());
+    try {
+      localStorage.setItem(`${SUNDAY_WELCOME_STORAGE_PREFIX}${user.id}`, weekKey);
+    } catch {
+      // no-op
+    }
+  }, [sundayWelcomePreviewMode, user.id]);
+
+  useEffect(() => {
+    if (loading) return;
+
+    const now = startOfDay(new Date());
+    const isSunday = now.getDay() === 0;
+    if (!isSunday && !sundayWelcomePreviewMode) {
+      setShowSundayWelcome(false);
+      return;
+    }
+
+    const weekKey = toIsoDate(startOfWeek(now, { weekStartsOn: 0 }));
+    try {
+      const lastSeenWeek = localStorage.getItem(`${SUNDAY_WELCOME_STORAGE_PREFIX}${user.id}`);
+      if (sundayWelcomePreviewMode || lastSeenWeek !== weekKey) {
+        setShowSundayWelcome(true);
+      }
+    } catch {
+      setShowSundayWelcome(true);
+    }
+  }, [loading, sundayWelcomePreviewMode, user.id]);
+
+  const handleCloseSundayWelcome = useCallback(() => {
+    markSundayWelcomeSeen();
+    setShowSundayWelcome(false);
+  }, [markSundayWelcomeSeen]);
+
+  const handleStartWeekFromWelcome = useCallback(() => {
+    markSundayWelcomeSeen();
+    setShowSundayWelcome(false);
+    void triggerSuccessHaptic();
+    navigate('/');
+  }, [markSundayWelcomeSeen, navigate]);
+
+  const handleSundayWelcomePulse = useCallback(() => {
+    void triggerSubmitHaptic();
+  }, []);
+
+  const handleSundayWelcomeStepReveal = useCallback(() => {
+    void triggerSubmitHaptic();
+  }, []);
 
   const today = startOfDay(new Date());
   const weekStart = startOfWeek(today, { weekStartsOn: 0 }); // Sunday
@@ -555,7 +652,18 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+    <>
+      <SundayFreshStartDialog
+        open={showSundayWelcome}
+        weekLabel={sundayWelcomeWeekLabel}
+        weeklyTargetCalories={sundayWelcomeWeeklyBudget}
+        previewMode={sundayWelcomePreviewMode}
+        onOpenPulse={handleSundayWelcomePulse}
+        onStepReveal={handleSundayWelcomeStepReveal}
+        onClose={handleCloseSundayWelcome}
+        onStartWeek={handleStartWeekFromWelcome}
+      />
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {/* Progress */}
       <Card
         sx={{
@@ -1212,7 +1320,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
           );
         })}
       </Box>
-    </Box>
+      </Box>
+    </>
   );
 };
 
