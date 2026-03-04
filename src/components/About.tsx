@@ -5,6 +5,7 @@ import {
   Button,
   Card,
   CardContent,
+  Chip,
   Container,
   Divider,
   Stack,
@@ -17,11 +18,50 @@ import InfoRoundedIcon from '@mui/icons-material/InfoRounded';
 import PersonAddRoundedIcon from '@mui/icons-material/PersonAddRounded';
 import LoginRoundedIcon from '@mui/icons-material/LoginRounded';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
+import AutorenewRoundedIcon from '@mui/icons-material/AutorenewRounded';
+import WbSunnyRoundedIcon from '@mui/icons-material/WbSunnyRounded';
+import RestaurantMenuRoundedIcon from '@mui/icons-material/RestaurantMenuRounded';
+import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 
 const BUILD_VERSION = process.env.REACT_APP_BUILD_VERSION ?? '0 (beta)';
 const BUILD_DATETIME = process.env.REACT_APP_BUILD_DATETIME ?? 'unknown';
 const BUILD_NUMBER = process.env.REACT_APP_BUILD_NUMBER ?? 'unknown';
 const BUILD_COMMIT = process.env.REACT_APP_BUILD_COMMIT ?? 'unknown';
+
+interface FeatureBulletProps {
+  icon: React.ReactNode;
+  iconColor: string;
+  label: string;
+  description: string;
+}
+
+const FeatureBullet: React.FC<FeatureBulletProps> = ({ icon, iconColor, label, description }) => (
+  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+    <Box
+      sx={{
+        width: 30,
+        height: 30,
+        borderRadius: '50%',
+        display: 'grid',
+        placeItems: 'center',
+        flexShrink: 0,
+        mt: 0.1,
+        color: iconColor,
+        bgcolor: alpha(iconColor, 0.1),
+      }}
+    >
+      {icon}
+    </Box>
+    <Box>
+      <Typography variant="body2" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1.25 }}>
+        {label}
+      </Typography>
+      <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.45 }}>
+        {description}
+      </Typography>
+    </Box>
+  </Box>
+);
 
 const About: React.FC = () => {
   const theme = useTheme();
@@ -49,11 +89,17 @@ const About: React.FC = () => {
           </Typography>
         </Box>
 
+        <Chip
+          size="small"
+          color="primary"
+          label="Weekly reset"
+          sx={{ fontWeight: 800, mb: 1.25 }}
+        />
         <Typography variant="h3" sx={{ fontWeight: 900, letterSpacing: '-0.03em', lineHeight: 1.1 }}>
           Sunday Mornings
         </Typography>
         <Typography variant="h6" sx={{ color: 'text.secondary', mt: 1.25, lineHeight: 1.4 }}>
-          Your personal nutritionist for losing weight — simple, calm, and built for real life.
+          Every Sunday, a fresh plan. Every week, a calorie budget that bends to your life — not the other way around.
         </Typography>
 
         <Card
@@ -70,47 +116,52 @@ const About: React.FC = () => {
         >
           <CardContent sx={{ p: 2.75 }}>
             <Typography variant="h6" sx={{ fontWeight: 900, mb: 1.25 }}>
-              What it does
+              The Sunday ritual
             </Typography>
-            <Stack spacing={1.2}>
-              <Typography variant="body1" sx={{ color: 'text.primary' }}>
-                Sunday Mornings helps you find the right goal for you, then makes it easy to stay consistent.
-              </Typography>
-              <Typography variant="body1" sx={{ color: 'text.primary' }}>
-                Track what you eat with plain language or pictures, and get the kind of support you’d expect from a
-                real-life nutritionist — whenever you need it.
-              </Typography>
+            <Typography variant="body1" sx={{ color: 'text.primary', lineHeight: 1.55 }}>
+              Once a week, on Sunday morning, you open the app. Your calorie budget is already adjusted for the week
+              ahead, and you make a plan. That single habit — ten minutes, one morning — is how consistent people
+              stay consistent.
+            </Typography>
+
+            <Divider sx={{ my: 2.25 }} />
+
+            <Typography variant="h6" sx={{ fontWeight: 900, mb: 1.5 }}>
+              How it works
+            </Typography>
+            <Stack spacing={1.6}>
+              <FeatureBullet
+                icon={<AutorenewRoundedIcon fontSize="small" />}
+                iconColor={theme.palette.primary.main}
+                label="Dynamic weekly budget"
+                description="Your daily calorie target reshapes every week around your real plans — a dinner out, a rest day, a celebration."
+              />
+              <FeatureBullet
+                icon={<WbSunnyRoundedIcon fontSize="small" />}
+                iconColor={theme.palette.warning.main}
+                label="Sunday planning ritual"
+                description="Open the app each Sunday morning, set your week's anchor meals, and start with momentum."
+              />
+              <FeatureBullet
+                icon={<RestaurantMenuRoundedIcon fontSize="small" />}
+                iconColor={theme.palette.secondary.main}
+                label="Effortless logging"
+                description="Tell it what you ate in plain language or snap a photo. No barcodes, no spreadsheets."
+              />
+              <FeatureBullet
+                icon={<AutoAwesomeRoundedIcon fontSize="small" />}
+                iconColor={theme.palette.secondary.main}
+                label="A coach, not just a tracker"
+                description="Ask questions, get back on track after a rough day, and stay inspired — whenever you need it."
+              />
             </Stack>
 
             <Divider sx={{ my: 2.25 }} />
 
-            <Typography variant="h6" sx={{ fontWeight: 900, mb: 1.25 }}>
-              How it feels
+            <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.55 }}>
+              Some weeks you'll nail it. Others, life happens. Sunday Mornings meets you there.
             </Typography>
-            <Stack spacing={1.1}>
-              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                - Remembers your preferences and patterns
-              </Typography>
-              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                - Helps you get back on track if you slip
-              </Typography>
-              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                - Can stay passive, or check in on you — your choice
-              </Typography>
-              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                - Supports planning meals for the whole week (a Sunday morning ritual)
-              </Typography>
-              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                - Answers questions along the way, like a coach on your shoulder
-              </Typography>
-            </Stack>
-
-            <Divider sx={{ my: 2.25 }} />
-
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              It’s a no-fuss, simple way to reach your weight loss goals.
-            </Typography>
-            <Typography variant="caption" sx={{ display: 'block', color: 'text.disabled', mt: 1 }}>
+            <Typography variant="caption" sx={{ display: 'block', color: 'text.disabled', mt: 1.5 }}>
               Not medical advice. For health concerns, talk to a clinician.
             </Typography>
             <Typography variant="caption" sx={{ display: 'block', color: 'text.disabled', mt: 0.5 }}>
