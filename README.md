@@ -1,347 +1,348 @@
-# Digital Nutritionist AI
+# Sunday Mornings (Digital Nutritionist AI)
 
-A full-stack Digital Nutritionist app: a React/TypeScript frontend plus a FastAPI backend in `digital-nutritionist-backend/`.
+Sunday Mornings is a full-stack nutrition coaching agent focused on one core behavior loop:
 
-## 🎯 Overview
+1. Plan what you want to eat, or log as you go.
+2. Log what you actually ate.
+3. See the calorie gap against your goal.
+4. Adjust the next day/week with AI support.
 
-The Digital Nutritionist is designed to help users achieve their weight loss goals through:
+The repository includes:
+- A React + TypeScript frontend (web and iOS via Capacitor)
+- A FastAPI backend (`digital-nutritionist-backend/`)
+- Local Docker Compose for full-stack development
+- CI and GitHub Pages deployment workflows
 
-- **Plan vs Reality Tracking**: Users plan their meals and then log what they actually ate
-- **AI Coach Chat**: Conversational interface for logging meals and getting encouragement
-- **Calorie Deficit Monitoring**: Real-time tracking of calorie deficits toward weight loss goals
-- **Activity Logging**: Track exercise and activities to adjust calorie balance
-- **Progress Visualization**: Charts and metrics showing weight loss progress
+## Product POV
 
-## 🚀 Features
+### Problem this product addresses
+Weight-loss tracking works when users consistently self-monitor, but most people stop because manual logging is tedious.
 
-### Core Features
-- **Dashboard**: Overview of daily progress, calorie deficits, and weight loss journey
-- **My Plan**: Schedule and manage planned meals for upcoming days
-- **My Reality**: Log actual meals consumed and activities performed
-- **Chat Coach**: AI-powered conversational interface for meal logging and support
-- **Profile Management**: User profile, goals, and progress tracking
+### Product approach
+This app turns calorie tracking into a conversational workflow:
+- Users set goals (weight, timeline, activity level)
+- Users plan meals and log reality in one unified `Log` experience
+- AI helps log meals (text, optional image) and supports planning via chat
+- The app computes deficits and progress so users can course-correct quickly
 
-### Key Functionality
-- **Calorie Calculations**: Mifflin-St Jeor BMR calculation with activity multipliers
-- **Weight Loss Tracking**: Progress visualization and milestone tracking
-- **Responsive Design**: Mobile-friendly interface with Material-UI components
-- **Chat Continuity**: Chat history is retained locally per user (browser `localStorage`)
-- **Voice Dictation**: Mic button for voice-to-text in chat + “describe” inputs (browser support varies; Chrome/Edge recommended)
-- **Mock Data**: Simulated backend APIs for demonstration purposes
+### Current implemented user flow
+- Account creation and sign-in
+- Goal/profile setup (daily budget derived from Mifflin-St Jeor + activity multipliers)
+- Daily dashboard and weekly target context
+- Unified planning/logging view (`/log`)
+- AI coach chat (`/chat`) with optional meal photo input
+- Profile editing + weight check-ins
+- Password reset flow
+- iOS widget bridge for daily calorie progress + quick log deep links
 
-## 🛠️ Technology Stack
+## Key Features
 
-- **React 18** with TypeScript
-- **Material-UI (MUI)** for UI components
-- **React Router** for navigation
-- **Recharts** for data visualization
-- **FastAPI (Python)** backend (see `digital-nutritionist-backend/`)
-- **SQLModel** + SQLite/Postgres for persistence
+- Authentication with JWT bearer tokens (`/auth/signup`, `/auth/login`)
+- Meal logs, planned meals, activity logs, and weight logs (CRUD)
+- Chat-based assistant backed by OpenAI (`gpt-5.1` by default)
+- Chat tool calls can create meal logs and planned meals, and look up meal history
+- Voice-to-text input in supported browsers (Chrome/Edge best support)
+- Optional image attachment for meal/photo-aware chat logging
+- Weekly calorie target adjustments and daily target locking logic
+- Local chat history persistence per user in browser storage
+- Responsive navigation optimized for mobile and desktop
 
-## 📦 Installation
+## Architecture
 
-### Full stack (Docker Compose)
+### High-level
+- Frontend: React app calls REST endpoints on FastAPI backend
+- Backend: FastAPI + SQLModel + OpenAI integration
+- Database: SQLite for local quick start, Postgres (Neon) for hosted persistence
+- Hosting: frontend via GitHub Pages, backend via Render, DB via Neon
+
+### Runtime flow (production)
+1. Frontend (GitHub Pages) sends authenticated requests to Render API.
+2. Render API verifies JWT, handles business logic, persists to Neon Postgres.
+3. Chat endpoint calls OpenAI and may write structured logs back to DB.
+4. Frontend renders updated dashboard/log/chat state.
+
+## Tech Stack
+
+### Frontend
+- React 19 + TypeScript
+- CRA + CRACO
+- MUI v7
+- React Router v7
+- date-fns
+- Recharts
+- Capacitor (iOS target)
+
+### Backend
+- FastAPI
+- SQLModel / SQLAlchemy
+- Pydantic v2
+- `python-jose` (JWT)
+- `bcrypt` (password hashing)
+- OpenAI Python SDK
+- Uvicorn
+
+## Repository Structure
+
+```text
+.
+├── src/                               # Frontend application
+│   ├── components/                    # UI screens (Dashboard, Log, Chat, Profile, Auth)
+│   ├── services/                      # API/auth/config/haptics/widget bridge
+│   ├── utils/                         # Calculations, planning logic, error helpers
+│   └── hooks/                         # Browser speech-to-text hook
+├── digital-nutritionist-backend/      # FastAPI backend
+│   ├── app/
+│   │   ├── routers/                   # auth/users/chat/meal/planned/activity/weight endpoints
+│   │   ├── services/                  # OpenAI chat orchestration
+│   │   ├── models.py                  # SQLModel schema
+│   │   └── config.py                  # env parsing + hosted safety validation
+│   └── tests/                         # Backend unit tests
+├── ios/                               # Capacitor iOS project + widget extension
+├── scripts/                           # Build/test/smoke/capacitor helper scripts
+├── docker-compose.dev.yml             # Full local stack (frontend + backend + postgres)
+└── .github/workflows/                 # CI + GitHub Pages deploy
+```
+
+## Local Development
+
+### Prerequisites
+- Node.js 18+ (Node 20 recommended)
+- npm
+- Python 3.11+
+- (Optional) Docker Desktop for one-command local stack
+- (Optional) Xcode for iOS build
+
+### Option A: Full stack via Docker Compose
+
 ```bash
 docker compose -f docker-compose.dev.yml up --build
 ```
+
+Endpoints:
 - Frontend: `http://localhost:3000`
-- Backend docs: `http://localhost:8000/docs`
+- Backend API docs: `http://localhost:8000/docs`
+- Postgres: `localhost:5432`
 
-## ✅ Testing
+Notes:
+- Backend container reads `OPENAI_API_KEY` from your shell env if set.
+- Compose uses a local dev Postgres DB and wires frontend to `http://backend:8000` internally.
 
-### Frontend unit tests
+### Option B: Run frontend + backend manually
+
+1. Frontend dependencies:
 ```bash
-npm run test:ci
+npm ci
 ```
 
-### Backend unit tests
+2. Backend setup:
 ```bash
 cd digital-nutritionist-backend
-python -m pip install -e ".[dev]"
+python -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+cp .env.example .env
+```
+
+3. Edit `digital-nutritionist-backend/.env` with your local values.
+
+4. Start backend:
+```bash
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+5. In repo root, start frontend:
+```bash
+npm start
+```
+
+## Environment Variables (Safe Reference)
+
+Only variable names and non-sensitive guidance are listed below.
+
+### Frontend (`.env.production`, `.env.production.local`, shell env)
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `REACT_APP_API_BASE_URL` | Yes (for deployed frontend) | Base URL for backend API (build-time in CRA). |
+| `REACT_APP_BUILD_VERSION` | No | Build metadata shown in About screen. |
+| `REACT_APP_BUILD_NUMBER` | No | Build metadata. |
+| `REACT_APP_BUILD_DATETIME` | No | Build metadata. |
+| `REACT_APP_BUILD_COMMIT` | No | Build metadata. |
+| `CAPACITOR_USE_BUNDLED_WEB` | No (iOS scripts) | `true` uses bundled web assets, otherwise hosted web mode. |
+| `CAPACITOR_SERVER_URL` | No (iOS scripts) | Override hosted web URL for Capacitor runtime. |
+
+Smoke-test-only vars:
+- `DN_SMOKE_API_BASE_URL`
+- `DN_SMOKE_REQUIRE_CHAT`
+- `DN_SMOKE_KEEP_DATA`
+- `DN_SMOKE_TIMEOUT_MS`
+- `DN_SMOKE_CHAT_TIMEOUT_MS`
+
+### Backend (`digital-nutritionist-backend/.env`)
+
+Start from `digital-nutritionist-backend/.env.example`.
+
+| Variable | Required (Hosted) | Purpose |
+|---|---|---|
+| `APP_ENV` | Yes | `beta`/`staging`/`production` triggers hosted safety checks. |
+| `DATABASE_URL` | Yes | Postgres connection string (Neon in hosted env). |
+| `OPENAI_API_KEY` | Yes (if chat enabled) | OpenAI credentials for coach/chat. |
+| `OPENAI_MODEL` | Recommended | Defaults to `gpt-5.1`. |
+| `OPENAI_MAX_OUTPUT_TOKENS` | No | Output token budget for model calls. |
+| `OPENAI_MAX_OUTPUT_TOKENS_RETRY` | No | Retry token budget after token-limit errors. |
+| `ALLOWED_ORIGINS` | Yes | Comma-separated CORS allowlist. |
+| `JWT_SECRET_KEY` | Yes | JWT signing key; use strong random value (>=32 chars). |
+| `JWT_EXP_MINUTES` | No | JWT expiration (minutes). |
+| `FRONTEND_BASE_URL` | Recommended | Used for password reset links. |
+| `PASSWORD_RESET_SECRET_KEY` | Yes | Secret for password-reset token signing. |
+| `PASSWORD_RESET_EXP_MINUTES` | No | Password reset token expiry. |
+
+## Hosting and Deployment
+
+### Current hosting model
+- Frontend: GitHub Pages (see `homepage` in `package.json`)
+- Backend API: Render web service
+- Database: Neon Postgres
+- iOS app: Capacitor wrapper can run in hosted-web mode (default) or bundled mode
+
+### Backend deployment (Render)
+
+Recommended Render settings for this repo:
+- Root directory: `digital-nutritionist-backend`
+- Build command: `pip install -r requirements.txt`
+- Start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+
+Set hosted env vars in Render dashboard:
+- `APP_ENV=beta` (or `production`)
+- `DATABASE_URL` (Neon Postgres, include `?sslmode=require`)
+- `OPENAI_API_KEY`
+- `OPENAI_MODEL` (optional override)
+- `JWT_SECRET_KEY`
+- `ALLOWED_ORIGINS` (include deployed frontend origin, and `capacitor://localhost` for iOS app)
+- `FRONTEND_BASE_URL`
+- `PASSWORD_RESET_SECRET_KEY`
+
+Health checks:
+- `/health`
+- `/health/db`
+- `/health/config` (exposes config status booleans only, not raw secrets)
+
+### Database deployment (Neon)
+
+- Use Neon Postgres for persistent hosted data
+- Put Neon connection string in Render `DATABASE_URL`
+- Include `sslmode=require`
+- Prefer pooled endpoint for serverless/short-lived workloads
+- Configure Neon backup/PITR per your plan
+
+### Frontend deployment (GitHub Pages)
+
+Automated deploy path:
+- Push to `initial-build`
+- `.github/workflows/deploy.yml` runs frontend+backend tests first
+- If tests pass, GitHub Pages artifact is deployed
+
+Manual fallback:
+```bash
+npm run deploy
+```
+
+## iOS (Capacitor + Widget)
+
+Common commands:
+
+```bash
+npm run ios            # hosted-web mode sync + open Xcode
+npm run ios:bundled    # bundled-web mode build/sync + open Xcode
+npm run ios:refresh    # rebuild bundled assets + sync (without opening)
+```
+
+Widget notes:
+- Widget extension: `DailyCaloriesWidget`
+- Uses app group shared storage for daily calories progress
+- Supports deep links into `/log` for quick actions (voice/camera/text)
+- In hosted-web mode, widget behavior follows whatever frontend is currently deployed
+
+## API Overview
+
+Public/auth endpoints:
+- `POST /auth/signup`
+- `POST /auth/login`
+- `GET /auth/email-available`
+- `POST /auth/password-reset/request`
+- `POST /auth/password-reset/confirm`
+- `GET /health`, `GET /health/db`, `GET /health/config`
+
+Authenticated endpoints (bearer token required):
+- `GET/PUT/DELETE /users/{user_id}`
+- `GET /users/{user_id}/weight-logs`
+- `POST/GET/PUT/DELETE /weight-logs`
+- `POST/GET/PUT/DELETE /meal-logs`
+- `POST/GET/PUT/DELETE /planned-meals`
+- `POST/GET/PUT/DELETE /activity-logs`
+- `POST /chat`
+
+## Testing and Quality Gates
+
+### Frontend
+```bash
+npm run test:ci
+npm run test:coverage
+```
+
+### Backend
+```bash
+cd digital-nutritionist-backend
 python -m pytest
 ```
 
-### Automated checks
-- Local: Git hooks run tests on `pre-commit`/`pre-push` (via Husky + lint-staged).
-- CI: GitHub Actions runs frontend + backend tests on pushes/PRs and gates deploys.
-
-### Frontend only
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd digital-nutritionist-frontend
-   ```
-
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Start the development server**
-   ```bash
-   npm start
-   ```
-
-4. **Open your browser**
-   Navigate to `http://localhost:3000`
-
-### API smoke test (requires backend running)
-```bash
-npm run test:api
-```
-
-### Full workflow smoke test (requires backend running)
-Covers: signup/login, profile update, meal/planned/activity/weight CRUD, chat meal logging, logout + re-login.
+### Full workflow smoke test (requires running API)
 ```bash
 npm run test:smoke
 ```
-Notes:
-- Override API base URL with `REACT_APP_API_BASE_URL`.
-- Skip chat (if `OPENAI_API_KEY` isn’t set) with `DN_SMOKE_REQUIRE_CHAT=0`.
-- Skip cleanup with `DN_SMOKE_KEEP_DATA=1`.
 
-## 🏗️ Project Structure
+Covers:
+- signup/login
+- profile update
+- meal/planned/activity/weight CRUD
+- chat meal logging
+- logout/re-login
 
-```
-digital-nutritionist-backend/  # FastAPI backend
-docs/                          # Architecture / planning docs
-scripts/                       # Helper scripts
-src/
-├── components/          # React components
-│   ├── Layout.tsx      # Main layout with navigation
-│   ├── Dashboard.tsx   # Main dashboard view
-│   ├── Plan.tsx        # Meal planning interface
-│   ├── Reality.tsx     # Actual meal/activity logging
-│   ├── Chat.tsx        # AI coach chat interface
-│   └── Profile.tsx     # User profile management
-├── types/              # TypeScript type definitions
-│   └── index.ts        # All application types
-├── utils/              # Utility functions
-│   └── calculations.ts # Calorie and weight loss calculations
-├── data/               # Mock data and APIs
-│   └── mockData.ts     # Simulated backend data
-└── App.tsx             # Main application component
-```
+### CI
+- `.github/workflows/ci.yml` runs frontend tests + build and backend tests on push/PR/schedule
+- Deploy workflow runs tests before publishing GitHub Pages
 
-## 🎨 UI/UX Design
+## Security Notes
 
-### Design Principles
-- **Clean & Modern**: Material Design principles with custom theming
-- **Mobile-First**: Responsive design that works on all devices
-- **Intuitive Navigation**: Clear navigation with visual feedback
-- **Progress Visualization**: Charts and progress indicators for motivation
+- Do not commit secrets, API keys, or raw DB credentials.
+- Keep real secrets only in local `.env` (ignored) and hosting provider secret stores (Render/Neon/GitHub settings).
+- Hosted backend startup validates critical settings and rejects unsafe defaults.
+- Passwords are bcrypt-hashed; tokens are JWT-signed.
+- Auth/chat routes include payload size limits and in-memory rate limiting.
+- CORS is allowlist-based (`ALLOWED_ORIGINS`); keep it strict in hosted environments.
 
-### Color Scheme
-- **Primary**: Blue (#2196f3) - Trust and reliability
-- **Secondary**: Orange (#ff9800) - Energy and motivation
-- **Success**: Green (#4caf50) - Progress and achievement
-- **Background**: Light gray (#f5f5f5) - Clean and neutral
+## Known Limitations
 
-## 📊 Data Models
+- Password reset email sending is still TODO in production (non-prod logs reset link server-side).
+- Rate limiter is in-memory per process (not a distributed global limiter).
+- Chat quality depends on OpenAI availability and model behavior.
 
-### User Profile
-```typescript
-interface User {
-  id: string;
-  name: string;
-  age: number;
-  height: {
-    feet: number;
-    inches: number;
-  };
-  weight: number; // in lbs
-  gender: 'male' | 'female';
-  activityLevel: ActivityLevel;
-  targetWeight: number; // in lbs
-  targetDate: Date;
-  dailyCalorieTarget: number;
-  dailyDeficitTarget: number;
-}
-```
+## Troubleshooting
 
-### Meal Tracking
-```typescript
-interface PlannedMeal {
-  id: string;
-  name: string;
-  calories: number;
-  time: Date;
-  type: 'breakfast' | 'lunch' | 'dinner' | 'snack';
-  description?: string;
-  isPlanned: true;
-}
+- 401 or forced sign-out loops:
+  - Confirm `JWT_SECRET_KEY` is consistent for active backend instances.
+  - Clear browser storage and sign in again.
+- CORS failures:
+  - Ensure frontend origin is listed in `ALLOWED_ORIGINS`.
+- Chat unavailable:
+  - Verify `OPENAI_API_KEY` and `OPENAI_MODEL` in backend env.
+- Hosted backend using SQLite:
+  - Not supported for persistent hosted use; switch `DATABASE_URL` to Neon Postgres.
 
-interface ActualMeal {
-  id: string;
-  name: string;
-  calories: number;
-  time: Date;
-  type: 'breakfast' | 'lunch' | 'dinner' | 'snack';
-  description?: string;
-  isPlanned: false;
-  actualCalories?: number;
-  notes?: string;
-}
-```
+## Notes for New Contributors
 
-## 🔧 Configuration
+1. Start with `docker-compose.dev.yml` if you want the fastest full-stack boot.
+2. Read `digital-nutritionist-backend/.env.example` before configuring env.
+3. Use `npm run test:ci` and backend `pytest` before opening PRs.
+4. If you touch iOS behavior, verify both hosted and bundled Capacitor modes.
 
-### Environment Variables
-Currently using mock data. For production, you would need:
-- API endpoints for backend integration
-- Authentication tokens
-- Environment-specific configurations
-
-### Customization
-- **Theme**: Modify `theme` object in `App.tsx`
-- **Mock Data**: Update `mockData.ts` for different scenarios
-- **Calculations**: Adjust formulas in `calculations.ts`
-
-## 🚀 Deployment
-
-### Build for Production
-```bash
-npm run build
-```
-
-### Native iOS app (Capacitor) — “Sunday Mornings”
-
-Prereqs:
-- macOS + Xcode
-- CocoaPods (optional; only needed if you add plugins that require it)
-- Apple ID (free works; installs expire after ~7 days)
-
-Sync iOS to hosted-web mode + open the iOS project:
-```bash
-npm install
-npm run ios
-```
-
-Switch iOS back to bundled mode + open Xcode (optional fallback):
-```bash
-npm run ios:bundled
-```
-
-Fast refresh of bundled iOS web assets (without opening Xcode):
-```bash
-npm run ios:refresh
-```
-
-Sideload to your iPhone (via Xcode):
-1. Xcode opens `ios/App/App.xcworkspace`
-2. Select target **App** → **Signing & Capabilities** → pick your **Team**
-3. Plug in your phone, select it as the run destination, press **Run (▶)**
-
-Notes:
-- The iOS target bundle id is currently `com.sundaymorningsios.app` (change it in Xcode if you need a unique one).
-- `npm run ios` now configures Capacitor iOS to load the hosted frontend URL (`https://glockstock.github.io/digital-nutritionist-frontend`) via `server.url`.
-- After the app is installed once from Xcode, FE-only changes no longer need an Xcode rebuild. Push to `initial-build`, wait for the GitHub Pages workflow to finish, then relaunch the app.
-- Use `npm run build:cap` + bundled sync (`npm run ios:refresh` or `npm run ios:bundled`) only if you want offline/local bundled assets.
-- To point the hosted frontend at your hosted backend, set `REACT_APP_API_BASE_URL` to your Render service base URL (must be `https://...`) in `.env.production` (or `.env.production.local`) and push to `initial-build`.
-- If iOS appears stale after deploy, fully close and reopen the app first. If needed, in Xcode use **Product → Clean Build Folder** and reinstall once.
-- Your backend should allow both origins for CORS when you use both modes: `https://glockstock.github.io` and `capacitor://localhost`.
-- The app icon is generated from `public/favicon.png` via `assets/icon.png`. To regenerate:
-  ```bash
-  sips -z 1024 1024 public/favicon.png --out assets/icon.png
-  npx capacitor-assets generate --ios --assetPath assets --iconBackgroundColor "#ffffff"
-  npm run ios:icons
-  npm run cap:sync:ios
-  ```
-
-### iOS Home Screen Widget (Calories + Quick Log)
-
-The iOS project includes a `DailyCaloriesWidget` extension that shows today's calorie progress and quick actions for:
-- `Voice` log
-- `Camera` log
-- `Text` log
-
-Setup in Xcode (required once per signing profile):
-1. Open `ios/App/App.xcodeproj` (or workspace) in Xcode.
-2. Select target **App** → **Signing & Capabilities**:
-   - Ensure your Team is selected.
-   - Add capability **App Groups** and include `group.com.sundaymorningsios.app.shared`.
-3. Select target **DailyCaloriesWidget** → **Signing & Capabilities**:
-   - Ensure the same Team is selected.
-   - Add capability **App Groups** and include `group.com.sundaymorningsios.app.shared`.
-4. Build/run once on device.
-5. Long-press the home screen, add widget **Calories Widget**, choose size, and place it.
-
-Important for testing:
-- If your iOS app is in hosted-web mode (`npm run ios`), widget deep-link behavior and widget-data sync depend on whatever frontend is currently deployed to GitHub Pages.
-- For immediate local verification of widget changes, use bundled mode instead: `npm run ios:bundled`.
-
-How it works:
-- The app syncs today's `consumedCalories` and `targetCalories` into a shared app-group store.
-- The widget reads from that store and refreshes timelines.
-- Widget actions deep-link into `/log` with mode-specific launch params.
-
-### Free Deploy (GitHub Pages + Render)
-This repo is already set up to deploy the frontend to GitHub Pages via `gh-pages` and run the backend as a FastAPI service.
-
-1. **Deploy the backend (Render)**
-   - Create a Render **Web Service** from this GitHub repo.
-   - Set **Root Directory** to `digital-nutritionist-backend`
-   - Set **Build Command** to `pip install -r requirements.txt`
-   - Set **Start Command** to `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-   - Add env vars (at minimum): `APP_ENV=beta`, `OPENAI_API_KEY`, `JWT_SECRET_KEY`, `ALLOWED_ORIGINS` (include `https://glockstock.github.io`), and `DATABASE_URL` (Neon Postgres, include `?sslmode=require`)
-   - Verify: `https://<your-service>.onrender.com/health` returns `{"status":"ok"}`
-   - Verify DB: `https://<your-service>.onrender.com/health/db` returns `{"status":"ok"}`
-
-2. **Point the frontend at the backend**
-   - Edit `.env.production` and set `REACT_APP_API_BASE_URL` to your Render URL, e.g. `https://<your-service>.onrender.com`
-
-3. **Deploy the frontend (GitHub Pages)**
-   - Automatic: every push to `initial-build` runs `.github/workflows/deploy.yml` and publishes the latest frontend.
-   - Manual fallback:
-     ```bash
-     npm run deploy
-     ```
-
-4. **Open on mobile**
-   - Visit `https://glockstock.github.io/digital-nutritionist-frontend/` on your phone and “Add to Home Screen”.
-
-### Other Deploy Options
-- **Vercel**: Connect repository for automatic frontend deploy (set `REACT_APP_API_BASE_URL` in Vercel env vars)
-- **Netlify**: Drag and drop `build/` (or connect repo) (set `REACT_APP_API_BASE_URL` in env vars)
-
-## 🔮 Future Enhancements
-
-### Phase 2 Features
-- **Real Backend Integration**: Replace mock APIs with actual backend
-- **Photo Food Logging**: AI-powered food recognition from photos
-- **Apple Health/Google Fit Integration**: Automatic activity tracking
-- **Voice Calling**: AI coach voice interactions
-- **Community Features**: User forums and support groups
-
-### Advanced AI Features
-- **Personalized Meal Suggestions**: AI-generated meal recommendations
-- **Macronutrient Optimization**: Advanced nutrition planning
-- **Behavioral Insights**: Pattern recognition and habit analysis
-- **Predictive Analytics**: Weight loss trajectory predictions
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📝 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🙏 Acknowledgments
-
-- **Material-UI** for the excellent component library
-- **Recharts** for beautiful data visualization
-- **React Router** for seamless navigation
-- **TypeScript** for type safety and developer experience
-
-## 📞 Support
-
-For questions or support, please open an issue in the repository or contact the development team.
-
----
-
-**Digital Nutritionist AI** - Making weight loss easier and more human through AI-powered coaching.
