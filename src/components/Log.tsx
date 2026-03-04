@@ -674,6 +674,8 @@ const Log: React.FC<LogProps> = ({ user }) => {
   };
 
   const handleDeleteMeal = async (meal: PlannedMeal | ActualMeal) => {
+    void triggerSubmitHaptic();
+
     try {
       if (meal.isPlanned) {
         await apiService.deletePlannedMeal(meal.id);

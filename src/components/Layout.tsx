@@ -33,6 +33,7 @@ import {
 import { type PaletteMode } from '@mui/material/styles';
 import { User } from '../types';
 import { type ThemePreference } from '../theme';
+import { triggerSubmitHaptic } from '../services/haptics';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -310,6 +311,9 @@ const Layout: React.FC<LayoutProps> = ({
               key={item.label}
               label={item.label}
               icon={item.icon}
+              onClick={() => {
+                void triggerSubmitHaptic();
+              }}
             />
           ))}
         </BottomNavigation>
