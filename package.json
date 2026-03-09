@@ -47,14 +47,22 @@
     "cap:sync:ios": "npx cap sync ios",
     "cap:sync:ios:remote": "cross-env CAPACITOR_USE_BUNDLED_WEB=false npx cap sync ios",
     "cap:sync:ios:bundled": "cross-env CAPACITOR_USE_BUNDLED_WEB=true npx cap sync ios",
+    "cap:sync:android": "npx cap sync android",
+    "cap:sync:android:remote": "cross-env CAPACITOR_USE_BUNDLED_WEB=false npx cap sync android",
+    "cap:sync:android:bundled": "cross-env CAPACITOR_USE_BUNDLED_WEB=true npx cap sync android",
     "cap:open:ios": "npx cap open ios",
+    "cap:open:android": "npx cap open android",
     "ios:icons": "node scripts/generate-ios-icon-variants.js",
     "ios": "npm run cap:sync:ios:remote && npm run cap:open:ios",
-    "ios:bundled": "npm run build:cap && npm run cap:sync:ios:bundled && npm run cap:open:ios",
+    "ios:bundled": "npm run build:cap && npm run cap:sync:ios:bundled && npm run cap:verify:ios && npm run cap:open:ios",
+    "android": "npm run cap:sync:android:remote && npm run cap:open:android",
+    "android:bundled": "npm run build:cap && npm run cap:sync:android:bundled && npm run cap:verify:android && npm run cap:open:android",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d build",
-    "cap:verify:ios": "node scripts/verify-capacitor-sync.js",
-    "ios:refresh": "npm run build:cap && npm run cap:sync:ios:bundled && npm run cap:verify:ios"
+    "cap:verify:ios": "node scripts/verify-capacitor-sync.js ios",
+    "cap:verify:android": "node scripts/verify-capacitor-sync.js android",
+    "ios:refresh": "npm run build:cap && npm run cap:sync:ios:bundled && npm run cap:verify:ios",
+    "android:refresh": "npm run build:cap && npm run cap:sync:android:bundled && npm run cap:verify:android"
   },
   "jest": {
     "moduleNameMapper": {
@@ -94,6 +102,7 @@
     "cross-env": "^7.0.3",
     "gh-pages": "^6.3.0",
     "husky": "^9.1.7",
-    "lint-staged": "^15.2.10"
+    "lint-staged": "^15.2.10",
+    "@capacitor/android": "^8.1.0"
   }
 }

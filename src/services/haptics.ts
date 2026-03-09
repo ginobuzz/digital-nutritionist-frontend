@@ -4,8 +4,10 @@ import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 const HAPTICS_DEBUG_STORAGE_KEY = 'dn.debug.haptics';
 let hasWarnedAboutUnsupportedPlatform = false;
 
-const isNativeIos = (): boolean => {
-  return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';
+const isNativeHapticsPlatform = (): boolean => {
+  if (!Capacitor.isNativePlatform()) return false;
+  const platform = Capacitor.getPlatform();
+  return platform === 'ios' || platform === 'android';
 };
 
 const isDebugEnabled = (): boolean => {
@@ -31,7 +33,7 @@ const platformSummary = (): string => {
 };
 
 const runIfSupported = async (operation: () => Promise<void>): Promise<void> => {
-  if (!isNativeIos()) {
+  if (!isNativeHapticsPlatform()) {
     if (!hasWarnedAboutUnsupportedPlatform) {
       hasWarnedAboutUnsupportedPlatform = true;
       console.warn(`[haptics] skipped: ${platformSummary()}`);

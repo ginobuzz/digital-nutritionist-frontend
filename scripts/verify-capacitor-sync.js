@@ -4,7 +4,24 @@ const crypto = require('crypto');
 
 const root = process.cwd();
 const buildJsDir = path.join(root, 'build', 'static', 'js');
-const iosJsDir = path.join(root, 'ios', 'App', 'App', 'public', 'static', 'js');
+const platform = (process.argv[2] || 'ios').trim().toLowerCase();
+
+const platformConfig = {
+  ios: {
+    label: 'iOS',
+    bundleDir: path.join(root, 'ios', 'App', 'App', 'public', 'static', 'js'),
+    syncCommand: 'npm run cap:sync:ios',
+    refreshCommand: 'npm run build:cap && npm run cap:sync:ios',
+    studioHint: 'Then in Xcode: Product > Clean Build Folder, and rebuild the app.',
+  },
+  android: {
+    label: 'Android',
+    bundleDir: path.join(root, 'android', 'app', 'src', 'main', 'assets', 'public', 'static', 'js'),
+    syncCommand: 'npm run cap:sync:android',
+    refreshCommand: 'npm run build:cap && npm run cap:sync:android',
+    studioHint: 'Then in Android Studio: Build > Clean Project, and rebuild/reinstall the app.',
+  },
+};
 
 function latestMainBundle(dirPath) {
   if (!fs.existsSync(dirPath)) return null;
@@ -26,31 +43,37 @@ function sha256(filePath) {
   return crypto.createHash('sha256').update(fileBuffer).digest('hex');
 }
 
+if (!platformConfig[platform]) {
+  console.error(`❌ Unsupported platform '${platform}'. Use one of: ${Object.keys(platformConfig).join(', ')}.`);
+  process.exit(1);
+}
+
+const target = platformConfig[platform];
 const buildBundle = latestMainBundle(buildJsDir);
 if (!buildBundle) {
   console.error('❌ No built web bundle found. Run `npm run build:cap` first.');
   process.exit(1);
 }
 
-const iosBundle = latestMainBundle(iosJsDir);
-if (!iosBundle) {
-  console.error('❌ No iOS web bundle found. Run `npm run cap:sync:ios` first.');
+const nativeBundle = latestMainBundle(target.bundleDir);
+if (!nativeBundle) {
+  console.error(`❌ No ${target.label} web bundle found. Run \`${target.syncCommand}\` first.`);
   process.exit(1);
 }
 
 const buildHash = sha256(buildBundle.fullPath);
-const iosHash = sha256(iosBundle.fullPath);
+const nativeHash = sha256(nativeBundle.fullPath);
 
-console.log(`build bundle: ${path.relative(root, buildBundle.fullPath)}`);
-console.log(`ios bundle:   ${path.relative(root, iosBundle.fullPath)}`);
-console.log(`build hash:   ${buildHash}`);
-console.log(`ios hash:     ${iosHash}`);
+console.log(`build bundle:   ${path.relative(root, buildBundle.fullPath)}`);
+console.log(`${platform} bundle: ${path.relative(root, nativeBundle.fullPath)}`);
+console.log(`build hash:     ${buildHash}`);
+console.log(`${platform} hash:   ${nativeHash}`);
 
-if (buildHash !== iosHash) {
-  console.error('\n❌ iOS app is not using the latest web build.');
-  console.error('   Run: npm run build:cap && npm run cap:sync:ios');
-  console.error('   Then in Xcode: Product > Clean Build Folder, and rebuild the app.');
+if (buildHash !== nativeHash) {
+  console.error(`\n❌ ${target.label} app is not using the latest web build.`);
+  console.error(`   Run: ${target.refreshCommand}`);
+  console.error(`   ${target.studioHint}`);
   process.exit(1);
 }
 
-console.log('\n✅ iOS web assets match the latest build output.');
+console.log(`\n✅ ${target.label} web assets match the latest build output.`);
