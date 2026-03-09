@@ -38,8 +38,8 @@ import {
 } from '@mui/icons-material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { addDays, format, isAfter, isBefore, isValid, parseISO, startOfDay, startOfWeek } from 'date-fns';
-import { ActualMeal, PlannedMeal, User } from '../types';
-import { apiService, MealLogResponse, PlannedMealResponse, isUserNotFoundError } from '../services/api';
+import { ActualMeal, User } from '../types';
+import { apiService, isUserNotFoundError, MealLogResponse } from '../services/api';
 import { triggerSubmitHaptic, triggerSuccessHaptic } from '../services/haptics';
 import { useSearchParams } from 'react-router-dom';
 import { imageFileToDataUrl } from '../utils/images';
@@ -47,12 +47,7 @@ import { calculateDynamicWeeklyCalorieTargets, getMinimumHealthyDailyCalories } 
 import { resolveLockedTodayTarget } from '../utils/dailyTargetLock';
 import { useSpeechToText } from '../hooks/useSpeechToText';
 import { formatVoiceInputError, getUserFacingErrorMessage } from '../utils/errors';
-import { autoLogDuePlannedMeals } from '../utils/autoLogPlannedMeals';
-import {
-  parsePlannedMealDraftsFromReply,
-} from '../utils/plannedMeals';
 import MealLogInput from './MealLogInput';
-import { constrainPlannedMealDraftsToInput } from '../utils/plannedMealSelection';
 import {
   normalizeWidgetLogAction,
   syncWidgetDailyProgress,
@@ -96,16 +91,6 @@ const mapMealLogToActualMeal = (log: MealLogResponse): ActualMeal => {
   };
 };
 
-const mapPlannedMealResponse = (meal: PlannedMealResponse): PlannedMeal => ({
-  id: String(meal.id),
-  name: meal.name,
-  calories: meal.calories,
-  type: normalizeMealType(meal.meal_type),
-  description: meal.description || undefined,
-  time: parseBackendDateTime(meal.time),
-  isPlanned: true,
-});
-
 interface LogProps {
   user: User;
 }
@@ -117,32 +102,21 @@ const Log: React.FC<LogProps> = ({ user }) => {
   const describePhotoInputRef = useRef<HTMLInputElement | null>(null);
   const handledWidgetActionRef = useRef<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [plannedMeals, setPlannedMeals] = useState<PlannedMeal[]>([]);
   const [actualMeals, setActualMeals] = useState<ActualMeal[]>([]);
   const [weeklyTargetsByDate, setWeeklyTargetsByDate] = useState<Record<string, number>>({});
   const [weeklyOverBudgetBy, setWeeklyOverBudgetBy] = useState(0);
   const [loading, setLoading] = useState(true);
   const [mealDialogOpen, setMealDialogOpen] = useState(false);
   const [logDialogOpen, setLogDialogOpen] = useState(false);
-  const [planDialogOpen, setPlanDialogOpen] = useState(false);
   const [describeInput, setDescribeInput] = useState('');
   const [mealType, setMealType] = useState<MealType>('');
-  const [planMealType, setPlanMealType] = useState<MealType>('');
   const [describeReply, setDescribeReply] = useState<string | null>(null);
   const [describeImageDataUrl, setDescribeImageDataUrl] = useState<string | null>(null);
   const [logError, setLogError] = useState<string | null>(null);
   const [sendingDescribeLog, setSendingDescribeLog] = useState(false);
   const [logDictationBaseText, setLogDictationBaseText] = useState('');
   const [logVoiceError, setLogVoiceError] = useState<string | null>(null);
-  const [planDescribeInput, setPlanDescribeInput] = useState('');
-  const [planDescribeImageDataUrl, setPlanDescribeImageDataUrl] = useState<string | null>(null);
-  const [planDescribeReply, setPlanDescribeReply] = useState<string | null>(null);
-  const [planDictationBaseText, setPlanDictationBaseText] = useState('');
-  const [planVoiceError, setPlanVoiceError] = useState<string | null>(null);
-  const [planError, setPlanError] = useState<string | null>(null);
-  const [sendingDescribePlan, setSendingDescribePlan] = useState(false);
-  const [editingMeal, setEditingMeal] = useState<PlannedMeal | ActualMeal | null>(null);
-  const [isEditingPlanned, setIsEditingPlanned] = useState(false);
+  const [editingMeal, setEditingMeal] = useState<ActualMeal | null>(null);
   const [deleteToast, setDeleteToast] = useState<{
     message: string;
     severity: 'success' | 'error';
@@ -154,11 +128,10 @@ const Log: React.FC<LogProps> = ({ user }) => {
     protein: '',
     carbs: '',
     fat: '',
-    type: 'breakfast' as PlannedMeal['type'] | ActualMeal['type'],
+    type: 'breakfast' as ActualMeal['type'],
     description: '',
     time: '',
     notes: '',
-    isPlanned: true
   });
 
   const {
@@ -172,16 +145,6 @@ const Log: React.FC<LogProps> = ({ user }) => {
     reset: resetLogVoice,
   } = useSpeechToText({ lang: 'en-US', continuous: false, interimResults: true });
 
-  const {
-    supported: planVoiceSupported,
-    isListening: planVoiceListening,
-    interimTranscript: planInterimTranscript,
-    finalTranscript: planFinalTranscript,
-    error: planVoiceRawError,
-    start: startPlanVoice,
-    stop: stopPlanVoice,
-    reset: resetPlanVoice,
-  } = useSpeechToText({ lang: 'en-US', continuous: false, interimResults: true });
 
   useEffect(() => {
     const transcript = [logFinalTranscript, logInterimTranscript].filter(Boolean).join(' ').trim();
@@ -196,18 +159,6 @@ const Log: React.FC<LogProps> = ({ user }) => {
     setLogVoiceError(formatVoiceInputError(logVoiceRawError));
   }, [logVoiceRawError]);
 
-  useEffect(() => {
-    const transcript = [planFinalTranscript, planInterimTranscript].filter(Boolean).join(' ').trim();
-    if (!planDictationBaseText && !transcript) return;
-
-    const needsSpace = planDictationBaseText.length > 0 && !/\s$/.test(planDictationBaseText);
-    setPlanDescribeInput(`${planDictationBaseText}${needsSpace && transcript ? ' ' : ''}${transcript}`);
-  }, [planDictationBaseText, planFinalTranscript, planInterimTranscript]);
-
-  useEffect(() => {
-    if (!planVoiceRawError) return;
-    setPlanVoiceError(formatVoiceInputError(planVoiceRawError));
-  }, [planVoiceRawError]);
 
   const handleToggleLogVoice = useCallback(() => {
     setLogVoiceError(null);
@@ -238,25 +189,6 @@ const Log: React.FC<LogProps> = ({ user }) => {
     stopLogVoice,
   ]);
 
-  const handleTogglePlanVoice = () => {
-    setPlanVoiceError(null);
-
-    if (!planVoiceSupported) {
-      setPlanVoiceError(formatVoiceInputError('unsupported'));
-      return;
-    }
-
-    if (planVoiceListening) {
-      stopPlanVoice();
-      return;
-    }
-
-    resetPlanVoice();
-    setPlanDictationBaseText(planDescribeInput);
-    if (planDescribeReply) setPlanDescribeReply(null);
-    if (planError) setPlanError(null);
-    startPlanVoice();
-  };
 
   const fetchLogData = useCallback(async () => {
     try {
@@ -273,22 +205,8 @@ const Log: React.FC<LogProps> = ({ user }) => {
           ? addDays(weekEnd, 1)
           : addDays(today, 1);
 
-      const [fetchedPlannedWeek, fetchedActualWeek] = await Promise.all([
-        apiService.getPlannedMeals({ userId: user.id, start: weekStart, end: weekEnd }),
-        apiService.getMealLogs({ userId: user.id, start: weekStart, end: weekEnd }),
-      ]);
-      const { logs: actualWeek, plannedMeals: plannedWeek } = await autoLogDuePlannedMeals({
-        api: apiService,
-        userId: user.id,
-        today,
-        logs: fetchedActualWeek,
-        plannedMeals: fetchedPlannedWeek,
-        onError: (error, context) => {
-          console.error(`Error auto-logging planned meal (${context.action}):`, error);
-        },
-      });
+      const actualWeek = await apiService.getMealLogs({ userId: user.id, start: weekStart, end: weekEnd });
 
-      setPlannedMeals(plannedWeek.filter((meal) => meal.date === selectedKey).map(mapPlannedMealResponse));
       setActualMeals(actualWeek.filter((log) => log.date === selectedKey).map(mapMealLogToActualMeal));
 
       const actualCaloriesByDate: Record<string, number> = {};
@@ -299,11 +217,6 @@ const Log: React.FC<LogProps> = ({ user }) => {
       }
 
       const plannedCaloriesByDate: Record<string, number> = {};
-      for (const meal of plannedWeek) {
-        const key = meal.date;
-        const cals = Number(meal.calories || 0);
-        plannedCaloriesByDate[key] = (plannedCaloriesByDate[key] || 0) + cals;
-      }
 
       const minDailyTarget = getMinimumHealthyDailyCalories(user.gender);
       let lockedTodayTarget: number | null = null;
@@ -373,12 +286,9 @@ const Log: React.FC<LogProps> = ({ user }) => {
   };
 
   const dialogBusy = sendingDescribeLog;
-  const planDialogBusy = sendingDescribePlan;
   const selectedKey = toIsoDate(selectedDate);
 
   const openLogDialog = useCallback((targetDate?: Date) => {
-    const activeDate = targetDate ?? selectedDate;
-    if (toIsoDate(activeDate) > toIsoDate(new Date())) return;
     if (targetDate && toIsoDate(targetDate) !== toIsoDate(selectedDate)) {
       setSelectedDate(targetDate);
     }
@@ -403,15 +313,13 @@ const Log: React.FC<LogProps> = ({ user }) => {
 
     const dateParam = searchParams.get(WIDGET_DEEP_LINK_DATE_QUERY_KEY);
     const parsed = dateParam ? parseISO(dateParam) : new Date();
-    const requestedDate = isValid(parsed) ? startOfDay(parsed) : startOfDay(new Date());
-    const today = startOfDay(new Date());
-    const safeDate = isAfter(requestedDate, today) ? today : requestedDate;
-    const actionKey = `${action}:${toIsoDate(safeDate)}`;
+    const targetDate = isValid(parsed) ? startOfDay(parsed) : startOfDay(new Date());
+    const actionKey = `${action}:${toIsoDate(targetDate)}`;
 
     if (handledWidgetActionRef.current === actionKey) return;
     handledWidgetActionRef.current = actionKey;
 
-    openLogDialog(safeDate);
+    openLogDialog(targetDate);
 
     if (action === 'voice') {
       window.setTimeout(() => {
@@ -437,19 +345,6 @@ const Log: React.FC<LogProps> = ({ user }) => {
     setSearchParams(nextParams, { replace: true });
   }, [handleToggleLogVoice, openLogDialog, searchParams, setSearchParams]);
 
-  const openPlanDialog = () => {
-    if (toIsoDate(selectedDate) <= toIsoDate(new Date())) return;
-    stopPlanVoice();
-    resetPlanVoice();
-    setPlanDictationBaseText('');
-    setPlanVoiceError(null);
-    setPlanError(null);
-    setPlanDescribeReply(null);
-    setPlanDescribeInput('');
-    setPlanDescribeImageDataUrl(null);
-    setPlanMealType('');
-    setPlanDialogOpen(true);
-  };
 
   const handleCloseLogDialog = () => {
     if (!dialogBusy) {
@@ -460,16 +355,6 @@ const Log: React.FC<LogProps> = ({ user }) => {
     }
   };
 
-  const handleClosePlanDialog = () => {
-    if (!planDialogBusy) {
-      stopPlanVoice();
-      setPlanDialogOpen(false);
-      setPlanError(null);
-      setPlanVoiceError(null);
-      setPlanMealType('');
-      setPlanDescribeImageDataUrl(null);
-    }
-  };
 
   const handleDescribeMealLog = async () => {
     if (!describeInput.trim() && !describeImageDataUrl) {
@@ -535,143 +420,32 @@ const Log: React.FC<LogProps> = ({ user }) => {
     }
   };
 
-  const handleAttachPlanImage = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
-
-    try {
-      const dataUrl = await imageFileToDataUrl(file);
-      setPlanDescribeImageDataUrl(dataUrl);
-      setPlanError(null);
-      if (planDescribeReply) setPlanDescribeReply(null);
-    } catch (error) {
-      console.error('Unable to attach image:', error);
-      setPlanError('We couldn’t read that photo. Try a different image.');
-    }
-  };
-
-  const handleDescribeMealPlan = async () => {
-    if (!planDescribeInput.trim() && !planDescribeImageDataUrl) {
-      setPlanError('Describe what you’d like to eat or attach a meal photo so I can build a plan.');
-      return;
-    }
-
-    let lastReply = '';
-    try {
-      setSendingDescribePlan(true);
-      setPlanError(null);
-      setPlanDescribeReply(null);
-      void triggerSubmitHaptic();
-
-      const calorieTarget = weeklyTargetsByDate[selectedKey] ?? Number(user.dailyCalorieTarget || 0);
-      const prompt = [
-        `Extract planned meals for ${selectedKey} from the user text.`,
-        `Return ONLY a JSON array (no markdown, no commentary).`,
-        `Each item must have: name (string), calories (integer), meal_type ("breakfast"|"lunch"|"dinner"|"snack"), time ("HH:MM" 24h), description (string|null).`,
-        ...(planMealType ? [`Meal type: ${planMealType}.`] : []),
-        planDescribeImageDataUrl ? `A meal photo is attached. Use it to identify foods and portions.` : null,
-        `Only include meals that are explicitly described in the user text.`,
-        `Do not invent extra meals to fill the day or hit a calorie target.`,
-        calorieTarget > 0
-          ? `Estimate calories for each included meal using a reasonable range around the user's details (daily target is ${Math.round(calorieTarget)} for context only).`
-          : `Use reasonable calorie estimates for each included meal.`,
-        ``,
-        planDescribeInput.trim() || '(No additional text — use the meal photo.)',
-      ].join('\n');
-
-      const response = await apiService.chat({
-        message: prompt,
-        user_id: user.id,
-        client_local_date: toIsoDate(new Date()),
-        client_time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        image_data_url: planDescribeImageDataUrl ?? undefined,
-      });
-
-      void triggerSuccessHaptic();
-      lastReply = response.reply || '';
-      const drafts = constrainPlannedMealDraftsToInput(
-        parsePlannedMealDraftsFromReply(lastReply),
-        planMealType ? `${planDescribeInput} ${planMealType}` : planDescribeInput
-      );
-      if (drafts.length === 0) {
-        setPlanDescribeReply(lastReply || 'No response.');
-        throw new Error('I couldn’t make a meal plan from that. Try adding a little more detail and try again.');
-      }
-
-      await Promise.all(
-        drafts.map((draft) =>
-          apiService.createPlannedMeal({
-            user_id: user.id,
-            date: selectedKey,
-            name: draft.name,
-            calories: draft.calories,
-            meal_type: draft.meal_type,
-            description: draft.description,
-            time: new Date(`${selectedKey}T${draft.time}:00`).toISOString(),
-          })
-        )
-      );
-
-      setPlanDialogOpen(false);
-      setPlanDescribeInput('');
-      setPlanDescribeImageDataUrl(null);
-      await fetchLogData();
-    } catch (error) {
-      if (isUserNotFoundError(error)) {
-        return;
-      }
-      setPlanError(
-        getUserFacingErrorMessage(error, {
-          action: 'generate that meal plan',
-          fallback: 'I couldn’t generate a meal plan right now. Please try again.',
-        })
-      );
-      if (lastReply) {
-        setPlanDescribeReply(lastReply);
-      }
-    } finally {
-      setSendingDescribePlan(false);
-    }
-  };
-
   // Meal handlers
-  const handleEditMeal = (meal: PlannedMeal | ActualMeal) => {
+  const handleEditMeal = (meal: ActualMeal) => {
     setEditingMeal(meal);
-    setIsEditingPlanned(meal.isPlanned);
-    const macros = meal.isPlanned
-      ? { protein: '', carbs: '', fat: '' }
-      : {
-          protein: (meal as ActualMeal).proteinGrams?.toString() || '',
-          carbs: (meal as ActualMeal).carbsGrams?.toString() || '',
-          fat: (meal as ActualMeal).fatGrams?.toString() || '',
-        };
     setMealFormData({
       name: meal.name,
-      calories: (meal as ActualMeal).actualCalories?.toString() || meal.calories.toString(),
-      ...macros,
+      calories: (meal.actualCalories || meal.calories).toString(),
+      protein: meal.proteinGrams?.toString() || '',
+      carbs: meal.carbsGrams?.toString() || '',
+      fat: meal.fatGrams?.toString() || '',
       type: meal.type,
       description: meal.description || '',
-      time: new Date(meal.time).toLocaleTimeString('en-US', { 
-        hour12: false, 
-        hour: '2-digit', 
-        minute: '2-digit' 
+      time: new Date(meal.time).toLocaleTimeString('en-US', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit'
       }),
-      notes: (meal as ActualMeal).notes || '',
-      isPlanned: meal.isPlanned
+      notes: meal.notes || '',
     });
     setMealDialogOpen(true);
   };
 
-  const handleDeleteMeal = async (meal: PlannedMeal | ActualMeal) => {
+  const handleDeleteMeal = async (meal: ActualMeal) => {
     void triggerSubmitHaptic();
 
     try {
-      if (meal.isPlanned) {
-        await apiService.deletePlannedMeal(meal.id);
-      } else {
-        await apiService.deleteMealLog(meal.id);
-      }
+      await apiService.deleteMealLog(meal.id);
       await fetchLogData();
       setDeleteToast({
         message: `${meal.name} deleted.`,
@@ -707,46 +481,25 @@ const Log: React.FC<LogProps> = ({ user }) => {
           return Math.max(0, Math.min(500, value));
         };
 
-        if (mealFormData.isPlanned) {
-          if (editingMeal && editingMeal.isPlanned) {
-            await apiService.updatePlannedMeal(editingMeal.id, {
-              name: mealFormData.name,
-              calories,
-              meal_type: mealFormData.type,
-              description: mealFormData.description || null,
-              time: time.toISOString(),
-            });
-          } else {
-            await apiService.createPlannedMeal({
-              user_id: user.id,
-              date: isoDate,
-              name: mealFormData.name,
-              calories,
-              meal_type: mealFormData.type,
-              description: mealFormData.description || null,
-              time: time.toISOString(),
-            });
-          }
+        const baseDescription = mealFormData.description
+          ? `${mealFormData.name} - ${mealFormData.description}`
+          : mealFormData.name;
+        const userDescription = mealFormData.notes ? `${baseDescription} (Note: ${mealFormData.notes})` : baseDescription;
+        const protein = parseOptionalMacroGrams(mealFormData.protein);
+        const carbs = parseOptionalMacroGrams(mealFormData.carbs);
+        const fat = parseOptionalMacroGrams(mealFormData.fat);
+        if (editingMeal) {
+          await apiService.updateMealLog(editingMeal.id, {
+            user_description: userDescription,
+            meal_type: mealFormData.type,
+            estimated_calories: calories,
+            protein_g: protein,
+            carbs_g: carbs,
+            fat_g: fat,
+            time: time.toISOString(),
+          });
         } else {
-          const baseDescription = mealFormData.description
-            ? `${mealFormData.name} - ${mealFormData.description}`
-            : mealFormData.name;
-          const userDescription = mealFormData.notes ? `${baseDescription} (Note: ${mealFormData.notes})` : baseDescription;
-          const protein = parseOptionalMacroGrams(mealFormData.protein);
-          const carbs = parseOptionalMacroGrams(mealFormData.carbs);
-          const fat = parseOptionalMacroGrams(mealFormData.fat);
-          if (editingMeal && !editingMeal.isPlanned) {
-            await apiService.updateMealLog(editingMeal.id, {
-              user_description: userDescription,
-              meal_type: mealFormData.type,
-              estimated_calories: calories,
-              protein_g: protein,
-              carbs_g: carbs,
-              fat_g: fat,
-              time: time.toISOString(),
-            });
-          } else {
-            await apiService.createMealLog({
+          await apiService.createMealLog({
               user_id: user.id,
               date: isoDate,
               user_description: userDescription,
@@ -757,7 +510,6 @@ const Log: React.FC<LogProps> = ({ user }) => {
               fat_g: fat,
               time: time.toISOString(),
             });
-          }
         }
 
         setMealDialogOpen(false);
@@ -779,7 +531,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
     })();
   };
 
-  const getMealTypeIcon = (type: PlannedMeal['type'] | ActualMeal['type']) => {
+  const getMealTypeIcon = (type: ActualMeal['type']) => {
     switch (type) {
       case 'breakfast':
         return '🌅';
@@ -794,7 +546,6 @@ const Log: React.FC<LogProps> = ({ user }) => {
     }
   };
 
-  const totalPlannedCalories = plannedMeals.reduce((sum, meal) => sum + meal.calories, 0);
   const totalActualCalories = actualMeals.reduce((sum, meal) => sum + (meal.actualCalories || meal.calories), 0);
   const macroTotals = actualMeals.reduce(
     (totals, meal) => ({
@@ -813,7 +564,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
   const isToday = selectedDate.toDateString() === new Date().toDateString();
   const isPast = selectedDate < new Date(new Date().setHours(0, 0, 0, 0));
   const isFuture = selectedDate > new Date(new Date().setHours(23, 59, 59, 999));
-  const displayedCalories = isFuture ? totalPlannedCalories : totalActualCalories;
+  const displayedCalories = totalActualCalories;
   const baseCalorieTarget = Number(user.dailyCalorieTarget || 0);
   const calorieTarget = weeklyTargetsByDate[selectedKey] ?? baseCalorieTarget;
   const roundedBaseTarget = Math.round(baseCalorieTarget);
@@ -825,11 +576,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
   const caloriesOver = displayedCalories - calorieTarget;
   const caloriesRemaining = calorieTarget - displayedCalories;
   const progressValue = calorieTarget > 0 ? Math.min((displayedCalories / calorieTarget) * 100, 100) : 0;
-  const progressColor = isFuture
-    ? theme.palette.info.main
-    : caloriesOver > 0
-      ? theme.palette.error.main
-      : theme.palette.success.main;
+  const progressColor = caloriesOver > 0 ? theme.palette.error.main : theme.palette.success.main;
 
   if (loading) {
     return <LinearProgress />;
@@ -886,17 +633,15 @@ const Log: React.FC<LogProps> = ({ user }) => {
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1.5 }}>
                 <Box sx={{ minWidth: 0 }}>
                   <Typography variant="overline" sx={{ color: 'text.secondary', lineHeight: 1 }}>
-                    {isFuture ? 'Planned' : 'Consumed'}
+                    Consumed
                   </Typography>
                   <Typography variant="h5" sx={{ lineHeight: 1.1 }}>
                     {Math.round(displayedCalories)} / {Math.round(calorieTarget)} kcal
                   </Typography>
                   <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
-                    {isFuture
-                    ? `${Math.max(0, Math.round(caloriesRemaining))} kcal available to plan`
-                      : caloriesOver > 0
-                        ? `Over by ${Math.round(caloriesOver)} kcal`
-                        : `${Math.max(0, Math.round(caloriesRemaining))} kcal left`}
+                    {caloriesOver > 0
+                    ? `Over by ${Math.round(caloriesOver)} kcal`
+                    : `${Math.max(0, Math.round(caloriesRemaining))} kcal left`}
                   </Typography>
                 </Box>
               </Box>
@@ -935,8 +680,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
             </CardContent>
           </Card>
 
-          {!isFuture && (
-            <Card sx={{ flex: 1 }}>
+          <Card sx={{ flex: 1 }}>
               <CardContent sx={{ p: 2.5 }}>
                 <Typography variant="overline" sx={{ color: 'text.secondary', lineHeight: 1 }}>
                   Macros
@@ -971,9 +715,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
                   </Typography>
                 )}
               </CardContent>
-            </Card>
-          )}
-          
+          </Card>
         </Box>
 
         {/* Meals */}
@@ -982,51 +724,40 @@ const Log: React.FC<LogProps> = ({ user }) => {
             <Box sx={{ p: 2 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5, mb: 2 }}>
                 <Typography variant="h6">
-                  {isFuture ? 'Planned Meals' : 'Meals'}
+                  Meals
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 1 }}>
-                  {isFuture ? (
-                    <Button
-                      variant="contained"
-                      startIcon={<Add />}
-                      onClick={openPlanDialog}
-                      sx={{ width: { xs: '100%', sm: 'auto' } }}
-                    >
-                      Plan Meal
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="contained"
-                      startIcon={<Add />}
-                      onClick={() => openLogDialog()}
-                      sx={{ width: { xs: '100%', sm: 'auto' } }}
-                    >
-                      Log Meal
-                    </Button>
-                  )}
+                  <Button
+                    variant="contained"
+                    startIcon={<Add />}
+                    onClick={() => openLogDialog()}
+                    sx={{ width: { xs: '100%', sm: 'auto' } }}
+                  >
+                    Log Meal
+                  </Button>
                 </Box>
               </Box>
 
-              {plannedMeals.length === 0 && actualMeals.length === 0 ? (
+              {actualMeals.length === 0 ? (
                 <Box sx={{ textAlign: 'center', py: 4 }}>
                   <LocalDining sx={{ fontSize: 64, color: 'grey.400', mb: 2 }} />
                   <Typography variant="h6" color="text.secondary" gutterBottom>
-                    {isFuture ? 'No meals planned yet' : 'No meals logged yet'}
+                    No meals logged yet
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {isFuture ? 'Start by planning your meals for this day' : 'Start by logging what you ate'}
+                    Start by logging what you ate
                   </Typography>
                 </Box>
               ) : (
                 <List>
-                  {(isFuture ? [...plannedMeals] : [...actualMeals, ...plannedMeals])
+                  {[...actualMeals]
                     .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
                     .map((meal) => (
                     <ListItem
                       key={meal.id}
                       sx={{
                         border: '1px solid',
-                        borderColor: meal.isPlanned ? 'primary.main' : 'secondary.main',
+                        borderColor: 'divider',
                         borderRadius: 1,
                         mb: 1,
                         overflow: 'hidden',
@@ -1038,7 +769,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
                     >
                       <ListItemAvatar sx={{ alignSelf: { xs: 'flex-start', sm: 'center' } }}>
                         <Avatar sx={{ 
-                          bgcolor: meal.isPlanned ? 'primary.light' : 'secondary.light' 
+                          bgcolor: 'secondary.light' 
                         }}>
                           {getMealTypeIcon(meal.type)}
                         </Avatar>
@@ -1085,16 +816,11 @@ const Log: React.FC<LogProps> = ({ user }) => {
                               <Chip
                                 label={meal.type}
                                 size="small"
-                                color={meal.isPlanned ? 'primary' : 'secondary'}
+                                color="secondary"
                                 variant="outlined"
                                 sx={{ textTransform: 'capitalize' }}
                               />
-                              <Chip
-                                label={meal.isPlanned ? 'Planned' : 'Logged'}
-                                size="small"
-                                color={meal.isPlanned ? 'info' : 'success'}
-                                variant="outlined"
-                              />
+
                             </Box>
                           </Box>
                         }
@@ -1103,8 +829,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
                             <Typography variant="body2" color="text.secondary">
                               {Math.round((meal as ActualMeal).actualCalories || meal.calories)} calories
                             </Typography>
-                            {!meal.isPlanned &&
-                              (((meal as ActualMeal).proteinGrams != null) ||
+                            {(((meal as ActualMeal).proteinGrams != null) ||
                                 ((meal as ActualMeal).carbsGrams != null) ||
                                 ((meal as ActualMeal).fatGrams != null)) && (
                                 <Typography variant="body2" color="text.secondary">
@@ -1184,11 +909,58 @@ const Log: React.FC<LogProps> = ({ user }) => {
           </CardContent>
         </Card>
 
+        {/* Log Dialog */}
+        <Dialog open={logDialogOpen} onClose={handleCloseLogDialog} maxWidth="sm" fullWidth>
+          <DialogTitle>
+            Log Meal — {format(selectedDate, 'EEEE, MMM d')}
+          </DialogTitle>
+          <DialogContent>
+            {logError && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {logError}
+              </Alert>
+            )}
+            <MealLogInput
+              value={describeInput}
+              onChange={(v) => {
+                setDescribeInput(v);
+                if (describeReply) setDescribeReply(null);
+                if (logError) setLogError(null);
+              }}
+              onSubmit={() => void handleDescribeMealLog()}
+              imageDataUrl={describeImageDataUrl}
+              onImageRemove={() => setDescribeImageDataUrl(null)}
+              onImageAttach={handleAttachDescribeImage}
+              mealType={mealType}
+              onMealTypeChange={setMealType}
+              voiceListening={logVoiceListening}
+              voiceError={logVoiceError}
+              onVoiceToggle={handleToggleLogVoice}
+              busy={dialogBusy}
+              reply={describeReply}
+              inputRef={describeFieldRef}
+              photoInputRef={describePhotoInputRef}
+              radioGroupName="log-meal-type"
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseLogDialog} disabled={dialogBusy}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => void handleDescribeMealLog()}
+              variant="contained"
+              disabled={dialogBusy || logVoiceListening || (!describeInput.trim() && !describeImageDataUrl)}
+            >
+              {dialogBusy ? 'Logging…' : 'Log Meal'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
         {/* Meal Dialog */}
         <Dialog open={mealDialogOpen} onClose={() => setMealDialogOpen(false)} maxWidth="sm" fullWidth>
           <DialogTitle>
-            {editingMeal ? `Edit ${isEditingPlanned ? 'Planned' : 'Logged'} Meal` : 
-             `Add ${isEditingPlanned ? 'Planned' : 'Logged'} Meal`}
+            {editingMeal ? 'Edit Meal' : 'Add Meal'}
           </DialogTitle>
           <DialogContent>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
@@ -1209,8 +981,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
                 required
               />
 
-              {!isEditingPlanned && (
-                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
                   <TextField
                     label="Protein (g)"
                     type="number"
@@ -1236,14 +1007,13 @@ const Log: React.FC<LogProps> = ({ user }) => {
                     fullWidth
                   />
                 </Box>
-              )}
               
               <FormControl fullWidth>
                 <InputLabel>Meal Type</InputLabel>
                 <Select
                   value={mealFormData.type}
                   label="Meal Type"
-                  onChange={(e) => setMealFormData(prev => ({ ...prev, type: e.target.value as PlannedMeal['type'] | ActualMeal['type'] }))}
+                  onChange={(e) => setMealFormData(prev => ({ ...prev, type: e.target.value as ActualMeal['type'] }))}
                 >
                   <MenuItem value="breakfast">Breakfast</MenuItem>
                   <MenuItem value="lunch">Lunch</MenuItem>
@@ -1261,8 +1031,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
                 rows={2}
               />
               
-              {!isEditingPlanned && (
-                <TextField
+              <TextField
                   label="Notes (optional)"
                   value={mealFormData.notes}
                   onChange={(e) => setMealFormData(prev => ({ ...prev, notes: e.target.value }))}
@@ -1271,7 +1040,6 @@ const Log: React.FC<LogProps> = ({ user }) => {
                   rows={2}
                   placeholder="Any notes about this meal..."
                 />
-              )}
               
               <TextField
                 label="Time"
@@ -1312,97 +1080,6 @@ const Log: React.FC<LogProps> = ({ user }) => {
           </Alert>
         </Snackbar>
 
-        {/* Plan Dialog (Future Days) */}
-        <Dialog open={planDialogOpen} onClose={handleClosePlanDialog} maxWidth="xs" fullWidth>
-          <DialogTitle>Plan Food ({format(selectedDate, 'EEE M/d')})</DialogTitle>
-          <DialogContent sx={{ pt: 1 }}>
-            {planError && (
-              <Alert severity="error" sx={{ mb: 2 }}>
-                {planError}
-              </Alert>
-            )}
-            <MealLogInput
-              value={planDescribeInput}
-              onChange={(v) => {
-                setPlanDescribeInput(v);
-                if (planDescribeReply) setPlanDescribeReply(null);
-                if (planError) setPlanError(null);
-              }}
-              onSubmit={() => void handleDescribeMealPlan()}
-              imageDataUrl={planDescribeImageDataUrl}
-              onImageRemove={() => setPlanDescribeImageDataUrl(null)}
-              onImageAttach={handleAttachPlanImage}
-              mealType={planMealType}
-              onMealTypeChange={setPlanMealType}
-              voiceListening={planVoiceListening}
-              voiceError={planVoiceError}
-              onVoiceToggle={handleTogglePlanVoice}
-              busy={planDialogBusy || Boolean(planDescribeReply)}
-              reply={planDescribeReply}
-              radioGroupName="plan-meal-type"
-              textFieldLabel="Describe what you want to eat"
-              placeholder="Example: Scrambled eggs with toast and an apple at 8:00 AM"
-            />
-          </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={handleClosePlanDialog} disabled={planDialogBusy}>
-              {planDescribeReply ? 'Close' : 'Cancel'}
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handleDescribeMealPlan}
-              disabled={planDialogBusy || planVoiceListening || Boolean(planDescribeReply)}
-            >
-              {sendingDescribePlan ? 'Sending...' : 'Send'}
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Dashboard-style Log Dialog */}
-        <Dialog open={logDialogOpen} onClose={handleCloseLogDialog} maxWidth="sm" fullWidth>
-          <DialogTitle>Log Food ({isToday ? 'Today' : format(selectedDate, 'EEE M/d')})</DialogTitle>
-          <DialogContent sx={{ pt: 1 }}>
-            {logError && (
-              <Alert severity="error" sx={{ mb: 2 }}>
-                {logError}
-              </Alert>
-            )}
-            <MealLogInput
-              value={describeInput}
-              onChange={(v) => {
-                setDescribeInput(v);
-                if (describeReply) setDescribeReply(null);
-                if (logError) setLogError(null);
-              }}
-              onSubmit={() => void handleDescribeMealLog()}
-              imageDataUrl={describeImageDataUrl}
-              onImageRemove={() => setDescribeImageDataUrl(null)}
-              onImageAttach={handleAttachDescribeImage}
-              mealType={mealType}
-              onMealTypeChange={setMealType}
-              voiceListening={logVoiceListening}
-              voiceError={logVoiceError}
-              onVoiceToggle={handleToggleLogVoice}
-              busy={dialogBusy}
-              reply={describeReply}
-              inputRef={describeFieldRef}
-              photoInputRef={describePhotoInputRef}
-              radioGroupName="log-meal-type"
-            />
-          </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={handleCloseLogDialog} disabled={dialogBusy}>
-              {describeReply ? 'Close' : 'Cancel'}
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handleDescribeMealLog}
-              disabled={dialogBusy || logVoiceListening || !(describeInput.trim() || describeImageDataUrl)}
-            >
-              {sendingDescribeLog ? 'Sending...' : 'Send'}
-            </Button>
-          </DialogActions>
-        </Dialog>
       </Box>
     </LocalizationProvider>
   );

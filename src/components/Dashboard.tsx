@@ -32,7 +32,6 @@ import { resolveLockedTodayTarget } from '../utils/dailyTargetLock';
 import { useSpeechToText } from '../hooks/useSpeechToText';
 import { formatVoiceInputError, getUserFacingErrorMessage } from '../utils/errors';
 import { syncWidgetDailyProgress } from '../services/widgetBridge';
-import { autoLogDuePlannedMeals } from '../utils/autoLogPlannedMeals';
 import SundayFreshStartDialog from './SundayFreshStartDialog';
 import SignupWelcomeDialog from './SignupWelcomeDialog';
 import MealLogInput from './MealLogInput';
@@ -50,7 +49,6 @@ interface DayEntry {
   label: string;
   kind: DayKind;
   actualCalories: number;
-  plannedCalories: number;
 }
 
 type MealType = '' | 'breakfast' | 'lunch' | 'dinner' | 'snack';
@@ -107,7 +105,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   const [loading, setLoading] = useState(true);
   const [dayEntries, setDayEntries] = useState<DayEntry[]>([]);
   const [actualCaloriesByDate, setActualCaloriesByDate] = useState<Record<string, number>>({});
-  const [plannedCaloriesByDate, setPlannedCaloriesByDate] = useState<Record<string, number>>({});
   const [macroTotalsByDate, setMacroTotalsByDate] = useState<
     Record<
       string,
@@ -255,20 +252,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       const weekStart = startOfWeek(today, { weekStartsOn: 0 }); // Sunday
       const weekEnd = addDays(weekStart, WEEK_LENGTH_DAYS - 1);
 
-      const [fetchedLogs, fetchedPlannedMeals] = await Promise.all([
-        apiService.getMealLogs({ userId, start: weekStart, end: weekEnd }),
-        apiService.getPlannedMeals({ userId: String(userId), start: weekStart, end: weekEnd }),
-      ]);
-      const { logs, plannedMeals } = await autoLogDuePlannedMeals({
-        api: apiService,
-        userId,
-        today,
-        logs: fetchedLogs,
-        plannedMeals: fetchedPlannedMeals,
-        onError: (error, context) => {
-          console.error(`Error auto-logging planned meal (${context.action}):`, error);
-        },
-      });
+      const logs = await apiService.getMealLogs({ userId, start: weekStart, end: weekEnd });
 
       const nextActualByDate: Record<string, number> = {};
       const nextMacrosByDate: Record<
@@ -300,13 +284,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
         nextMacrosByDate[key] = entry;
       }
 
-      const nextPlannedByDate: Record<string, number> = {};
-      for (const meal of plannedMeals) {
-        const key = meal.date; // YYYY-MM-DD
-        const cals = Number(meal.calories || 0);
-        nextPlannedByDate[key] = (nextPlannedByDate[key] || 0) + cals;
-      }
-
       const baseDailyTarget = Math.round(user.dailyCalorieTarget || 0);
       const minHealthyDailyTarget = getMinimumHealthyDailyCalories(user.gender);
       const resolvedLockedTodayTarget = resolveLockedTodayTarget({
@@ -316,7 +293,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
         dailyTarget: baseDailyTarget,
         minDailyTarget: minHealthyDailyTarget,
         actualCaloriesByDate: nextActualByDate,
-        plannedCaloriesByDate: nextPlannedByDate,
+        plannedCaloriesByDate: {},
       });
 
       const entries: DayEntry[] = Array.from({ length: WEEK_LENGTH_DAYS }, (_, idx) => {
@@ -330,12 +307,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
           label,
           kind,
           actualCalories: Math.round(nextActualByDate[key] || 0),
-          plannedCalories: Math.round(nextPlannedByDate[key] || 0),
         };
       });
 
       setActualCaloriesByDate(nextActualByDate);
-      setPlannedCaloriesByDate(nextPlannedByDate);
       setMacroTotalsByDate(nextMacrosByDate);
       setDayEntries(entries);
       setLockedTodayTarget({ dateKey: todayKey, target: resolvedLockedTodayTarget });
@@ -468,7 +443,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   const selectedKey = toIsoDate(selectedDay);
   const isSelectedPast = isBefore(selectedDay, today);
   const isSelectedToday = isSameDay(selectedDay, today);
-  const isSelectedFuture = false;
   const selectedMacros = macroTotalsByDate[selectedKey];
   const hasSelectedMacros = Boolean(selectedMacros && selectedMacros.mealsWithAnyMacros > 0);
   const selectedMealsMissingMacros = selectedMacros
@@ -476,8 +450,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
     : 0;
 
   const selectedActualCalories = Math.round(actualCaloriesByDate[selectedKey] || 0);
-  const selectedPlannedCalories = Math.round(plannedCaloriesByDate[selectedKey] || 0);
-  const selectedDisplayedCalories = isSelectedFuture ? selectedPlannedCalories : selectedActualCalories;
 
   const baseDailyTarget = Math.round(user.dailyCalorieTarget || 0);
   const minHealthyDailyTarget = getMinimumHealthyDailyCalories(user.gender);
@@ -489,9 +461,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       minDailyTarget: minHealthyDailyTarget,
       anchorDate: addDays(today, 1),
       actualCaloriesByDate,
-      plannedCaloriesByDate,
+      plannedCaloriesByDate: {},
     });
-  }, [actualCaloriesByDate, baseDailyTarget, minHealthyDailyTarget, plannedCaloriesByDate, today, weekStart]);
+  }, [actualCaloriesByDate, baseDailyTarget, minHealthyDailyTarget, today, weekStart]);
 
   const dynamicTargetsByDate = useMemo(() => {
     if (lockedTargetForSelectedDay == null) return dynamicWeek.targetsByDate;
@@ -552,8 +524,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   }, [getActiveUserId]);
 
   const getDayColor = (entry: DayEntry, targetCalories: number) => {
-    if (entry.kind === 'future') return theme.palette.info.main;
-    if (entry.kind === 'past') {
+    if (entry.kind === 'past' || entry.kind === 'future') {
       const hasLogged = entry.actualCalories > 0;
       if (!hasLogged) return theme.palette.grey[500];
       const isOver = entry.actualCalories > targetCalories;
@@ -564,24 +535,22 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   };
 
   const getDayChipLabel = (entry: DayEntry, targetCalories: number) => {
-    if (entry.kind === 'past') {
+    if (entry.kind === 'past' || entry.kind === 'future') {
       const hasLogged = entry.actualCalories > 0;
       if (!hasLogged) return 'Log';
       return entry.actualCalories > targetCalories ? 'Over Budget' : 'Under Budget';
     }
-    if (entry.kind === 'future') return entry.plannedCalories > 0 ? 'Planned' : 'Plan';
     return entry.actualCalories > targetCalories ? 'Over Budget' : 'On Track';
   };
 
   const getDayIcon = (entry: DayEntry, targetCalories: number) => {
-    if (entry.kind === 'past') {
+    if (entry.kind === 'past' || entry.kind === 'future') {
       const hasLogged = entry.actualCalories > 0;
       if (!hasLogged) return <AddRoundedIcon fontSize="small" />;
       return entry.actualCalories > targetCalories
         ? <CloseRoundedIcon fontSize="small" />
         : <CheckRoundedIcon fontSize="small" />;
     }
-    if (entry.kind === 'future') return <AddRoundedIcon fontSize="small" />;
     return entry.actualCalories > targetCalories
       ? <CloseRoundedIcon fontSize="small" />
       : <CheckRoundedIcon fontSize="small" />;
@@ -761,23 +730,21 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                 </Typography>
               </Box>
               <Typography variant="h5" sx={{ lineHeight: 1.1 }}>
-                {Math.round(selectedDisplayedCalories)} / {Math.round(selectedTargetCalories)} kcal
+                {Math.round(selectedActualCalories)} / {Math.round(selectedTargetCalories)} kcal
               </Typography>
               <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
                 {isSelectedPast
                   ? 'Past day — you can still log meals'
-                  : isSelectedFuture
-                    ? `${Math.max(0, Math.round(selectedTargetCalories - selectedDisplayedCalories))} kcal available to plan`
-                    : selectedDisplayedCalories > selectedTargetCalories
-                      ? `Over by ${Math.round(selectedDisplayedCalories - selectedTargetCalories)} kcal`
-                      : `${Math.max(0, Math.round(selectedTargetCalories - selectedDisplayedCalories))} kcal left`}
+                  : selectedActualCalories > selectedTargetCalories
+                    ? `Over by ${Math.round(selectedActualCalories - selectedTargetCalories)} kcal`
+                    : `${Math.max(0, Math.round(selectedTargetCalories - selectedActualCalories))} kcal left`}
               </Typography>
             </Box>
           </Box>
 
           <LinearProgress
             variant="determinate"
-            value={selectedTargetCalories > 0 ? Math.min((selectedDisplayedCalories / selectedTargetCalories) * 100, 100) : 0}
+            value={selectedTargetCalories > 0 ? Math.min((selectedActualCalories / selectedTargetCalories) * 100, 100) : 0}
             sx={{
               height: 12,
               borderRadius: 999,
@@ -786,11 +753,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                 borderRadius: 999,
                 backgroundColor: isSelectedPast
                   ? theme.palette.grey[600]
-                  : isSelectedFuture
-                    ? theme.palette.info.main
-                    : selectedDisplayedCalories > selectedTargetCalories
-                      ? theme.palette.error.main
-                      : theme.palette.success.main,
+                  : selectedActualCalories > selectedTargetCalories
+                    ? theme.palette.error.main
+                    : theme.palette.success.main,
               },
             }}
           />
@@ -1068,20 +1033,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
           const isSelected = isSameDay(entry.date, selectedDay);
           const hasLogged = entry.actualCalories > 0;
           const isOverBudget = entry.actualCalories > targetCalories;
-          const showCalorieProgress =
-            entry.kind !== 'future' && hasLogged && !isOverBudget && targetCalories > 0;
+          const showCalorieProgress = hasLogged && !isOverBudget && targetCalories > 0;
           const calorieProgressPercent = showCalorieProgress
             ? Math.min((entry.actualCalories / targetCalories) * 100, 100)
             : 0;
-          const calories = entry.actualCalories > 0 ? entry.actualCalories : entry.plannedCalories;
-          const caloriesLabel =
-            entry.actualCalories > 0
-              ? 'logged'
-              : entry.plannedCalories > 0
-                ? 'planned'
-                : entry.kind === 'future'
-                  ? 'available'
-                  : '';
+          const calories = entry.actualCalories;
+          const caloriesLabel = entry.actualCalories > 0 ? 'logged' : '';
           const caloriesText = calories > 0 ? `${calories} kcal${caloriesLabel ? ` ${caloriesLabel}` : ''}` : null;
           const adjustment =
             entry.kind === 'future' && targetCalories !== baseDailyTarget ? targetCalories - baseDailyTarget : 0;
@@ -1091,12 +1048,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
             : `Budget ${targetCalories} kcal`;
           const subtitleWithAdjustment =
             entry.kind === 'future' ? `${subtitle}${adjustmentText}` : subtitle;
-          const pastMeta =
-            entry.kind === 'past' && !hasLogged
-              ? entry.plannedCalories > 0
-                ? ' • Not logged yet'
-                : ' • Tap to log'
-              : '';
+          const pastMeta = (entry.kind === 'past' || entry.kind === 'future') && !hasLogged ? ' • Tap to log' : '';
           return (
             <Card
               key={entry.key}
