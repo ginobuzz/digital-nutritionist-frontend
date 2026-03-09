@@ -16,9 +16,6 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  FormControlLabel,
-  Radio,
-  RadioGroup,
   FormControl,
   InputLabel,
   Select,
@@ -38,17 +35,9 @@ import {
   Schedule,
   LocalDining,
   CalendarToday,
-  PhotoCamera,
-  Mic,
-  StopCircle,
 } from '@mui/icons-material';
-import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
-import MicRoundedIcon from '@mui/icons-material/MicRounded';
-import PhotoCameraRoundedIcon from '@mui/icons-material/PhotoCameraRounded';
-import StopCircleRoundedIcon from '@mui/icons-material/StopCircleRounded';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { addDays, format, isAfter, isBefore, isValid, parseISO, startOfDay, startOfWeek } from 'date-fns';
-import Markdown from 'markdown-to-jsx';
 import { ActualMeal, PlannedMeal, User } from '../types';
 import { apiService, MealLogResponse, PlannedMealResponse, isUserNotFoundError } from '../services/api';
 import { triggerSubmitHaptic, triggerSuccessHaptic } from '../services/haptics';
@@ -62,6 +51,7 @@ import { autoLogDuePlannedMeals } from '../utils/autoLogPlannedMeals';
 import {
   parsePlannedMealDraftsFromReply,
 } from '../utils/plannedMeals';
+import MealLogInput from './MealLogInput';
 import { constrainPlannedMealDraftsToInput } from '../utils/plannedMealSelection';
 import {
   normalizeWidgetLogAction,
@@ -1331,176 +1321,28 @@ const Log: React.FC<LogProps> = ({ user }) => {
                 {planError}
               </Alert>
             )}
-            {planDescribeImageDataUrl && (
-              <Box sx={{ mb: 1.25, display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                <Box
-                  component="img"
-                  src={planDescribeImageDataUrl}
-                  alt="Selected meal"
-                  sx={{
-                    width: 88,
-                    height: 88,
-                    objectFit: 'cover',
-                    borderRadius: 1.5,
-                    border: `1px solid ${alpha(theme.palette.text.primary, 0.12)}`,
-                  }}
-                />
-                <IconButton
-                  size="small"
-                  onClick={() => setPlanDescribeImageDataUrl(null)}
-                  disabled={planDialogBusy || Boolean(planDescribeReply)}
-                  aria-label="Remove meal photo"
-                >
-                  <CloseRoundedIcon fontSize="small" />
-                </IconButton>
-              </Box>
-            )}
-
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignSelf: 'center' }}>
-                <IconButton
-                  component="label"
-                  disabled={planDialogBusy || Boolean(planDescribeReply) || planVoiceListening}
-                  color={planDescribeImageDataUrl ? 'primary' : 'default'}
-                  aria-label="Attach meal photo"
-                >
-                  <PhotoCameraRoundedIcon />
-                  <input
-                    hidden
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={handleAttachPlanImage}
-                  />
-                </IconButton>
-                <IconButton
-                  onClick={handleTogglePlanVoice}
-                  disabled={planDialogBusy || Boolean(planDescribeReply)}
-                  color={planVoiceListening ? 'error' : 'default'}
-                  aria-label={planVoiceListening ? 'Stop voice input' : 'Start voice input'}
-                >
-                  {planVoiceListening ? <StopCircleRoundedIcon /> : <MicRoundedIcon />}
-                </IconButton>
-              </Box>
-              <TextField
-                fullWidth
-                margin="dense"
-                label="Describe what you want to eat"
-                placeholder="Example: Scrambled eggs with toast and an apple at 8:00 AM"
-                value={planDescribeInput}
-                onChange={(event) => setPlanDescribeInput(event.target.value)}
-                multiline
-                minRows={3}
-                disabled={planDialogBusy || Boolean(planDescribeReply) || planVoiceListening}
-                InputLabelProps={{
-                  shrink: true,
-                  sx: { whiteSpace: 'nowrap' },
-                }}
-              />
-            </Box>
-
-            <Box sx={{ mt: 1.25 }}>
-              <Typography
-                variant="caption"
-                sx={{ color: 'text.secondary', fontWeight: 800, display: 'block', mb: 0.75 }}
-              >
-                Meal (optional)
-              </Typography>
-              <RadioGroup
-                row
-                value={planMealType}
-                onChange={(event) => setPlanMealType(event.target.value as MealType)}
-                aria-label="Planned meal type"
-                name="plan-meal-type"
-                sx={{
-                  gap: { xs: 0.5, sm: 1 },
-                  flexWrap: 'nowrap',
-                  overflowX: 'hidden',
-                  pb: 0.25,
-                }}
-              >
-                {(
-                  [
-                    { value: 'breakfast', label: 'Breakfast' },
-                    { value: 'lunch', label: 'Lunch' },
-                    { value: 'dinner', label: 'Dinner' },
-                    { value: 'snack', label: 'Snack' },
-                  ] as const
-                ).map((option) => {
-                  const selected = planMealType === option.value;
-                  return (
-                    <FormControlLabel
-                      key={option.value}
-                      value={option.value}
-                      disabled={planDialogBusy || Boolean(planDescribeReply) || planVoiceListening}
-                      control={<Radio size="small" />}
-                      label={option.label}
-                      sx={{
-                        m: 0,
-                        pl: { xs: 0.55, sm: 1 },
-                        pr: { xs: 0.7, sm: 1.25 },
-                        py: { xs: 0.2, sm: 0.25 },
-                        borderRadius: 999,
-                        border: `1px solid ${alpha(
-                          selected ? theme.palette.primary.main : theme.palette.text.primary,
-                          selected ? 0.45 : 0.14
-                        )}`,
-                        bgcolor: alpha(
-                          selected ? theme.palette.primary.main : theme.palette.text.primary,
-                          selected ? 0.08 : 0.03
-                        ),
-                        '& .MuiRadio-root': { p: { xs: 0.25, sm: 0.5 } },
-                        '& .MuiSvgIcon-root': { fontSize: { xs: 17, sm: 20 } },
-                        '& .MuiTypography-root': { fontWeight: 800, fontSize: { xs: 11, sm: 13 } },
-                      }}
-                    />
-                  );
-                })}
-              </RadioGroup>
-            </Box>
-
-            {planVoiceListening && (
-              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.75 }}>
-                Listening… tap the mic to stop.
-              </Typography>
-            )}
-
-            {planVoiceError && (
-              <Typography variant="caption" color="error" sx={{ display: 'block', mt: 0.75 }}>
-                {planVoiceError}
-              </Typography>
-            )}
-
-            {planDescribeReply && (
-              <Box
-                sx={{
-                  mt: 2,
-                  p: 1.5,
-                  borderRadius: 2,
-                  bgcolor: alpha(theme.palette.info.main, 0.06),
-                  border: `1px solid ${alpha(theme.palette.info.main, 0.2)}`,
-                  '& p': { m: 0 },
-                  '& ul, & ol': { m: 0, pl: 3 },
-                  '& li': { mb: 0.5 },
-                  '& li:last-child': { mb: 0 },
-                  '& a': { color: 'inherit' },
-                  '& code': {
-                    fontFamily:
-                      'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-                    fontSize: '0.9em',
-                  },
-                  '& pre': {
-                    overflowX: 'auto',
-                    p: 1,
-                    borderRadius: 1,
-                    backgroundColor: 'rgba(0,0,0,0.06)',
-                  },
-                  '& pre code': { fontSize: '0.85em' },
-                }}
-              >
-                <Markdown>{planDescribeReply}</Markdown>
-              </Box>
-            )}
+            <MealLogInput
+              value={planDescribeInput}
+              onChange={(v) => {
+                setPlanDescribeInput(v);
+                if (planDescribeReply) setPlanDescribeReply(null);
+                if (planError) setPlanError(null);
+              }}
+              onSubmit={() => void handleDescribeMealPlan()}
+              imageDataUrl={planDescribeImageDataUrl}
+              onImageRemove={() => setPlanDescribeImageDataUrl(null)}
+              onImageAttach={handleAttachPlanImage}
+              mealType={planMealType}
+              onMealTypeChange={setPlanMealType}
+              voiceListening={planVoiceListening}
+              voiceError={planVoiceError}
+              onVoiceToggle={handleTogglePlanVoice}
+              busy={planDialogBusy || Boolean(planDescribeReply)}
+              reply={planDescribeReply}
+              radioGroupName="plan-meal-type"
+              textFieldLabel="Describe what you want to eat"
+              placeholder="Example: Scrambled eggs with toast and an apple at 8:00 AM"
+            />
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
             <Button onClick={handleClosePlanDialog} disabled={planDialogBusy}>
@@ -1525,200 +1367,28 @@ const Log: React.FC<LogProps> = ({ user }) => {
                 {logError}
               </Alert>
             )}
-            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 0.5 }}>
-              Add a description, take/upload a photo, or use both.
-            </Typography>
-
-            <TextField
-              fullWidth
-              margin="dense"
-              label={describeImageDataUrl ? 'Add a note (optional)' : 'Describe what you ate (or drank)'}
-              placeholder={
-                describeImageDataUrl
-                  ? 'Optional: any details the photo won’t show (portion, sauces, drinks, etc.)'
-                  : 'Example: chicken burrito bowl with rice, beans, guac and a Coke'
-              }
+            <MealLogInput
               value={describeInput}
-              onChange={(event) => {
-                setDescribeInput(event.target.value);
+              onChange={(v) => {
+                setDescribeInput(v);
                 if (describeReply) setDescribeReply(null);
                 if (logError) setLogError(null);
               }}
-              onKeyDown={(event) => {
-                if (event.key !== 'Enter' || event.shiftKey) return;
-                if (event.nativeEvent.isComposing) return;
-                event.preventDefault();
-                if (sendingDescribeLog || dialogBusy || logVoiceListening) return;
-                void handleDescribeMealLog();
-              }}
-              multiline
-              minRows={3}
-              disabled={dialogBusy || logVoiceListening}
-              InputLabelProps={{
-                shrink: true,
-                sx: { whiteSpace: 'nowrap' },
-              }}
+              onSubmit={() => void handleDescribeMealLog()}
+              imageDataUrl={describeImageDataUrl}
+              onImageRemove={() => setDescribeImageDataUrl(null)}
+              onImageAttach={handleAttachDescribeImage}
+              mealType={mealType}
+              onMealTypeChange={setMealType}
+              voiceListening={logVoiceListening}
+              voiceError={logVoiceError}
+              onVoiceToggle={handleToggleLogVoice}
+              busy={dialogBusy}
+              reply={describeReply}
               inputRef={describeFieldRef}
+              photoInputRef={describePhotoInputRef}
+              radioGroupName="log-meal-type"
             />
-
-            <Box sx={{ mt: 1.25 }}>
-              <Typography
-                variant="caption"
-                sx={{ color: 'text.secondary', fontWeight: 800, display: 'block', mb: 0.75 }}
-              >
-                Meal (optional)
-              </Typography>
-              <RadioGroup
-                row
-                value={mealType}
-                onChange={(event) => setMealType(event.target.value as MealType)}
-                aria-label="Meal type"
-                name="meal-type"
-                sx={{
-                  gap: { xs: 0.5, sm: 1 },
-                  flexWrap: 'nowrap',
-                  overflowX: 'hidden',
-                  pb: 0.25,
-                }}
-              >
-                {(
-                  [
-                    { value: 'breakfast', label: 'Breakfast' },
-                    { value: 'lunch', label: 'Lunch' },
-                    { value: 'dinner', label: 'Dinner' },
-                    { value: 'snack', label: 'Snack' },
-                  ] as const
-                ).map((option) => {
-                  const selected = mealType === option.value;
-                  return (
-                    <FormControlLabel
-                      key={option.value}
-                      value={option.value}
-                      disabled={dialogBusy}
-                      control={<Radio size="small" />}
-                      label={option.label}
-                      sx={{
-                        m: 0,
-                        pl: { xs: 0.55, sm: 1 },
-                        pr: { xs: 0.7, sm: 1.25 },
-                        py: { xs: 0.2, sm: 0.25 },
-                        borderRadius: 999,
-                        border: `1px solid ${alpha(
-                          selected ? theme.palette.primary.main : theme.palette.text.primary,
-                          selected ? 0.45 : 0.14
-                        )}`,
-                        bgcolor: alpha(
-                          selected ? theme.palette.primary.main : theme.palette.text.primary,
-                          selected ? 0.08 : 0.03
-                        ),
-                        '& .MuiRadio-root': { p: { xs: 0.25, sm: 0.5 } },
-                        '& .MuiSvgIcon-root': { fontSize: { xs: 17, sm: 20 } },
-                        '& .MuiTypography-root': { fontWeight: 800, fontSize: { xs: 11, sm: 13 } },
-                      }}
-                    />
-                  );
-                })}
-              </RadioGroup>
-            </Box>
-
-            {logVoiceListening && (
-              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.75 }}>
-                Listening… tap the mic to stop.
-              </Typography>
-            )}
-
-            {logVoiceError && (
-              <Typography variant="caption" color="error" sx={{ display: 'block', mt: 0.75 }}>
-                {logVoiceError}
-              </Typography>
-            )}
-
-            <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-              <Button
-                component="label"
-                size="small"
-                variant={describeImageDataUrl ? 'contained' : 'outlined'}
-                startIcon={<PhotoCamera />}
-                disabled={dialogBusy || logVoiceListening}
-              >
-                {describeImageDataUrl ? 'Replace photo' : 'Add photo'}
-                <input
-                  ref={describePhotoInputRef}
-                  hidden
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handleAttachDescribeImage}
-                />
-              </Button>
-              <Button
-                size="small"
-                variant={logVoiceListening ? 'contained' : 'outlined'}
-                startIcon={logVoiceListening ? <StopCircle /> : <Mic />}
-                onClick={handleToggleLogVoice}
-                disabled={dialogBusy}
-              >
-                {logVoiceListening ? 'Stop' : 'Voice'}
-              </Button>
-              {describeImageDataUrl && (
-                <Button
-                  size="small"
-                  variant="text"
-                  onClick={() => setDescribeImageDataUrl(null)}
-                  disabled={dialogBusy || logVoiceListening}
-                >
-                  Remove
-                </Button>
-              )}
-            </Box>
-
-            {describeImageDataUrl && (
-              <Box
-                component="img"
-                src={describeImageDataUrl}
-                alt="Selected meal"
-                sx={{
-                  mt: 1.25,
-                  width: '100%',
-                  maxWidth: 360,
-                  maxHeight: 280,
-                  objectFit: 'cover',
-                  borderRadius: 2,
-                  border: `1px solid ${alpha(theme.palette.text.primary, 0.12)}`,
-                }}
-              />
-            )}
-
-            {describeReply && (
-              <Box
-                sx={{
-                  mt: 2,
-                  p: 1.5,
-                  borderRadius: 2,
-                  bgcolor: alpha(theme.palette.info.main, 0.06),
-                  border: `1px solid ${alpha(theme.palette.info.main, 0.2)}`,
-                  '& p': { m: 0 },
-                  '& ul, & ol': { m: 0, pl: 3 },
-                  '& li': { mb: 0.5 },
-                  '& li:last-child': { mb: 0 },
-                  '& a': { color: 'inherit' },
-                  '& code': {
-                    fontFamily:
-                      'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-                    fontSize: '0.9em',
-                  },
-                  '& pre': {
-                    overflowX: 'auto',
-                    p: 1,
-                    borderRadius: 1,
-                    backgroundColor: 'rgba(0,0,0,0.06)',
-                  },
-                  '& pre code': { fontSize: '0.85em' },
-                }}
-              >
-                <Markdown>{describeReply}</Markdown>
-              </Box>
-            )}
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
             <Button onClick={handleCloseLogDialog} disabled={dialogBusy}>
