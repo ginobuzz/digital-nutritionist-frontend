@@ -8,7 +8,7 @@ Sunday Mornings is a full-stack nutrition coaching agent focused on one core beh
 4. Adjust the next day/week with AI support.
 
 The repository includes:
-- A React + TypeScript frontend (web and iOS via Capacitor)
+- A React + TypeScript frontend (web plus iOS/Android via Capacitor)
 - A FastAPI backend (`digital-nutritionist-backend/`)
 - Local Docker Compose for full-stack development
 - CI and GitHub Pages deployment workflows
@@ -70,7 +70,7 @@ This app turns calorie tracking into a conversational workflow:
 - React Router v7
 - date-fns
 - Recharts
-- Capacitor (iOS target)
+- Capacitor (iOS + Android targets)
 
 ### Backend
 - FastAPI
@@ -98,6 +98,7 @@ This app turns calorie tracking into a conversational workflow:
 │   │   └── config.py                  # env parsing + hosted safety validation
 │   └── tests/                         # Backend unit tests
 ├── ios/                               # Capacitor iOS project + widget extension
+├── android/                           # Capacitor Android project
 ├── scripts/                           # Build/test/smoke/capacitor helper scripts
 ├── docker-compose.dev.yml             # Full local stack (frontend + backend + postgres)
 └── .github/workflows/                 # CI + GitHub Pages deploy
@@ -111,6 +112,7 @@ This app turns calorie tracking into a conversational workflow:
 - Python 3.11+
 - (Optional) Docker Desktop for one-command local stack
 - (Optional) Xcode for iOS build
+- (Optional) Android Studio for Android build
 
 ### Option A: Full stack via Docker Compose
 
@@ -168,8 +170,8 @@ Only variable names and non-sensitive guidance are listed below.
 | `REACT_APP_BUILD_NUMBER` | No | Build metadata. |
 | `REACT_APP_BUILD_DATETIME` | No | Build metadata. |
 | `REACT_APP_BUILD_COMMIT` | No | Build metadata. |
-| `CAPACITOR_USE_BUNDLED_WEB` | No (iOS scripts) | `true` uses bundled web assets, otherwise hosted web mode. |
-| `CAPACITOR_SERVER_URL` | No (iOS scripts) | Override hosted web URL for Capacitor runtime. |
+| `CAPACITOR_USE_BUNDLED_WEB` | No (native scripts) | `true` uses bundled web assets, otherwise hosted web mode. |
+| `CAPACITOR_SERVER_URL` | No (native scripts) | Override hosted web URL for Capacitor runtime. |
 
 Smoke-test-only vars:
 - `DN_SMOKE_API_BASE_URL`
@@ -203,7 +205,7 @@ Start from `digital-nutritionist-backend/.env.example`.
 - Frontend: GitHub Pages (see `homepage` in `package.json`)
 - Backend API: Render web service
 - Database: Neon Postgres
-- iOS app: Capacitor wrapper can run in hosted-web mode (default) or bundled mode
+- iOS + Android apps: Capacitor wrapper can run in hosted-web mode (default) or bundled mode
 
 ### Backend deployment (Render)
 
@@ -218,7 +220,7 @@ Set hosted env vars in Render dashboard:
 - `OPENAI_API_KEY`
 - `OPENAI_MODEL` (optional override)
 - `JWT_SECRET_KEY`
-- `ALLOWED_ORIGINS` (include deployed frontend origin, and `capacitor://localhost` for iOS app)
+- `ALLOWED_ORIGINS` (include deployed frontend origin, plus `capacitor://localhost` for iOS and `http://localhost` for Android native runtime)
 - `FRONTEND_BASE_URL`
 - `PASSWORD_RESET_SECRET_KEY`
 
@@ -247,21 +249,43 @@ Manual fallback:
 npm run deploy
 ```
 
-## iOS (Capacitor + Widget)
+## Native Apps (Capacitor)
 
-Common commands:
+Hosted-web mode loads the live deployed frontend URL at runtime. Bundled-web mode packages `/build` assets into the native project.
+
+Common iOS commands:
 
 ```bash
 npm run ios            # hosted-web mode sync + open Xcode
-npm run ios:bundled    # bundled-web mode build/sync + open Xcode
-npm run ios:refresh    # rebuild bundled assets + sync (without opening)
+npm run ios:bundled    # bundled-web mode build/sync + verify + open Xcode
+npm run ios:refresh    # rebuild bundled assets + sync + verify (without opening)
 ```
 
-Widget notes:
+Common Android commands:
+
+```bash
+npm run android            # hosted-web mode sync + open Android Studio
+npm run android:bundled    # bundled-web mode build/sync + verify + open Android Studio
+npm run android:refresh    # rebuild bundled assets + sync + verify (without opening)
+```
+
+Android hosted vs bundled caveats:
+- Hosted mode depends on backend CORS allowing native origins (`http://localhost` on Android, `capacitor://localhost` on iOS).
+- Bundled mode requires running refresh/verify before release so native assets match latest web build.
+
+Widget notes (iOS only):
 - Widget extension: `DailyCaloriesWidget`
 - Uses app group shared storage for daily calories progress
 - Supports deep links into `/log` for quick actions (voice/camera/text)
 - In hosted-web mode, widget behavior follows whatever frontend is currently deployed
+
+Android release checklist (bundled mode):
+1. `npm run android:refresh`
+2. Confirm `npm run cap:verify:android` succeeds.
+3. `npm run cap:open:android`, then build/run in Android Studio on a device.
+4. Smoke test auth, chat logging, image upload, and deep-link navigation.
+
+Repo note: Android binaries (PNG launcher/splash assets and `gradle-wrapper.jar`) are intentionally excluded from git for PR compatibility; Android Studio/Gradle will regenerate or fetch what is needed during build/sync.
 
 ## API Overview
 
@@ -333,7 +357,7 @@ Covers:
   - Confirm `JWT_SECRET_KEY` is consistent for active backend instances.
   - Clear browser storage and sign in again.
 - CORS failures:
-  - Ensure frontend origin is listed in `ALLOWED_ORIGINS`.
+  - Ensure frontend origin is listed in `ALLOWED_ORIGINS` (for native hosted mode also include `capacitor://localhost` on iOS and `http://localhost` on Android).
 - Chat unavailable:
   - Verify `OPENAI_API_KEY` and `OPENAI_MODEL` in backend env.
 - Hosted backend using SQLite:
@@ -344,5 +368,5 @@ Covers:
 1. Start with `docker-compose.dev.yml` if you want the fastest full-stack boot.
 2. Read `digital-nutritionist-backend/.env.example` before configuring env.
 3. Use `npm run test:ci` and backend `pytest` before opening PRs.
-4. If you touch iOS behavior, verify both hosted and bundled Capacitor modes.
+4. If you touch native behavior, verify both hosted and bundled Capacitor modes on iOS and Android.
 

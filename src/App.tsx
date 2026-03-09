@@ -92,8 +92,7 @@ function NativeDeepLinkHandler() {
   const lastHandledPendingUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const isIOSNative = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';
-    if (!isIOSNative) return;
+    if (!Capacitor.isNativePlatform()) return;
 
     const readProtocol = (url: string): string | null => {
       try {
