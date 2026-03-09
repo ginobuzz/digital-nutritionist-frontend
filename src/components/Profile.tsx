@@ -39,6 +39,15 @@ import {
   Gavel,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
 import { User, WeightLog } from '../types';
 import { calculateDailyExpenditure, calculateWeightLossTimeline, calculateProgressPercentage } from '../utils/calculations';
 import { apiService, convertUserFromBackend, convertUserProfileUpdateToBackend, convertWeightLogFromBackend, isUserNotFoundError } from '../services/api';
@@ -452,38 +461,44 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate, onSignOut }) => {
                 Weight Loss Goals
               </Typography>
               <List>
-                <ListItem>
-                  <ListItemAvatar>
-                    <Avatar sx={{ bgcolor: 'primary.light' }}>
-                      <TrendingDown />
-                    </Avatar>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary="Daily Calorie Deficit"
-                    secondary={`${Math.round(dailyDeficitTarget)} calories per day`}
-                  />
+                <ListItem disablePadding>
+                  <ListItemButton onClick={handleEditProfile}>
+                    <ListItemAvatar>
+                      <Avatar sx={{ bgcolor: 'primary.light' }}>
+                        <TrendingDown />
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary="Daily Calorie Deficit"
+                      secondary={`${Math.round(dailyDeficitTarget)} calories per day`}
+                    />
+                  </ListItemButton>
                 </ListItem>
-                <ListItem>
-                  <ListItemAvatar>
-                    <Avatar sx={{ bgcolor: 'secondary.light' }}>
-                      <CalendarToday />
-                    </Avatar>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary="Target Date"
-                    secondary={user.targetDate.toLocaleDateString()}
-                  />
+                <ListItem disablePadding>
+                  <ListItemButton onClick={handleEditProfile}>
+                    <ListItemAvatar>
+                      <Avatar sx={{ bgcolor: 'secondary.light' }}>
+                        <CalendarToday />
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary="Target Date"
+                      secondary={user.targetDate.toLocaleDateString()}
+                    />
+                  </ListItemButton>
                 </ListItem>
-                <ListItem>
-                  <ListItemAvatar>
-                    <Avatar sx={{ bgcolor: 'info.light' }}>
-                      <Scale />
-                    </Avatar>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary="Estimated Timeline"
-                    secondary={timelineText}
-                  />
+                <ListItem disablePadding>
+                  <ListItemButton onClick={handleEditProfile}>
+                    <ListItemAvatar>
+                      <Avatar sx={{ bgcolor: 'info.light' }}>
+                        <Scale />
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary="Estimated Timeline"
+                      secondary={timelineText}
+                    />
+                  </ListItemButton>
                 </ListItem>
               </List>
             </CardContent>
@@ -495,52 +510,58 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate, onSignOut }) => {
                 Activity & Nutrition
               </Typography>
               <List>
-                <ListItem>
-                  <ListItemAvatar>
-                    <Avatar sx={{ bgcolor: 'warning.light' }}>
-                      <FitnessCenter />
-                    </Avatar>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary="Activity Level"
-                    secondary={
-                      <Box>
-                        <Typography variant="body2">
-                          {getActivityLevelDescription(user.activityLevel)}
-                        </Typography>
-                        <Chip
-                          label={user.activityLevel.replace('_', ' ')}
-                          size="small"
-                          color="warning"
-                          variant="outlined"
-                          sx={{ mt: 0.5 }}
-                        />
-                      </Box>
-                    }
-                    secondaryTypographyProps={{ component: 'div' }}
-                  />
+                <ListItem disablePadding>
+                  <ListItemButton onClick={handleEditProfile}>
+                    <ListItemAvatar>
+                      <Avatar sx={{ bgcolor: 'warning.light' }}>
+                        <FitnessCenter />
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary="Activity Level"
+                      secondary={
+                        <Box>
+                          <Typography variant="body2">
+                            {getActivityLevelDescription(user.activityLevel)}
+                          </Typography>
+                          <Chip
+                            label={user.activityLevel.replace('_', ' ')}
+                            size="small"
+                            color="warning"
+                            variant="outlined"
+                            sx={{ mt: 0.5 }}
+                          />
+                        </Box>
+                      }
+                      secondaryTypographyProps={{ component: 'div' }}
+                    />
+                  </ListItemButton>
                 </ListItem>
-                <ListItem>
-                  <ListItemAvatar>
-                    <Avatar sx={{ bgcolor: 'success.light' }}>
-                      <Person />
-                    </Avatar>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary="Daily Calorie Target"
-                    secondary={`${Math.round(user.dailyCalorieTarget)} calories per day`}
-                  />
+                <ListItem disablePadding>
+                  <ListItemButton onClick={handleEditProfile}>
+                    <ListItemAvatar>
+                      <Avatar sx={{ bgcolor: 'success.light' }}>
+                        <Person />
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary="Daily Calorie Target"
+                      secondary={`${Math.round(user.dailyCalorieTarget)} calories per day`}
+                    />
+                  </ListItemButton>
                 </ListItem>
-                <ListItem>
-                  <ListItemAvatar>
-                    <Avatar sx={{ bgcolor: 'info.light' }}>
-                      <TrendingDown />
-                    </Avatar>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary="Daily Calorie Expenditure"
-                    secondary={`${Math.round(dailyExpenditure)} calories per day`}
-                  />
+                <ListItem disablePadding>
+                  <ListItemButton onClick={handleEditProfile}>
+                    <ListItemAvatar>
+                      <Avatar sx={{ bgcolor: 'info.light' }}>
+                        <TrendingDown />
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary="Daily Calorie Expenditure"
+                      secondary={`${Math.round(dailyExpenditure)} calories per day`}
+                    />
+                  </ListItemButton>
                 </ListItem>
               </List>
             </CardContent>
@@ -558,32 +579,36 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate, onSignOut }) => {
                 No weight logs yet. Start tracking your progress!
               </Typography>
             ) : (
-              <List>
-                {weightLogs
-                  .slice()
-                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                  .map((log, index) => (
-                  <ListItem key={log.id}>
-                    <ListItemAvatar>
-                      <Avatar sx={{ bgcolor: 'primary.light' }}>
-                        <Scale />
-                      </Avatar>
-                    </ListItemAvatar>
-                                          <ListItemText
-                        primary={`${log.weight} lbs`}
-                        secondary={log.date.toLocaleDateString()}
-                      />
-                    {index === 0 && (
-                      <Chip label="Current" color="primary" size="small" />
-                    )}
-                    {log.notes && (
-                      <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-                        {log.notes}
-                      </Typography>
-                    )}
-                  </ListItem>
-                ))}
-              </List>
+              <ResponsiveContainer width="100%" height={260}>
+                <LineChart
+                  data={weightLogs
+                    .slice()
+                    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                    .map((log) => ({
+                      date: format(log.date, 'MMM d'),
+                      weight: log.weight,
+                    }))}
+                  margin={{ top: 8, right: 16, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                  <YAxis
+                    domain={['auto', 'auto']}
+                    tick={{ fontSize: 12 }}
+                    tickFormatter={(v) => `${v}`}
+                    width={48}
+                  />
+                  <Tooltip formatter={(value) => [`${value} lbs`, 'Weight']} />
+                  <Line
+                    type="monotone"
+                    dataKey="weight"
+                    stroke="#1976d2"
+                    strokeWidth={2}
+                    dot={{ r: 4 }}
+                    activeDot={{ r: 6 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
             )}
           </CardContent>
         </Card>
