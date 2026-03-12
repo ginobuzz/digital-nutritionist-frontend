@@ -8,8 +8,6 @@ import {
   List,
   ListItem,
   ListItemText,
-  ListItemAvatar,
-  Avatar,
   Chip,
   Dialog,
   DialogTitle,
@@ -33,7 +31,6 @@ import {
   Edit,
   Delete,
   Schedule,
-  LocalDining,
   CalendarToday,
 } from '@mui/icons-material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
@@ -738,173 +735,138 @@ const Log: React.FC<LogProps> = ({ user }) => {
                 </Box>
               </Box>
 
-              {actualMeals.length === 0 ? (
-                <Box sx={{ textAlign: 'center', py: 4 }}>
-                  <LocalDining sx={{ fontSize: 64, color: 'grey.400', mb: 2 }} />
-                  <Typography variant="h6" color="text.secondary" gutterBottom>
-                    No meals logged yet
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Start by logging what you ate
-                  </Typography>
-                </Box>
-              ) : (
-                <List>
-                  {[...actualMeals]
-                    .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
-                    .map((meal) => (
-                    <ListItem
-                      key={meal.id}
-                      sx={{
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        borderRadius: 1,
-                        mb: 1,
-                        overflow: 'hidden',
-                        alignItems: { xs: 'flex-start', sm: 'center' },
-                        gap: 1,
-                        flexWrap: { xs: 'wrap', sm: 'nowrap' },
-                        '&:last-child': { mb: 0 }
-                      }}
-                    >
-                      <ListItemAvatar sx={{ alignSelf: { xs: 'flex-start', sm: 'center' } }}>
-                        <Avatar sx={{ 
-                          bgcolor: 'secondary.light' 
-                        }}>
-                          {getMealTypeIcon(meal.type)}
-                        </Avatar>
-                      </ListItemAvatar>
-                      
-                      <ListItemText
-                        sx={{ flex: '1 1 0', minWidth: 0 }}
-                        primaryTypographyProps={{ component: 'div' }}
-                        secondaryTypographyProps={{ component: 'div' }}
-                        primary={
-                          <Box
+              {(['breakfast', 'lunch', 'dinner', 'snack'] as ActualMeal['type'][]).map((sectionType) => {
+                const sectionLabels: Record<ActualMeal['type'], string> = {
+                  breakfast: 'Breakfast',
+                  lunch: 'Lunch',
+                  dinner: 'Dinner',
+                  snack: 'Snacks',
+                };
+                const sectionMeals = [...actualMeals]
+                  .filter((m) => m.type === sectionType)
+                  .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+
+                return (
+                  <Box key={sectionType} sx={{ mb: 3, '&:last-child': { mb: 0 } }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
+                      <span>{getMealTypeIcon(sectionType)}</span>
+                      <Typography variant="subtitle1" fontWeight={700}>
+                        {sectionLabels[sectionType]}
+                      </Typography>
+                    </Box>
+
+                    {sectionMeals.length === 0 ? (
+                      <Box
+                        sx={{
+                          py: 1.5,
+                          px: 2,
+                          border: '1px dashed',
+                          borderColor: 'divider',
+                          borderRadius: 1,
+                          textAlign: 'center',
+                        }}
+                      >
+                        <Typography variant="body2" color="text.disabled">
+                          No {sectionLabels[sectionType].toLowerCase()} logged
+                        </Typography>
+                      </Box>
+                    ) : (
+                      <List disablePadding>
+                        {sectionMeals.map((meal) => (
+                          <ListItem
+                            key={meal.id}
                             sx={{
-                              display: 'flex',
-                              flexDirection: { xs: 'column', sm: 'row' },
+                              border: '1px solid',
+                              borderColor: 'divider',
+                              borderRadius: 1,
+                              mb: 1,
+                              overflow: 'hidden',
                               alignItems: { xs: 'flex-start', sm: 'center' },
                               gap: 1,
-                              minWidth: 0,
+                              flexWrap: { xs: 'wrap', sm: 'nowrap' },
+                              '&:last-child': { mb: 0 },
                             }}
                           >
-                            <Typography
-                              variant="subtitle1"
-                              fontWeight="bold"
-                              sx={{
-                                flex: '1 1 auto',
-                                minWidth: 0,
-                                overflowWrap: 'anywhere',
-                                wordBreak: 'break-word',
-                                lineHeight: 1.2,
-                              }}
-                            >
-                              {meal.name}
-                            </Typography>
+                            <ListItemText
+                              sx={{ flex: '1 1 0', minWidth: 0 }}
+                              primaryTypographyProps={{ component: 'div' }}
+                              secondaryTypographyProps={{ component: 'div' }}
+                              primary={
+                                <Typography
+                                  variant="subtitle1"
+                                  fontWeight="bold"
+                                  sx={{
+                                    minWidth: 0,
+                                    overflowWrap: 'anywhere',
+                                    wordBreak: 'break-word',
+                                    lineHeight: 1.2,
+                                  }}
+                                >
+                                  {meal.name}
+                                </Typography>
+                              }
+                              secondary={
+                                <Box>
+                                  <Typography variant="body2" color="text.secondary">
+                                    {Math.round(meal.actualCalories || meal.calories)} calories
+                                  </Typography>
+                                  {(meal.proteinGrams != null || meal.carbsGrams != null || meal.fatGrams != null) && (
+                                    <Typography variant="body2" color="text.secondary">
+                                      {`Macros: P ${meal.proteinGrams != null ? `${Math.round(meal.proteinGrams)}g` : '—'} • C ${meal.carbsGrams != null ? `${Math.round(meal.carbsGrams)}g` : '—'} • F ${meal.fatGrams != null ? `${Math.round(meal.fatGrams)}g` : '—'}`}
+                                    </Typography>
+                                  )}
+                                  {meal.description && (
+                                    <Typography
+                                      variant="body2"
+                                      color="text.secondary"
+                                      sx={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+                                    >
+                                      {meal.description}
+                                    </Typography>
+                                  )}
+                                  {meal.notes && (
+                                    <Typography
+                                      variant="body2"
+                                      color="text.secondary"
+                                      sx={{ fontStyle: 'italic', overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+                                    >
+                                      Note: {meal.notes}
+                                    </Typography>
+                                  )}
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                                    <Schedule sx={{ fontSize: 16 }} />
+                                    <Typography variant="caption" color="text.secondary">
+                                      {new Date(meal.time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                                    </Typography>
+                                  </Box>
+                                </Box>
+                              }
+                            />
+
                             <Box
                               sx={{
                                 display: 'flex',
-                                flexWrap: 'wrap',
-                                alignItems: 'center',
                                 gap: 1,
-                                minWidth: 0,
-                                maxWidth: '100%',
-                                flex: { xs: '1 1 auto', sm: '0 1 auto' },
+                                flexShrink: 0,
+                                ml: { xs: 0, sm: 'auto' },
+                                width: { xs: '100%', sm: 'auto' },
+                                justifyContent: 'flex-end',
                               }}
                             >
-                              <Chip
-                                label={meal.type}
-                                size="small"
-                                color="secondary"
-                                variant="outlined"
-                                sx={{ textTransform: 'capitalize' }}
-                              />
-
+                              <IconButton size="small" onClick={() => handleEditMeal(meal)}>
+                                <Edit />
+                              </IconButton>
+                              <IconButton size="small" color="error" onClick={() => handleDeleteMeal(meal)}>
+                                <Delete />
+                              </IconButton>
                             </Box>
-                          </Box>
-                        }
-                        secondary={
-                          <Box>
-                            <Typography variant="body2" color="text.secondary">
-                              {Math.round((meal as ActualMeal).actualCalories || meal.calories)} calories
-                            </Typography>
-                            {(((meal as ActualMeal).proteinGrams != null) ||
-                                ((meal as ActualMeal).carbsGrams != null) ||
-                                ((meal as ActualMeal).fatGrams != null)) && (
-                                <Typography variant="body2" color="text.secondary">
-                                  Macros:{' '}
-                                  {`P ${
-                                    (meal as ActualMeal).proteinGrams != null
-                                      ? `${Math.round((meal as ActualMeal).proteinGrams!)}g`
-                                      : '—'
-                                  } • C ${
-                                    (meal as ActualMeal).carbsGrams != null
-                                      ? `${Math.round((meal as ActualMeal).carbsGrams!)}g`
-                                      : '—'
-                                  } • F ${
-                                    (meal as ActualMeal).fatGrams != null
-                                      ? `${Math.round((meal as ActualMeal).fatGrams!)}g`
-                                      : '—'
-                                  }`}
-                                </Typography>
-                              )}
-                            {meal.description && (
-                              <Typography
-                                variant="body2"
-                                color="text.secondary"
-                                sx={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
-                              >
-                                {meal.description}
-                              </Typography>
-                            )}
-                            {(meal as ActualMeal).notes && (
-                              <Typography
-                                variant="body2"
-                                color="text.secondary"
-                                sx={{ fontStyle: 'italic', overflowWrap: 'anywhere', wordBreak: 'break-word' }}
-                              >
-                                Note: {(meal as ActualMeal).notes}
-                              </Typography>
-                            )}
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-                              <Schedule sx={{ fontSize: 16 }} />
-                              <Typography variant="caption" color="text.secondary">
-                                {new Date(meal.time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                              </Typography>
-                            </Box>
-                          </Box>
-                        }
-                      />
-                      
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          gap: 1,
-                          flexShrink: 0,
-                          ml: { xs: 0, sm: 'auto' },
-                          width: { xs: '100%', sm: 'auto' },
-                          justifyContent: { xs: 'flex-end', sm: 'flex-end' },
-                        }}
-                      >
-                        <IconButton
-                          size="small"
-                          onClick={() => handleEditMeal(meal)}
-                        >
-                          <Edit />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => handleDeleteMeal(meal)}
-                        >
-                          <Delete />
-                        </IconButton>
-                      </Box>
-                    </ListItem>
-                  ))}
-                </List>
-              )}
+                          </ListItem>
+                        ))}
+                      </List>
+                    )}
+                  </Box>
+                );
+              })}
             </Box>
           </CardContent>
         </Card>
