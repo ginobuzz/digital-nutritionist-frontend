@@ -297,8 +297,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate, onSignOut }) => {
     <Box>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         {/* Profile Overview and Progress */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <Card>
+        <Card>
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -373,7 +372,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate, onSignOut }) => {
           </Card>
 
           <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', alignItems: 'stretch' }}>
-            <Card sx={{ flex: '1 1 400px' }}>
+            <Card sx={{ flex: '1 1 400px', order: { xs: 2, sm: 0 } }}>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
                   Progress to Goal
@@ -394,7 +393,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate, onSignOut }) => {
               </CardContent>
             </Card>
 
-            <Card sx={{ flex: '1 1 400px' }}>
+            <Card sx={{ flex: '1 1 400px', order: { xs: 1, sm: 0 } }}>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
                   Weight Check-in
@@ -451,10 +450,9 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate, onSignOut }) => {
               </CardContent>
             </Card>
           </Box>
-        </Box>
 
         {/* Goals and Activity */}
-        <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', order: { xs: 4, sm: 0 } }}>
           <Card sx={{ flex: '1 1 400px' }}>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -569,7 +567,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate, onSignOut }) => {
         </Box>
 
         {/* Weight History */}
-        <Card>
+        <Card sx={{ order: { xs: 3, sm: 0 } }}>
           <CardContent>
             <Typography variant="h6" gutterBottom>
               Weight History
@@ -613,7 +611,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onUserUpdate, onSignOut }) => {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card sx={{ order: { xs: 5, sm: 0 } }}>
           <CardContent>
             <Typography variant="h6" gutterBottom>
               App
