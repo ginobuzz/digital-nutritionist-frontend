@@ -14,3 +14,10 @@ if (!(global as any).TextEncoder) {
 if (!(global as any).TextDecoder) {
   (global as any).TextDecoder = TextDecoder;
 }
+
+// recharts' ResponsiveContainer uses ResizeObserver, which jsdom doesn't provide.
+(global as any).ResizeObserver = class ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};

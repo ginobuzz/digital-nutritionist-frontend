@@ -185,6 +185,37 @@ export const authService = {
   logout() {
     this.setToken(null);
   },
+  // BETA ONLY: Verify profile questions and reset password in one step.
+  // Replace with email-based flow before production launch.
+  async betaResetPassword(
+    email: string,
+    lastName: string,
+    age: number,
+    heightIn: number,
+    newPassword: string,
+  ): Promise<void> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/password-reset/beta/reset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ email, last_name: lastName, age, height_in: heightIn, new_password: newPassword }),
+        mode: 'cors',
+        credentials: 'omit',
+      });
+      if (!res.ok) {
+        const detail = await readErrorDetail(res);
+        if (res.status === 400 && detail) throw new Error(detail);
+        if (res.status === 429) throw new Error('Too many attempts. Please wait a moment and try again.');
+        throw new Error("We couldn't update your password. Please try again.");
+      }
+    } catch (error) {
+      if (error instanceof TypeError) {
+        throw new Error("We couldn't reach the server. Check your internet connection and try again.");
+      }
+      if (error instanceof Error) throw error;
+      throw new Error("We couldn't update your password. Please try again.");
+    }
+  },
   async requestPasswordReset(email: string): Promise<PasswordResetRequestResponse> {
     try {
       const res = await fetch(`${API_BASE_URL}/auth/password-reset/request`, {

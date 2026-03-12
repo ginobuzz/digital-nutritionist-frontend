@@ -1,19 +1,15 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
-  Box,  
+  Box,
   Typography,
   LinearProgress,
   Card,
   CardContent,
   Chip,
   Button,
-  TextField,
   Alert,
   Menu,
   MenuItem,
-  FormControlLabel,
-  Radio,
-  RadioGroup,
   IconButton,
   Popover,
   useTheme,
@@ -25,12 +21,8 @@ import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import TodayRoundedIcon from '@mui/icons-material/TodayRounded';
-import PhotoCameraRoundedIcon from '@mui/icons-material/PhotoCameraRounded';
-import MicRoundedIcon from '@mui/icons-material/MicRounded';
-import StopCircleRoundedIcon from '@mui/icons-material/StopCircleRounded';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { addDays, format, isBefore, isSameDay, startOfDay, startOfWeek } from 'date-fns';
-import Markdown from 'markdown-to-jsx';
 import { User } from '../types';
 import { apiService, isUserNotFoundError, MealLogResponse } from '../services/api';
 import { triggerSubmitHaptic, triggerSuccessHaptic } from '../services/haptics';
@@ -40,9 +32,9 @@ import { resolveLockedTodayTarget } from '../utils/dailyTargetLock';
 import { useSpeechToText } from '../hooks/useSpeechToText';
 import { formatVoiceInputError, getUserFacingErrorMessage } from '../utils/errors';
 import { syncWidgetDailyProgress } from '../services/widgetBridge';
-import { autoLogDuePlannedMeals } from '../utils/autoLogPlannedMeals';
 import SundayFreshStartDialog from './SundayFreshStartDialog';
 import SignupWelcomeDialog from './SignupWelcomeDialog';
+import MealLogInput from './MealLogInput';
 
 interface DashboardProps {
   user: User;
@@ -57,7 +49,6 @@ interface DayEntry {
   label: string;
   kind: DayKind;
   actualCalories: number;
-  plannedCalories: number;
 }
 
 type MealType = '' | 'breakfast' | 'lunch' | 'dinner' | 'snack';
@@ -114,7 +105,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   const [loading, setLoading] = useState(true);
   const [dayEntries, setDayEntries] = useState<DayEntry[]>([]);
   const [actualCaloriesByDate, setActualCaloriesByDate] = useState<Record<string, number>>({});
-  const [plannedCaloriesByDate, setPlannedCaloriesByDate] = useState<Record<string, number>>({});
   const [macroTotalsByDate, setMacroTotalsByDate] = useState<
     Record<
       string,
@@ -262,20 +252,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       const weekStart = startOfWeek(today, { weekStartsOn: 0 }); // Sunday
       const weekEnd = addDays(weekStart, WEEK_LENGTH_DAYS - 1);
 
-      const [fetchedLogs, fetchedPlannedMeals] = await Promise.all([
-        apiService.getMealLogs({ userId, start: weekStart, end: weekEnd }),
-        apiService.getPlannedMeals({ userId: String(userId), start: weekStart, end: weekEnd }),
-      ]);
-      const { logs, plannedMeals } = await autoLogDuePlannedMeals({
-        api: apiService,
-        userId,
-        today,
-        logs: fetchedLogs,
-        plannedMeals: fetchedPlannedMeals,
-        onError: (error, context) => {
-          console.error(`Error auto-logging planned meal (${context.action}):`, error);
-        },
-      });
+      const logs = await apiService.getMealLogs({ userId, start: weekStart, end: weekEnd });
 
       const nextActualByDate: Record<string, number> = {};
       const nextMacrosByDate: Record<
@@ -307,13 +284,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
         nextMacrosByDate[key] = entry;
       }
 
-      const nextPlannedByDate: Record<string, number> = {};
-      for (const meal of plannedMeals) {
-        const key = meal.date; // YYYY-MM-DD
-        const cals = Number(meal.calories || 0);
-        nextPlannedByDate[key] = (nextPlannedByDate[key] || 0) + cals;
-      }
-
       const baseDailyTarget = Math.round(user.dailyCalorieTarget || 0);
       const minHealthyDailyTarget = getMinimumHealthyDailyCalories(user.gender);
       const resolvedLockedTodayTarget = resolveLockedTodayTarget({
@@ -323,7 +293,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
         dailyTarget: baseDailyTarget,
         minDailyTarget: minHealthyDailyTarget,
         actualCaloriesByDate: nextActualByDate,
-        plannedCaloriesByDate: nextPlannedByDate,
+        plannedCaloriesByDate: {},
       });
 
       const entries: DayEntry[] = Array.from({ length: WEEK_LENGTH_DAYS }, (_, idx) => {
@@ -337,12 +307,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
           label,
           kind,
           actualCalories: Math.round(nextActualByDate[key] || 0),
-          plannedCalories: Math.round(nextPlannedByDate[key] || 0),
         };
       });
 
       setActualCaloriesByDate(nextActualByDate);
-      setPlannedCaloriesByDate(nextPlannedByDate);
       setMacroTotalsByDate(nextMacrosByDate);
       setDayEntries(entries);
       setLockedTodayTarget({ dateKey: todayKey, target: resolvedLockedTodayTarget });
@@ -475,7 +443,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   const selectedKey = toIsoDate(selectedDay);
   const isSelectedPast = isBefore(selectedDay, today);
   const isSelectedToday = isSameDay(selectedDay, today);
-  const isSelectedFuture = false;
   const selectedMacros = macroTotalsByDate[selectedKey];
   const hasSelectedMacros = Boolean(selectedMacros && selectedMacros.mealsWithAnyMacros > 0);
   const selectedMealsMissingMacros = selectedMacros
@@ -483,8 +450,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
     : 0;
 
   const selectedActualCalories = Math.round(actualCaloriesByDate[selectedKey] || 0);
-  const selectedPlannedCalories = Math.round(plannedCaloriesByDate[selectedKey] || 0);
-  const selectedDisplayedCalories = isSelectedFuture ? selectedPlannedCalories : selectedActualCalories;
 
   const baseDailyTarget = Math.round(user.dailyCalorieTarget || 0);
   const minHealthyDailyTarget = getMinimumHealthyDailyCalories(user.gender);
@@ -496,9 +461,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
       minDailyTarget: minHealthyDailyTarget,
       anchorDate: addDays(today, 1),
       actualCaloriesByDate,
-      plannedCaloriesByDate,
+      plannedCaloriesByDate: {},
     });
-  }, [actualCaloriesByDate, baseDailyTarget, minHealthyDailyTarget, plannedCaloriesByDate, today, weekStart]);
+  }, [actualCaloriesByDate, baseDailyTarget, minHealthyDailyTarget, today, weekStart]);
 
   const dynamicTargetsByDate = useMemo(() => {
     if (lockedTargetForSelectedDay == null) return dynamicWeek.targetsByDate;
@@ -559,8 +524,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   }, [getActiveUserId]);
 
   const getDayColor = (entry: DayEntry, targetCalories: number) => {
-    if (entry.kind === 'future') return theme.palette.info.main;
-    if (entry.kind === 'past') {
+    if (entry.kind === 'past' || entry.kind === 'future') {
       const hasLogged = entry.actualCalories > 0;
       if (!hasLogged) return theme.palette.grey[500];
       const isOver = entry.actualCalories > targetCalories;
@@ -571,24 +535,22 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
   };
 
   const getDayChipLabel = (entry: DayEntry, targetCalories: number) => {
-    if (entry.kind === 'past') {
+    if (entry.kind === 'past' || entry.kind === 'future') {
       const hasLogged = entry.actualCalories > 0;
       if (!hasLogged) return 'Log';
       return entry.actualCalories > targetCalories ? 'Over Budget' : 'Under Budget';
     }
-    if (entry.kind === 'future') return entry.plannedCalories > 0 ? 'Planned' : 'Plan';
     return entry.actualCalories > targetCalories ? 'Over Budget' : 'On Track';
   };
 
   const getDayIcon = (entry: DayEntry, targetCalories: number) => {
-    if (entry.kind === 'past') {
+    if (entry.kind === 'past' || entry.kind === 'future') {
       const hasLogged = entry.actualCalories > 0;
       if (!hasLogged) return <AddRoundedIcon fontSize="small" />;
       return entry.actualCalories > targetCalories
         ? <CloseRoundedIcon fontSize="small" />
         : <CheckRoundedIcon fontSize="small" />;
     }
-    if (entry.kind === 'future') return <AddRoundedIcon fontSize="small" />;
     return entry.actualCalories > targetCalories
       ? <CloseRoundedIcon fontSize="small" />
       : <CheckRoundedIcon fontSize="small" />;
@@ -768,23 +730,21 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                 </Typography>
               </Box>
               <Typography variant="h5" sx={{ lineHeight: 1.1 }}>
-                {Math.round(selectedDisplayedCalories)} / {Math.round(selectedTargetCalories)} kcal
+                {Math.round(selectedActualCalories)} / {Math.round(selectedTargetCalories)} kcal
               </Typography>
               <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
                 {isSelectedPast
                   ? 'Past day — you can still log meals'
-                  : isSelectedFuture
-                    ? `${Math.max(0, Math.round(selectedTargetCalories - selectedDisplayedCalories))} kcal available to plan`
-                    : selectedDisplayedCalories > selectedTargetCalories
-                      ? `Over by ${Math.round(selectedDisplayedCalories - selectedTargetCalories)} kcal`
-                      : `${Math.max(0, Math.round(selectedTargetCalories - selectedDisplayedCalories))} kcal left`}
+                  : selectedActualCalories > selectedTargetCalories
+                    ? `Over by ${Math.round(selectedActualCalories - selectedTargetCalories)} kcal`
+                    : `${Math.max(0, Math.round(selectedTargetCalories - selectedActualCalories))} kcal left`}
               </Typography>
             </Box>
           </Box>
 
           <LinearProgress
             variant="determinate"
-            value={selectedTargetCalories > 0 ? Math.min((selectedDisplayedCalories / selectedTargetCalories) * 100, 100) : 0}
+            value={selectedTargetCalories > 0 ? Math.min((selectedActualCalories / selectedTargetCalories) * 100, 100) : 0}
             sx={{
               height: 12,
               borderRadius: 999,
@@ -793,11 +753,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
                 borderRadius: 999,
                 backgroundColor: isSelectedPast
                   ? theme.palette.grey[600]
-                  : isSelectedFuture
-                    ? theme.palette.info.main
-                    : selectedDisplayedCalories > selectedTargetCalories
-                      ? theme.palette.error.main
-                      : theme.palette.success.main,
+                  : selectedActualCalories > selectedTargetCalories
+                    ? theme.palette.error.main
+                    : theme.palette.success.main,
               },
             }}
           />
@@ -862,195 +820,26 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
             </Alert>
           )}
 
-          <>
-            {describeImageDataUrl && (
-              <Box sx={{ mb: 1.25, display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                <Box
-                  component="img"
-                  src={describeImageDataUrl}
-                  alt="Selected meal"
-                  sx={{
-                    width: 88,
-                    height: 88,
-                    objectFit: 'cover',
-                    borderRadius: 1.5,
-                    border: `1px solid ${alpha(theme.palette.text.primary, 0.12)}`,
-                  }}
-                />
-                <IconButton
-                  size="small"
-                  onClick={() => setDescribeImageDataUrl(null)}
-                  disabled={logBusy}
-                  aria-label="Remove meal photo"
-                >
-                  <CloseRoundedIcon fontSize="small" />
-                </IconButton>
-              </Box>
-            )}
-
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignSelf: 'center' }}>
-                <IconButton
-                  component="label"
-                  disabled={logBusy || describeVoiceListening}
-                  color={describeImageDataUrl ? 'primary' : 'default'}
-                  aria-label="Attach meal photo"
-                >
-                  <PhotoCameraRoundedIcon />
-                  <input
-                    hidden
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={handleAttachDescribeImage}
-                  />
-                </IconButton>
-                <IconButton
-                  onClick={handleToggleDescribeVoice}
-                  disabled={logBusy}
-                  color={describeVoiceListening ? 'error' : 'default'}
-                  aria-label={describeVoiceListening ? 'Stop voice input' : 'Start voice input'}
-                >
-                  {describeVoiceListening ? <StopCircleRoundedIcon /> : <MicRoundedIcon />}
-                </IconButton>
-              </Box>
-              <TextField
-                fullWidth
-                margin="dense"
-                label={describeImageDataUrl ? 'Add a note (optional)' : 'Describe what you ate (or drank)'}
-                placeholder={
-                  describeImageDataUrl
-                    ? 'Optional: any details the photo won’t show (portion, sauces, drinks, etc.)'
-                    : 'Example: chicken burrito bowl with rice, beans, guac and a Coke'
-                }
-                value={describeInput}
-                onChange={(event) => {
-                  setDescribeInput(event.target.value);
-                  if (describeReply) setDescribeReply(null);
-                  if (logError) setLogError(null);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key !== 'Enter' || event.shiftKey) return;
-                  if (event.nativeEvent.isComposing) return;
-                  event.preventDefault();
-                  if (sendingDescribeLog || logBusy || describeVoiceListening) return;
-                  void handleDescribeMealLog();
-                }}
-                multiline
-                minRows={3}
-                disabled={logBusy || describeVoiceListening}
-                InputLabelProps={{
-                  shrink: true,
-                  sx: { whiteSpace: 'nowrap' },
-                }}
-                inputRef={describeFieldRef}
-              />
-            </Box>
-
-            <Box sx={{ mt: 1.25 }}>
-              <Typography
-                variant="caption"
-                sx={{ color: 'text.secondary', fontWeight: 800, display: 'block', mb: 0.75 }}
-              >
-                Meal (optional)
-              </Typography>
-              <RadioGroup
-                row
-                value={mealType}
-                onChange={(event) => setMealType(event.target.value as MealType)}
-                aria-label="Meal type"
-                name="meal-type"
-                sx={{
-                  gap: { xs: 0.5, sm: 1 },
-                  flexWrap: 'nowrap',
-                  overflowX: 'auto',
-                  pb: 0.25,
-                }}
-              >
-                {(
-                  [
-                    { value: 'breakfast', label: 'Breakfast' },
-                    { value: 'lunch', label: 'Lunch' },
-                    { value: 'dinner', label: 'Dinner' },
-                    { value: 'snack', label: 'Snack' },
-                  ] as const
-                ).map((option) => {
-                  const selected = mealType === option.value;
-                  return (
-                    <FormControlLabel
-                      key={option.value}
-                      value={option.value}
-                      disabled={logBusy}
-                      control={<Radio size="small" />}
-                      label={option.label}
-                      sx={{
-                        m: 0,
-                        pl: { xs: 0.75, sm: 1 },
-                        pr: { xs: 0.9, sm: 1.25 },
-                        py: { xs: 0.2, sm: 0.25 },
-                        borderRadius: 999,
-                        border: `1px solid ${alpha(
-                          selected ? theme.palette.primary.main : theme.palette.text.primary,
-                          selected ? 0.45 : 0.14
-                        )}`,
-                        bgcolor: alpha(
-                          selected ? theme.palette.primary.main : theme.palette.text.primary,
-                          selected ? 0.08 : 0.03
-                        ),
-                        '& .MuiRadio-root': { p: { xs: 0.35, sm: 0.5 } },
-                        '& .MuiSvgIcon-root': { fontSize: { xs: 18, sm: 20 } },
-                        '& .MuiTypography-root': { fontWeight: 800, fontSize: { xs: 12, sm: 13 } },
-                      }}
-                    />
-                  );
-                })}
-              </RadioGroup>
-            </Box>
-
-            {describeVoiceListening && (
-              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.75 }}>
-                Listening… tap the mic to stop.
-              </Typography>
-            )}
-
-            {describeVoiceError && (
-              <Typography variant="caption" color="error" sx={{ display: 'block', mt: 0.75 }}>
-                {describeVoiceError}
-              </Typography>
-            )}
-
-            {describeReply && (
-              <Box
-                sx={{
-                  mt: 2,
-                  p: 1.5,
-                  borderRadius: 2,
-                  bgcolor: alpha(theme.palette.info.main, 0.06),
-                  border: `1px solid ${alpha(theme.palette.info.main, 0.2)}`,
-                  '& p': { m: 0 },
-                  '& ul, & ol': { m: 0, pl: 3 },
-                  '& li': { mb: 0.5 },
-                  '& li:last-child': { mb: 0 },
-                  '& a': { color: 'inherit' },
-                  '& code': {
-                    fontFamily:
-                      'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-                    fontSize: '0.9em',
-                  },
-                  '& pre': {
-                    overflowX: 'auto',
-                    p: 1,
-                    borderRadius: 1,
-                    backgroundColor: 'rgba(0,0,0,0.06)',
-                  },
-                  '& pre code': { fontSize: '0.85em' },
-                }}
-              >
-                <Markdown>{describeReply}</Markdown>
-              </Box>
-            )}
-
-          </>
+          <MealLogInput
+            value={describeInput}
+            onChange={(v) => {
+              setDescribeInput(v);
+              if (describeReply) setDescribeReply(null);
+              if (logError) setLogError(null);
+            }}
+            onSubmit={() => void handleDescribeMealLog()}
+            imageDataUrl={describeImageDataUrl}
+            onImageRemove={() => setDescribeImageDataUrl(null)}
+            onImageAttach={handleAttachDescribeImage}
+            mealType={mealType}
+            onMealTypeChange={setMealType}
+            voiceListening={describeVoiceListening}
+            voiceError={describeVoiceError}
+            onVoiceToggle={handleToggleDescribeVoice}
+            busy={logBusy}
+            reply={describeReply}
+            inputRef={describeFieldRef}
+          />
 
           <Box
             sx={{
@@ -1244,20 +1033,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
           const isSelected = isSameDay(entry.date, selectedDay);
           const hasLogged = entry.actualCalories > 0;
           const isOverBudget = entry.actualCalories > targetCalories;
-          const showCalorieProgress =
-            entry.kind !== 'future' && hasLogged && !isOverBudget && targetCalories > 0;
+          const showCalorieProgress = hasLogged && !isOverBudget && targetCalories > 0;
           const calorieProgressPercent = showCalorieProgress
             ? Math.min((entry.actualCalories / targetCalories) * 100, 100)
             : 0;
-          const calories = entry.actualCalories > 0 ? entry.actualCalories : entry.plannedCalories;
-          const caloriesLabel =
-            entry.actualCalories > 0
-              ? 'logged'
-              : entry.plannedCalories > 0
-                ? 'planned'
-                : entry.kind === 'future'
-                  ? 'available'
-                  : '';
+          const calories = entry.actualCalories;
+          const caloriesLabel = entry.actualCalories > 0 ? 'logged' : '';
           const caloriesText = calories > 0 ? `${calories} kcal${caloriesLabel ? ` ${caloriesLabel}` : ''}` : null;
           const adjustment =
             entry.kind === 'future' && targetCalories !== baseDailyTarget ? targetCalories - baseDailyTarget : 0;
@@ -1267,12 +1048,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigateToChat }) => {
             : `Budget ${targetCalories} kcal`;
           const subtitleWithAdjustment =
             entry.kind === 'future' ? `${subtitle}${adjustmentText}` : subtitle;
-          const pastMeta =
-            entry.kind === 'past' && !hasLogged
-              ? entry.plannedCalories > 0
-                ? ' • Not logged yet'
-                : ' • Tap to log'
-              : '';
+          const pastMeta = (entry.kind === 'past' || entry.kind === 'future') && !hasLogged ? ' • Tap to log' : '';
           return (
             <Card
               key={entry.key}

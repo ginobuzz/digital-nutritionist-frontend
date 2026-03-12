@@ -121,8 +121,8 @@ def request_password_reset(*, request: Request, session: Session = Depends(get_s
     In non-production envs, logs a usable reset link.
     """
     _enforce_auth_payload_cap(request)
-    email = (payload.email or "").strip()
-    user = session.exec(select(User).where(User.email == email)).first()
+    email = (payload.email or "").strip().lower()
+    user = session.exec(select(User).where(func.lower(User.email) == email)).first()
     if user:
         token = create_password_reset_token(user.id)
         if settings.app_env != "production":
@@ -131,6 +131,64 @@ def request_password_reset(*, request: Request, session: Session = Depends(get_s
             logger.info("Password reset link for %s: %s", user.email, reset_url)
         # TODO: send email in production
     return {"detail": "If an account exists for that email, you'll receive a reset link shortly."}
+
+
+# ---------------------------------------------------------------------------
+# BETA ONLY: Profile-question password reset (no email required).
+# Disabled in production — replace with email-based flow before launch.
+# ---------------------------------------------------------------------------
+
+class BetaPasswordResetRequest(BaseModel):
+    email: str = Field(max_length=254)
+    last_name: str = Field(max_length=128)
+    age: int = Field(gt=0, le=150)
+    height_in: int = Field(gt=0, le=120)
+    new_password: str = Field(min_length=1, max_length=256)
+
+
+@router.post("/password-reset/beta/reset", dependencies=[AuthRateLimit])
+def beta_reset_password(
+    *,
+    request: Request,
+    session: Session = Depends(get_session),
+    payload: BetaPasswordResetRequest,
+):
+    """
+    BETA ONLY: Resets a password by verifying last name, age, and height
+    instead of sending an email. Returns 404 in production so the route is invisible.
+    """
+    if settings.app_env == "production":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+
+    _enforce_auth_payload_cap(request)
+    email = (payload.email or "").strip().lower()
+    user = session.exec(select(User).where(func.lower(User.email) == email)).first()
+
+    def _mismatch():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="That doesn't match what we have on file.",
+        )
+
+    if not user:
+        _mismatch()
+
+    last_name_matches = (user.last_name or "").strip().lower() == payload.last_name.strip().lower()
+    age_matches = user.age == payload.age
+    height_matches = user.height_in is not None and abs(user.height_in - payload.height_in) <= 1
+
+    if not (last_name_matches and age_matches and height_matches):
+        _mismatch()
+
+    try:
+        user.password_hash = hash_password(payload.new_password)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    user.updated_at = datetime.utcnow()
+    session.add(user)
+    session.commit()
+    return {"detail": "Password updated."}
 
 
 @router.post("/password-reset/confirm", dependencies=[AuthRateLimit])
