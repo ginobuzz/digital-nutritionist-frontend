@@ -748,7 +748,7 @@ const Log: React.FC<LogProps> = ({ user }) => {
 
                 return (
                   <Box key={sectionType} sx={{ mb: 3, '&:last-child': { mb: 0 } }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                       <span>{getMealTypeIcon(sectionType)}</span>
                       <Typography variant="subtitle1" fontWeight={700}>
                         {sectionLabels[sectionType]}
